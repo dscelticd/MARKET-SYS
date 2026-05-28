@@ -1,0 +1,52 @@
+# ============================================================
+# Market Flow Intelligence — .gitignore
+# ============================================================
+
+# ── 환경변수 (API 키·비밀번호 포함) ── 절대 커밋 금지
+.env
+.env.local
+.env.*.local
+
+# ── Python 캐시 ──
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── 가상환경 ──
+.venv/
+venv/
+env/
+ENV/
+
+# ── 런타임 생성 데이터 (개인 분석·이력 포함) ──
+data/reports/
+data/history/
+data/cache/
+data/*.log
+data/*.log.*
+
+# ── 빌드·패키징 ──
+*.egg-info/
+dist/
+build/
+*.egg
+*.whl
+
+# ── 테스트·IDE ──
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ── OS 파일 ──
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# ── Streamlit config는 공유 (라이트 테마 설정 포함) ──
+# .streamlit/  ← 공유하므로 제외 안 함

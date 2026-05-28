@@ -1,0 +1,25 @@
+# Market Flow Intelligence System - Requirements
+
+# Core
+anthropic>=0.40.0
+python-dotenv>=1.0.0
+
+# 실제 시장 데이터
+yfinance>=1.4.0
+
+# 스케줄러
+schedule>=1.2.0
+
+# Dashboard
+streamlit>=1.40.0
+plotly>=5.24.0
+pandas>=2.2.0
+
+# Utilities
+pydantic>=2.9.0
+rich>=13.9.0
+click>=8.1.0
+jinja2>=3.1.0
+
+# Dev / Testing
+pytest>=8.3.0

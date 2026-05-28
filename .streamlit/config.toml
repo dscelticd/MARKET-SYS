@@ -1,0 +1,11 @@
+[theme]
+# 라이트 테마 고정 — 다크 모드 강제 전환 방지
+base               = "light"
+primaryColor       = "#2979FF"
+backgroundColor    = "#f4f6f9"
+secondaryBackgroundColor = "#ffffff"
+textColor          = "#111827"
+font               = "sans serif"
+
+[server]
+headless = false

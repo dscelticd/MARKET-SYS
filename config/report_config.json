@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "description": "리포트 생성 설정 — 프롬프트 구조 및 섹션 정의",
+  "morning_report": {
+    "title": "📊 Market Flow 아침 브리핑",
+    "sections": [
+      "global_market_overview",
+      "macro_signals",
+      "sector_theme_flow",
+      "value_chain_impact",
+      "watchlist_ratings",
+      "key_events_today",
+      "investment_caution"
+    ],
+    "max_tokens": 4096,
+    "focus": "당일 시장 전망 및 관심종목 브리핑"
+  },
+  "evening_report": {
+    "title": "🌙 Market Flow 저녁 결산",
+    "sections": [
+      "daily_summary",
+      "rating_changes",
+      "notable_moves",
+      "sector_theme_recap",
+      "tomorrow_watchpoints",
+      "investment_caution"
+    ],
+    "max_tokens": 4096,
+    "focus": "당일 결산 및 내일 주요 모니터링 포인트"
+  },
+  "rating_system": {
+    "name": "투자 판단 보조 등급",
+    "disclaimer": "이 등급은 투자 권유가 아닌 시장 흐름 분석에 기반한 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다.",
+    "grades": {
+      "추천": {
+        "label": "추천",
+        "color": "#00C853",
+        "description": "현재 데이터 기준으로 우선 검토 가치가 높은 상태",
+        "score_range": [75, 100]
+      },
+      "안전": {
+        "label": "안전",
+        "color": "#2979FF",
+        "description": "상승 모멘텀은 강하지 않아도 리스크가 낮고 변동성이 제한적인 상태",
+        "score_range": [55, 74]
+      },
+      "보통": {
+        "label": "보통",
+        "color": "#FF9100",
+        "description": "긍정/부정 신호가 혼재되어 방향성이 명확하지 않은 상태",
+        "score_range": [35, 54]
+      },
+      "주의": {
+        "label": "주의",
+        "color": "#FF6D00",
+        "description": "단기 리스크, 부정 뉴스, 수급 약화, 섹터 약세 등이 확인되는 상태",
+        "score_range": [15, 34]
+      },
+      "위험": {
+        "label": "위험",
+        "color": "#D50000",
+        "description": "중대 리스크, 강한 하락 신호, 공시 악재, 데이터 불확실성이 큰 상태",
+        "score_range": [0, 14]
+      }
+    },
+    "forbidden_expressions": [
+      "무조건 매수",
+      "반드시 매도",
+      "확실한 수익",
+      "손실 없음",
+      "보장",
+      "지금 사야 한다",
+      "지금 팔아야 한다"
+    ]
+  },
+  "email": {
+    "subject_morning": "[Market Flow] {date} 아침 브리핑",
+    "subject_evening": "[Market Flow] {date} 저녁 결산",
+    "format": "html"
+  },
+  "storage": {
+    "base_dir": "data/reports",
+    "filename_morning": "{date}_morning.md",
+    "filename_evening": "{date}_evening.md",
+    "keep_days": 90
+  }
+}

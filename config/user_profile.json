@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "description": "사용자 투자성향 및 리포트 설정",
+  "investor": {
+    "name": "투자자",
+    "risk_tolerance": "moderate",
+    "investment_horizon": "mid_term",
+    "preferred_markets": [
+      "KOSPI",
+      "NASDAQ",
+      "NYSE"
+    ],
+    "preferred_currencies": [
+      "KRW",
+      "USD"
+    ],
+    "tax_consideration": "KR"
+  },
+  "risk_tolerance_options": {
+    "conservative": "안정 추구 — 변동성 최소화, 배당/채권 중심",
+    "moderate": "균형 추구 — 성장과 안정의 균형, 섹터 분산",
+    "aggressive": "성장 추구 — 고위험/고수익, 테마 집중"
+  },
+  "investment_horizon_options": {
+    "short_term": "단기 (3개월 미만)",
+    "mid_term": "중기 (3개월~1년)",
+    "long_term": "장기 (1년 이상)"
+  },
+  "report_preferences": {
+    "language": "ko",
+    "morning_report_time": "07:00",
+    "evening_report_time": "18:30",
+    "include_global_macro": true,
+    "include_us_market": true,
+    "include_kr_market": true,
+    "include_sector_analysis": true,
+    "include_value_chain": true,
+    "include_rating_summary": true,
+    "tone": "analytical",
+    "detail_level": "detailed"
+  },
+  "rating_thresholds": {
+    "추천": {
+      "min_score": 75,
+      "max_score": 100
+    },
+    "안전": {
+      "min_score": 55,
+      "max_score": 74
+    },
+    "보통": {
+      "min_score": 35,
+      "max_score": 54
+    },
+    "주의": {
+      "min_score": 15,
+      "max_score": 34
+    },
+    "위험": {
+      "min_score": 0,
+      "max_score": 14
+    }
+  },
+  "signal_weights": {
+    "price_momentum": 0.25,
+    "news_sentiment": 0.2,
+    "macro_alignment": 0.2,
+    "sector_strength": 0.2,
+    "volume_signal": 0.15
+  },
+  "watchlist_display_order": [
+    "KR_000660",
+    "KR_005930",
+    "US_NVDA",
+    "TW_TSM",
+    "NL_ASML",
+    "US_AMD",
+    "US_MSFT",
+    "US_GOOGL",
+    "KR_010120",
+    "KR_267260",
+    "KR_012450",
+    "US_TSLA"
+  ]
+}

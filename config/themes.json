@@ -1,0 +1,160 @@
+{
+  "version": "1.0",
+  "description": "관심 테마 설정 — AI/반도체/전력 인프라/방산 중심",
+  "themes": [
+    {
+      "id": "AI",
+      "name": "인공지능 (AI)",
+      "description": "생성형 AI, LLM, AI 인프라 전반을 포괄하는 핵심 테마",
+      "sub_themes": ["AI 인프라", "생성형 AI", "AI 에이전트", "온디바이스 AI"],
+      "key_drivers": [
+        "빅테크 AI CapEx 확대",
+        "AI 모델 성능 경쟁",
+        "기업 AI 도입률 상승",
+        "AI 반도체 수요 급증"
+      ],
+      "key_risks": [
+        "과잉 투자 사이클 우려",
+        "AI 수익화 지연",
+        "규제 강화",
+        "중국 AI 굴기"
+      ],
+      "related_sectors": ["반도체", "빅테크/클라우드", "반도체 장비"],
+      "related_stocks": ["US_NVDA", "US_MSFT", "US_GOOGL", "KR_000660", "KR_005930", "US_AMD", "TW_TSM"],
+      "macro_sensitivity": "high",
+      "interest_level": 5
+    },
+    {
+      "id": "반도체",
+      "name": "반도체",
+      "description": "메모리/비메모리/파운드리/장비 전반의 반도체 공급망 테마",
+      "sub_themes": ["HBM", "파운드리", "AI 반도체", "반도체 장비"],
+      "key_drivers": [
+        "AI 수요 기반 반도체 사이클 상승",
+        "HBM 고부가가치 전환",
+        "선단 공정 투자 경쟁",
+        "미국 CHIPS Act 보조금"
+      ],
+      "key_risks": [
+        "미중 수출 규제 강화",
+        "재고 조정 사이클",
+        "레거시 반도체 공급 과잉",
+        "지정학 리스크 (대만)"
+      ],
+      "related_sectors": ["반도체", "반도체 장비"],
+      "related_stocks": ["KR_005930", "KR_000660", "US_NVDA", "US_AMD", "TW_TSM", "NL_ASML"],
+      "macro_sensitivity": "high",
+      "interest_level": 5
+    },
+    {
+      "id": "HBM",
+      "name": "HBM (고대역폭 메모리)",
+      "description": "AI GPU와 함께 탑재되는 고대역폭 메모리 수급 테마",
+      "sub_themes": ["HBM3E", "HBM4", "CoWoS 패키징"],
+      "key_drivers": [
+        "NVIDIA Blackwell/Rubin 수요",
+        "HBM3E → HBM4 기술 전환",
+        "CoWoS 패키징 캐파 확대",
+        "SK하이닉스 독점 공급 구조"
+      ],
+      "key_risks": [
+        "삼성전자 HBM 품질 이슈 해소 여부",
+        "공급 병목 해소 시 수급 역전",
+        "Micron 점유율 확대 속도",
+        "가격 협상력 변화"
+      ],
+      "related_sectors": ["반도체"],
+      "related_stocks": ["KR_000660", "KR_005930", "US_NVDA", "TW_TSM"],
+      "macro_sensitivity": "medium",
+      "interest_level": 5
+    },
+    {
+      "id": "데이터센터",
+      "name": "데이터센터",
+      "description": "AI 연산 수요를 뒷받침하는 데이터센터 인프라 전반 테마",
+      "sub_themes": ["AI 데이터센터", "하이퍼스케일러", "전력 인프라", "냉각 시스템"],
+      "key_drivers": [
+        "AI 학습/추론 수요 급증",
+        "클라우드 3사 CapEx 확대",
+        "전력 소비 증가 → 전력 인프라 투자",
+        "엣지 데이터센터 확산"
+      ],
+      "key_risks": [
+        "전력 공급 병목",
+        "부동산/인허가 이슈",
+        "과잉 투자 경고",
+        "운영 비용 상승"
+      ],
+      "related_sectors": ["빅테크/클라우드", "전력 인프라", "반도체"],
+      "related_stocks": ["US_NVDA", "US_MSFT", "US_GOOGL", "KR_010120", "KR_267260"],
+      "macro_sensitivity": "medium",
+      "interest_level": 4
+    },
+    {
+      "id": "전력 인프라",
+      "name": "전력 인프라",
+      "description": "AI/데이터센터 전력 수요 급증으로 주목받는 전력망 인프라 테마",
+      "sub_themes": ["변압기", "배전반", "스마트그리드", "에너지 저장"],
+      "key_drivers": [
+        "데이터센터 전력 수요 폭증",
+        "노후 전력망 교체 사이클 (미국)",
+        "IRA 기반 클린에너지 투자",
+        "한국 전력기기 기업 미국 수주 확대"
+      ],
+      "key_risks": [
+        "미국 관세 정책 변화",
+        "원자재(구리) 가격 상승",
+        "납기 지연 리스크",
+        "경쟁사 공급 확대"
+      ],
+      "related_sectors": ["전력 인프라"],
+      "related_stocks": ["KR_010120", "KR_267260"],
+      "macro_sensitivity": "medium",
+      "interest_level": 4
+    },
+    {
+      "id": "자율주행",
+      "name": "자율주행",
+      "description": "Robotaxi, FSD, 자율주행 칩 등 자율주행 상용화 테마",
+      "sub_themes": ["Robotaxi", "FSD", "자율주행 칩", "라이다/레이더"],
+      "key_drivers": [
+        "Tesla FSD 규제 승인",
+        "Waymo 상업화 확대",
+        "AI 칩 자율주행 적용 확대",
+        "자율주행 법제화 진전"
+      ],
+      "key_risks": [
+        "규제 불확실성",
+        "기술 성숙도",
+        "안전 사고 리스크",
+        "경쟁 심화"
+      ],
+      "related_sectors": ["전기차/AI", "반도체"],
+      "related_stocks": ["US_TSLA", "US_NVDA"],
+      "macro_sensitivity": "low",
+      "interest_level": 3
+    },
+    {
+      "id": "방산",
+      "name": "방산 / K방산",
+      "description": "글로벌 방산 예산 증가 및 한국 방산 수출 확대 테마",
+      "sub_themes": ["K방산", "유럽 재무장", "우주항공"],
+      "key_drivers": [
+        "유럽 국방비 증대 (NATO 2% 기준 상향)",
+        "폴란드/루마니아 K방산 수출 확대",
+        "한국 방산 가성비 경쟁력",
+        "지정학 리스크 지속"
+      ],
+      "key_risks": [
+        "지정학 완화 시 수요 감소",
+        "달러 강세 시 원화 환산 마진 변동",
+        "납기/품질 이슈",
+        "미국 무기 수출 경쟁"
+      ],
+      "related_sectors": ["방산/항공"],
+      "related_stocks": ["KR_012450"],
+      "macro_sensitivity": "low",
+      "interest_level": 3
+    }
+  ]
+}
