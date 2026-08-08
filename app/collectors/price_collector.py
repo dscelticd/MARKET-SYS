@@ -101,6 +101,46 @@ def _calc_technicals(closes, price: float) -> dict:
     }
 
 
+def _classify_candle(open_: float, high: float, low: float, close: float) -> dict:
+    """당일 캔들 모양(장대양봉/장대음봉/도지/망치형/유성형/일반형) 자동 판별.
+    body_ratio = 몸통 / 전체 변동폭. 그림자 비교는 몸통 대비 배수로 판단.
+    """
+    total_range = high - low
+    body = abs(close - open_)
+    direction = "양봉" if close >= open_ else "음봉"
+
+    if total_range <= 0:
+        return {"pattern": "보합", "direction": direction, "body_ratio": 0.0}
+
+    body_ratio = round(body / total_range, 2)
+    upper_shadow = high - max(open_, close)
+    lower_shadow = min(open_, close) - low
+
+    if body_ratio < 0.1:
+        pattern = "도지"
+    elif body_ratio > 0.6:
+        pattern = "장대양봉" if direction == "양봉" else "장대음봉"
+    elif lower_shadow > body * 2 and upper_shadow < body * 0.5:
+        pattern = "망치형"
+    elif upper_shadow > body * 2 and lower_shadow < body * 0.5:
+        pattern = "유성형"
+    else:
+        pattern = "일반형"
+
+    return {"pattern": pattern, "direction": direction, "body_ratio": body_ratio}
+
+
+def _mock_candle_ohlc(price: float, prev_close: float) -> tuple[float, float, float, float]:
+    """Mock 모드용 당일 OHLC 합성 — prev_close를 시가, price를 종가로 근사"""
+    open_ = prev_close
+    close = price
+    extra_hi = abs(close - open_) * random.uniform(0.1, 0.7) + open_ * 0.002
+    extra_lo = abs(close - open_) * random.uniform(0.1, 0.7) + open_ * 0.002
+    high = max(open_, close) + extra_hi
+    low  = min(open_, close) - extra_lo
+    return open_, high, low, close
+
+
 def _detect_swing_points(high_s, low_s, window: int = 5) -> tuple[list, list]:
     """스윙 고점/저점 탐지 — 좌우 window개 봉보다 고점/저점이면 스윙 포인트로 인정.
     반환: ([(index, price), ...] 고점, [(index, price), ...] 저점)
@@ -429,6 +469,17 @@ class PriceCollector:
                 # 지지/저항 박스 + 손익비 (스윙 고점/저점 클러스터링)
                 support_resistance = _calc_support_resistance(hist, price)
 
+                # 당일 캔들 패턴 (장대양봉/도지/일반형 등)
+                try:
+                    last_row = hist.iloc[-1]
+                    candle_pattern = _classify_candle(
+                        float(last_row["Open"]), float(last_row["High"]),
+                        float(last_row["Low"]), float(last_row["Close"]),
+                    )
+                except Exception as e:
+                    logger.debug("캔들 패턴 판별 실패 (%s): %s", sid, e)
+                    candle_pattern = {}
+
                 # 애널리스트 컨센서스 (US 개별 종목만, ETF·KR 제외)
                 analyst = _fetch_analyst_data(ticker, sym, price)
 
@@ -465,6 +516,7 @@ class PriceCollector:
                     "analyst":       analyst,
                     "support_resistance": support_resistance,
                     "investor_flow": investor_flow,
+                    "candle_pattern": candle_pattern,
                 }
             except Exception as e:
                 logger.warning(f"{sid}({sym}) 실제 데이터 실패: {e} → Mock 폴백")
@@ -536,5 +588,6 @@ class PriceCollector:
                 "analyst":   analyst,
                 "support_resistance": _mock_support_resistance(price),
                 "investor_flow": _mock_investor_flow() if sid.startswith("KR_") else {},
+                "candle_pattern": _classify_candle(*_mock_candle_ohlc(price, bi["base"])),
             }
         return result

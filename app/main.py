@@ -45,6 +45,7 @@ from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.reports.report_builder import ReportBuilder, save_report
+from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
 
 
@@ -348,9 +349,15 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             sender = EmailSender()
             if sender.is_configured():
                 try:
+                    # 주목 종목(추천/위험/판단보류·당일 등급 변화)만 캔들차트 첨부
+                    # — 전종목 첨부 시 이미지 과다로 발송 지연/용량 문제 → Mock 모드는 생략
+                    chart_images = generate_report_charts(rating_dicts, changes)
+                    if chart_images:
+                        print(f"  주목 종목 차트 생성: {len(chart_images)}개 종목")
                     sender.send_report(
                         report_type, report_content, date_str,
                         news_data=news_data, ratings=rating_dicts,
+                        chart_images=chart_images,
                     )
                     logger.info("이메일 발송 완료")
                 except Exception as e:

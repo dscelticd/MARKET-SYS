@@ -14,3 +14,6 @@ yfinance>=1.4.0
 requests>=2.31.0
 beautifulsoup4>=4.12.0
 
+# 캔들차트 이미지 생성 (주목 종목 이메일 첨부용)
+mplfinance>=0.12.10
+

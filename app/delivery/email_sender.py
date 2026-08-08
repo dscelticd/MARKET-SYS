@@ -12,6 +12,7 @@ import re
 import smtplib
 import ssl
 from datetime import datetime
+from email.mime.image import MIMEImage
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -359,14 +360,59 @@ def _build_news_html(
 
 # ── 전체 HTML 이메일 빌드 ─────────────────────────────────────────────────────
 
+def _build_charts_html(chart_images: list[dict] | None) -> str:
+    """주목 종목(추천/위험/판단보류·당일 등급 변화) 캔들차트 섹션 — cid: 참조로 인라인 삽입.
+    이미지 자체는 send()에서 MIMEImage로 첨부되며, 여기서는 img 태그만 생성한다.
+    """
+    if not chart_images:
+        return ""
+
+    blocks = []
+    for item in chart_images:
+        sid = item["stock_id"]
+        name = _html.escape(item.get("name", sid))
+        parts = [
+            '<div style="margin:14px 0;padding:14px;background:#f8fafc;'
+            'border-radius:10px;border:1px solid #e5e7eb;">'
+            f'<div style="font-weight:700;color:#1e3a8a;margin-bottom:8px;">📊 {name}</div>'
+        ]
+        if item.get("daily"):
+            parts.append(
+                '<div style="font-size:0.78em;color:#6b7280;margin:6px 0 3px;">일봉(90일)</div>'
+                f'<img src="cid:chart_{sid}_daily" width="540" '
+                'style="width:100%;max-width:540px;border-radius:6px;" '
+                f'alt="{name} 일봉">'
+            )
+        if item.get("weekly"):
+            parts.append(
+                '<div style="font-size:0.78em;color:#6b7280;margin:10px 0 3px;">주봉</div>'
+                f'<img src="cid:chart_{sid}_weekly" width="540" '
+                'style="width:100%;max-width:540px;border-radius:6px;" '
+                f'alt="{name} 주봉">'
+            )
+        parts.append("</div>")
+        blocks.append("".join(parts))
+
+    return (
+        '<div style="margin-top:20px;padding-top:16px;border-top:1px solid #e5e7eb;">'
+        '<div style="font-size:1.05em;font-weight:800;color:#111827;margin-bottom:4px;">📈 주목 종목 차트</div>'
+        '<div style="font-size:0.75em;color:#9ca3af;margin-bottom:10px;">'
+        '추천·위험·판단보류 등급이거나 당일 등급 변화가 있는 종목만 표시 — 매매 신호가 아닌 참고 자료</div>'
+        + "".join(blocks)
+        + "</div>"
+    )
+
+
 def _build_html_email(
     body_md: str,
     news_data: dict[str, list[dict]] | None = None,
     ratings: list[dict] | None = None,
+    chart_images: list[dict] | None = None,
 ) -> str:
-    """마크다운 본문 + 뉴스 섹션 → 완성된 HTML 이메일"""
+    """마크다운 본문 + 뉴스 섹션 + 차트 섹션 → 완성된 HTML 이메일"""
     body_html = _markdown_to_html_body(body_md)
     news_html = _build_news_html(news_data or {}, ratings)
+    charts_html = _build_charts_html(chart_images)
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     return f"""<!DOCTYPE html>
@@ -404,6 +450,7 @@ def _build_html_email(
     <td style="padding:24px 28px;">
       {body_html}
       {news_html}
+      {charts_html}
     </td>
   </tr>
 
@@ -463,23 +510,42 @@ class EmailSender:
         body_markdown: str,
         news_data: dict[str, list[dict]] | None = None,
         ratings: list[dict] | None = None,
+        chart_images: list[dict] | None = None,
     ) -> bool:
-        """이메일 발송. True = 성공, False = 실패"""
+        """이메일 발송. True = 성공, False = 실패.
+        chart_images: [{"stock_id", "name", "daily": bytes|None, "weekly": bytes|None}, ...]
+        """
         if not self.is_configured():
             print("⚠️  이메일 설정 미완료. .env 파일을 확인하세요.")
             return False
 
-        msg = MIMEMultipart("alternative")
+        # related(본문+인라인이미지) > alternative(plain/html) 구조 — 이미지 없어도 안전
+        msg = MIMEMultipart("related")
         msg["Subject"] = subject
         msg["From"]    = self.from_addr
         msg["To"]      = self.to_addr
 
+        msg_alt = MIMEMultipart("alternative")
+        msg.attach(msg_alt)
+
         # plain text (폴백)
-        msg.attach(MIMEText(body_markdown, "plain", "utf-8"))
+        msg_alt.attach(MIMEText(body_markdown, "plain", "utf-8"))
 
         # HTML (완전 렌더링)
-        html_content = _build_html_email(body_markdown, news_data, ratings)
-        msg.attach(MIMEText(html_content, "html", "utf-8"))
+        html_content = _build_html_email(body_markdown, news_data, ratings, chart_images)
+        msg_alt.attach(MIMEText(html_content, "html", "utf-8"))
+
+        # 캔들차트 인라인 이미지 (Content-ID로 HTML의 cid: 참조와 매칭)
+        for item in (chart_images or []):
+            sid = item.get("stock_id")
+            for kind in ("daily", "weekly"):
+                png_bytes = item.get(kind)
+                if not png_bytes:
+                    continue
+                img = MIMEImage(png_bytes, _subtype="png")
+                img.add_header("Content-ID", f"<chart_{sid}_{kind}>")
+                img.add_header("Content-Disposition", "inline", filename=f"{sid}_{kind}.png")
+                msg.attach(img)
 
         try:
             context = ssl.create_default_context()
@@ -501,8 +567,11 @@ class EmailSender:
         date_str: str | None = None,
         news_data: dict[str, list[dict]] | None = None,
         ratings: list[dict] | None = None,
+        chart_images: list[dict] | None = None,
     ) -> bool:
         date = date_str or datetime.now().strftime("%Y-%m-%d")
         type_label = "아침 브리핑" if report_type == "morning" else "저녁 결산"
         subject = f"[Market Flow] {date} {type_label}"
-        return self.send(subject, content, news_data=news_data, ratings=ratings)
+        return self.send(
+            subject, content, news_data=news_data, ratings=ratings, chart_images=chart_images
+        )
