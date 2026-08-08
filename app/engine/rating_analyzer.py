@@ -37,6 +37,12 @@ GRADE_META = {
         "description": "중대 리스크, 강한 하락 신호, 공시 악재, 데이터 불확실성이 큰 상태",
         "score_range": (0, 14),
     },
+    "판단보류": {
+        "color": "#757575",
+        "emoji": "🚫",
+        "description": "지수·ETF·대형주 데이터 간 모순이 감지되어 시장 판단을 보류한 상태",
+        "score_range": None,
+    },
 }
 
 DISCLAIMER = (
@@ -94,6 +100,86 @@ class RatingResult:
         }
 
 
+_CAP_RULES: list[dict] = [
+    # data_quality < 30 — 추천/안전 → 주의
+    {
+        "max_quality":  30,
+        "blocked":      {"추천", "안전"},
+        "cap_to":       "주의",
+        "reason":       "데이터 신뢰도 매우 낮음으로 긍정 등급 제한 적용",
+    },
+    # 30 ≤ data_quality < 50 — 추천/안전 → 보통 (안전도 포함 강화)
+    {
+        "max_quality":  50,
+        "blocked":      {"추천", "안전"},
+        "cap_to":       "보통",
+        "reason":       "데이터 신뢰도 낮음으로 추천·안전 등급 제한 적용",
+    },
+]
+
+
+def apply_grade_cap(
+    ratings: list[dict],
+    data_quality_score: float,
+    critical_data_error: bool = False,
+) -> list[dict]:
+    """
+    data_quality_score에 따라 등급을 제한합니다.
+    원본(raw_grade)은 반드시 보존하고, 화면 표시용(grade = final_grade)만 조정합니다.
+
+    추가 필드:
+      raw_grade           — 원본 계산 등급 (백테스팅용, 절대 변경 안 함)
+      grade               — 최종 표시 등급 (제한 적용 후, 기존 grade 필드 덮어쓰기)
+      grade_capped        — True: final ≠ raw  /  False: 변경 없음
+      cap_reason          — 제한 사유 문자열 (없으면 "")
+      data_quality_score  — 적용에 사용된 data_quality 점수
+      data_quality_warning — True: 50~70 구간 경고 (등급은 유지)
+      critical_data_error — True: 지수·ETF·대형주 데이터 모순 감지로 강제 판단보류
+
+    등급 제한 기준:
+      critical_data_error :  전종목 강제 → 판단보류 (data_quality_score 무관)
+      < 30                :  추천·안전  → 주의
+      30–50               :  추천·안전  → 보통 (안전 등급도 제한 — 신뢰도 낮을 때 과보호 방지)
+      50–70               :  등급 유지, data_quality_warning = True
+      ≥ 70                :  정상, 제한 없음
+    """
+    result = []
+    for raw in ratings:
+        r = dict(raw)                              # shallow copy (원본 수정 금지)
+        original_grade = r["grade"]
+        r["raw_grade"]            = original_grade
+        r["grade_capped"]         = False
+        r["cap_reason"]           = ""
+        r["data_quality_score"]   = data_quality_score
+        r["data_quality_warning"] = False
+        r["critical_data_error"]  = critical_data_error
+
+        if critical_data_error:
+            final_grade       = "판단보류"
+            r["grade_capped"] = True
+            r["cap_reason"]   = "지수·ETF·대형주 데이터 간 모순 감지로 시장 판단 보류"
+        else:
+            final_grade = original_grade
+            for rule in _CAP_RULES:
+                if data_quality_score < rule["max_quality"] and original_grade in rule["blocked"]:
+                    final_grade       = rule["cap_to"]
+                    r["grade_capped"] = True
+                    r["cap_reason"]   = rule["reason"]
+                    break                          # 첫 번째 매칭 룰만 적용
+
+            if not r["grade_capped"] and 50 <= data_quality_score < 70:
+                r["data_quality_warning"] = True
+
+        # grade / emoji / color / grade_description 업데이트 (표시용)
+        r["grade"]             = final_grade
+        r["emoji"]             = GRADE_META[final_grade]["emoji"]
+        r["color"]             = GRADE_META[final_grade]["color"]
+        r["grade_description"] = GRADE_META[final_grade]["description"]
+
+        result.append(r)
+    return result
+
+
 class RatingAnalyzer:
     """
     SignalScorer 결과 + 종목 정보 → RatingResult 변환
@@ -140,11 +226,12 @@ class RatingAnalyzer:
 
     @staticmethod
     def _score_to_grade(score: float) -> str:
-        for grade, meta in GRADE_META.items():
-            lo, hi = meta["score_range"]
-            if lo <= score <= hi:
-                return grade
-        return "보통"
+        # 임계값 비교 — GRADE_META 정수 끝값 사이 소수점 갭 방지
+        if score >= 75: return "추천"
+        if score >= 55: return "안전"
+        if score >= 35: return "보통"
+        if score >= 15: return "주의"
+        return "위험"
 
     @staticmethod
     def _generate_summary(grade: str, sr: dict, stock: dict) -> str:

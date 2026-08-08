@@ -1,15 +1,26 @@
 """
 News Collector — 종목/테마 관련 뉴스 수집
-USE_MOCK_DATA=false → yfinance 뉴스 + 키워드 감성 분석
-USE_MOCK_DATA=true  → Mock 뉴스 풀 (기본값)
+
+실제 데이터 우선순위 (USE_MOCK_DATA=false):
+  1. 한국 종목 (KR_*)  → 네이버 뉴스 API (NAVER_CLIENT_ID 설정 시)
+  2. 미국·해외 종목     → yfinance 뉴스
+  3. 수집 실패 시       → Mock 데이터 폴백 (_mock=True 표시)
+
+USE_MOCK_DATA=true → 전체 Mock 데이터 사용 (개발/테스트용)
 """
 from __future__ import annotations
 
+import json as _json
 import logging
 import os
 import random
 import re
+import urllib.error
+import urllib.parse
+import urllib.request
 from datetime import datetime, timedelta
+from html import unescape
+from urllib.parse import quote as _url_quote
 
 logger = logging.getLogger(__name__)
 
@@ -27,17 +38,58 @@ _NEGATIVE_KW = [
     "fall", "drop", "bearish", "underperform", "warning", "sanction", "ban",
 ]
 
-# yfinance stock_id → ticker 매핑
-_YFINANCE_TICKER = {
+# ── 파생상품 이슈 키워드 ─────────────────────────────────────────────────────
+# 레버리지/인버스/ETN 등 파생상품 특유의 이슈(청산, 롤오버, 괴리율 등)는
+# 기초자산이나 현물 ETF의 직접 악재가 아니므로 별도로 분류한다.
+DERIVATIVE_KEYWORDS = [
+    "레버리지", "인버스", "ETN", "선물", "롤오버", "괴리율",
+    "청산", "상장폐지", "파생", "2X", "3X", "곱버스",
+]
+
+
+def classify_news_item(headline: str) -> dict:
+    """레버리지/인버스/ETN 등 파생상품 이슈는 기초자산 직접 악재로 분류하지 않음"""
+    if any(kw in headline for kw in DERIVATIVE_KEYWORDS):
+        return {
+            "category":              "파생상품 이슈",
+            "impact_to_underlying":  "낮음",
+            "exclude_from_direct_negative_news": True,
+        }
+    return {
+        "category":              "일반",
+        "impact_to_underlying":  "보통",
+        "exclude_from_direct_negative_news": False,
+    }
+
+# ── yfinance 티커 매핑 ────────────────────────────────────────────────────────
+_YFINANCE_TICKER: dict[str, str] = {
+    # 한국
     "KR_005930": "005930.KS", "KR_000660": "000660.KS",
-    "KR_010120": "010120.KS", "KR_267260": "267260.KS",
-    "KR_012450": "012450.KS", "US_NVDA": "NVDA",
-    "US_AMD": "AMD",          "TW_TSM": "TSM",
-    "NL_ASML": "ASML",        "US_MSFT": "MSFT",
-    "US_GOOGL": "GOOGL",      "US_TSLA": "TSLA",
+    "KR_069500": "069500.KS", "KR_010120": "010120.KS",
+    "KR_015760": "015760.KS", "KR_066570": "066570.KS",
+    "KR_138080": "138080.KQ",
+    # 미국
+    "US_NVDA":   "NVDA",   "US_QQQ":  "QQQ",
+    "US_VOO":    "VOO",    "US_QTUM": "QTUM",
+    "US_VST":    "VST",    "US_SCHD": "SCHD",
+    "US_SNDK":   "SNDK",   "US_COHR": "COHR",
+    "US_CIEN":   "CIEN",   "US_SPCX": "SPCX",
+    # 대만
+    "TW_TSM":    "TSM",
 }
 
-# ── Mock 뉴스 풀 ─────────────────────────────────────────────────────────────
+# ── 네이버 뉴스 검색 쿼리 (한국 종목) ─────────────────────────────────────────
+_NAVER_QUERY: dict[str, str] = {
+    "KR_005930": "삼성전자 주식",
+    "KR_000660": "SK하이닉스 주식",
+    "KR_069500": "KODEX200 ETF",
+    "KR_010120": "LS ELECTRIC 주가",
+    "KR_015760": "한국전력 주가",
+    "KR_066570": "LG전자 주가",
+    "KR_138080": "오이솔루션 주가",
+}
+
+# ── Mock 뉴스 풀 (개발/테스트용 — 실제 기사 아님) ───────────────────────────
 _NEWS_POOL: list[dict] = [
     {"stock_ids": ["US_NVDA", "KR_000660"], "themes": ["AI", "HBM"],
      "headline": "NVIDIA, Blackwell B300 출하 가속…SK하이닉스 HBM4 수요 동반 급증 전망",
@@ -54,36 +106,36 @@ _NEWS_POOL: list[dict] = [
     {"stock_ids": ["TW_TSM"], "themes": ["반도체", "파운드리"],
      "headline": "TSMC 2nm 수율 빠른 회복세…애플·NVIDIA 선주문 경쟁 치열",
      "sentiment": 0.80, "relevance": 0.93, "source": "Nikkei"},
-    {"stock_ids": ["NL_ASML"], "themes": ["반도체 장비"],
-     "headline": "ASML, High-NA EUV 2대 추가 출하 확인…2025년 공급 정상화 기대",
+    {"stock_ids": ["US_SNDK"], "themes": ["반도체", "낸드플래시"],
+     "headline": "NAND 가격 회복세 진입…SanDisk, 분기 흑자 전환 기대감 상승",
      "sentiment": 0.75, "relevance": 0.90, "source": "FT"},
-    {"stock_ids": ["US_AMD"], "themes": ["AI", "반도체"],
-     "headline": "AMD MI350 벤치마크, 전작 대비 40% 성능 향상…NVIDIA 점유율 위협",
-     "sentiment": 0.72, "relevance": 0.87, "source": "The Verge"},
-    {"stock_ids": ["KR_010120", "KR_267260"], "themes": ["전력 인프라"],
-     "headline": "미국 전력망 노후화 교체 수요 급증…한국 변압기·전력기기 기업 수혜",
+    {"stock_ids": ["US_COHR", "US_CIEN"], "themes": ["광통신", "AI 인프라"],
+     "headline": "800G 광트랜시버 수요 급증…Coherent·Ciena 수주 잔고 역대 최고",
+     "sentiment": 0.82, "relevance": 0.92, "source": "The Verge"},
+    {"stock_ids": ["KR_010120", "KR_015760"], "themes": ["전력 인프라"],
+     "headline": "미국 전력망 노후화 교체 수요 급증…한국 전력기기·한국전력 수혜",
      "sentiment": 0.78, "relevance": 0.91, "source": "한국경제"},
-    {"stock_ids": ["KR_267260"], "themes": ["전력 인프라"],
-     "headline": "HD현대일렉트릭, 미국 초고압 변압기 3조 원 규모 수주 계약 추진",
-     "sentiment": 0.82, "relevance": 0.94, "source": "매일경제"},
+    {"stock_ids": ["US_VST"], "themes": ["전력", "원자력"],
+     "headline": "Vistra Energy, 원전 재가동 계획 확정…AI 데이터센터 장기 전력 계약 체결",
+     "sentiment": 0.82, "relevance": 0.94, "source": "Reuters"},
     {"stock_ids": ["KR_010120"], "themes": ["전력 인프라", "데이터센터"],
      "headline": "LS ELECTRIC, 데이터센터 전력 솔루션 사업 미국 확대…수주 잔고 사상 최대",
      "sentiment": 0.80, "relevance": 0.93, "source": "머니투데이"},
-    {"stock_ids": ["US_MSFT"], "themes": ["AI", "클라우드"],
-     "headline": "Microsoft Azure AI 성장률 35% 기록…Copilot 기업 구독 빠른 확산",
+    {"stock_ids": ["US_QQQ", "US_VOO"], "themes": ["미국주식 ETF", "AI"],
+     "headline": "빅테크 AI 실적 서프라이즈…나스닥·S&P500 연고점 경신",
      "sentiment": 0.83, "relevance": 0.90, "source": "Bloomberg"},
-    {"stock_ids": ["US_GOOGL"], "themes": ["AI", "클라우드"],
-     "headline": "Alphabet GCP 성장세 회복 조짐…Gemini 2.0 기업 도입 확대",
-     "sentiment": 0.70, "relevance": 0.85, "source": "CNBC"},
-    {"stock_ids": ["KR_012450"], "themes": ["방산"],
-     "headline": "한화에어로스페이스, 폴란드 K9 자주포 추가 계약 4조 원 규모 확정",
-     "sentiment": 0.85, "relevance": 0.95, "source": "조선비즈"},
-    {"stock_ids": ["US_NVDA", "US_AMD", "TW_TSM"], "themes": ["반도체"],
+    {"stock_ids": ["US_SCHD"], "themes": ["배당", "ETF"],
+     "headline": "금리 인하 기대감 재부각…배당성장 ETF SCHD 자금 유입 급증",
+     "sentiment": 0.70, "relevance": 0.85, "source": "Morningstar"},
+    {"stock_ids": ["KR_066570"], "themes": ["가전", "전기차부품"],
+     "headline": "LG전자 전장 사업부 흑자 전환 확인…미국·유럽 완성차 수주 확대",
+     "sentiment": 0.72, "relevance": 0.88, "source": "매일경제"},
+    {"stock_ids": ["US_NVDA", "TW_TSM"], "themes": ["반도체"],
      "headline": "미 상무부, 대중 AI 반도체 추가 규제 검토…H20 포함 가능성 제기",
      "sentiment": -0.70, "relevance": 0.92, "source": "WSJ"},
-    {"stock_ids": ["US_TSLA"], "themes": ["전기차"],
-     "headline": "Tesla 중국 분기 판매량 전년 대비 12% 감소…BYD와 격차 확대",
-     "sentiment": -0.65, "relevance": 0.90, "source": "Reuters"},
+    {"stock_ids": ["KR_015760"], "themes": ["전력 인프라", "공기업"],
+     "headline": "한국전력, 전기요금 동결 장기화 우려…부채 증가 리스크 재부각",
+     "sentiment": -0.55, "relevance": 0.87, "source": "한국경제"},
     {"stock_ids": ["KR_005930"], "themes": ["반도체"],
      "headline": "삼성전자 파운드리 수율 문제 지속…TSMC와 기술 격차 우려 재부각",
      "sentiment": -0.55, "relevance": 0.87, "source": "중앙일보"},
@@ -93,6 +145,56 @@ _NEWS_POOL: list[dict] = [
     {"stock_ids": [], "themes": ["전력 인프라"],
      "headline": "IEA, 2025년 글로벌 전력 수요 증가율 역대 최고 전망…AI 데이터센터 주도",
      "sentiment": 0.70, "relevance": 0.80, "source": "IEA"},
+    # ── 신규 종목 Mock 뉴스 ──────────────────────────────────────────────────
+    {"stock_ids": ["US_VST"], "themes": ["전력", "원자력", "AI 인프라"],
+     "headline": "Vistra Energy, 원전 재가동 계획 발표…AI 데이터센터 전력 수요 수혜 기대",
+     "sentiment": 0.82, "relevance": 0.92, "source": "Bloomberg"},
+    {"stock_ids": ["US_SNDK"], "themes": ["반도체", "낸드플래시", "스토리지"],
+     "headline": "SanDisk, NAND 가격 반등세 확인…AI 스토리지 수요 증가로 흑자 전환 기대",
+     "sentiment": 0.75, "relevance": 0.88, "source": "Reuters"},
+    {"stock_ids": ["US_COHR", "US_CIEN", "KR_138080"], "themes": ["광통신", "데이터센터", "AI 인프라"],
+     "headline": "AI 데이터센터 광통신 수요 폭증…Coherent·Ciena·오이솔루션 수주 잔고 급증",
+     "sentiment": 0.88, "relevance": 0.95, "source": "Nikkei"},
+    {"stock_ids": ["US_COHR"], "themes": ["광통신", "AI 인프라"],
+     "headline": "Coherent, 800G 광트랜시버 출하 가속…하이퍼스케일러 전 물량 수주 완료",
+     "sentiment": 0.85, "relevance": 0.93, "source": "Bloomberg"},
+    {"stock_ids": ["US_CIEN"], "themes": ["광통신", "네트워킹"],
+     "headline": "Ciena, AI 클러스터 백본망 확장 수혜…분기 수주 사상 최대치 경신",
+     "sentiment": 0.80, "relevance": 0.90, "source": "WSJ"},
+    {"stock_ids": ["KR_138080"], "themes": ["광통신", "데이터센터"],
+     "headline": "오이솔루션, 북미 하이퍼스케일러향 광트랜시버 공급 계약 확대…수출 급증",
+     "sentiment": 0.83, "relevance": 0.91, "source": "전자신문"},
+    {"stock_ids": ["KR_015760"], "themes": ["전력 인프라", "공기업"],
+     "headline": "한국전력, 전기요금 현실화 추진…재무구조 개선 기대감 확대",
+     "sentiment": 0.60, "relevance": 0.85, "source": "한국경제"},
+    {"stock_ids": ["KR_015760"], "themes": ["전력 인프라"],
+     "headline": "한국전력, 누적 부채 급증…요금 인상 지연 시 재무위기 재부각 우려",
+     "sentiment": -0.55, "relevance": 0.87, "source": "조선비즈"},
+    {"stock_ids": ["KR_066570"], "themes": ["가전", "전기차부품"],
+     "headline": "LG전자, 전장 사업부 흑자 전환 확인…테슬라 전기차 부품 공급 확대",
+     "sentiment": 0.72, "relevance": 0.88, "source": "매일경제"},
+    {"stock_ids": ["US_QQQ", "US_VOO"], "themes": ["미국주식 ETF", "나스닥", "S&P500"],
+     "headline": "나스닥·S&P500 연고점 경신…AI 랠리 지속에 성장주 ETF 자금 유입 확대",
+     "sentiment": 0.75, "relevance": 0.82, "source": "CNBC"},
+    {"stock_ids": ["US_SCHD"], "themes": ["배당", "분산투자"],
+     "headline": "SCHD 배당성장 ETF, 금리 인하 기대감에 자금 유입 급증…배당주 재부각",
+     "sentiment": 0.70, "relevance": 0.80, "source": "Morningstar"},
+    {"stock_ids": ["US_QTUM"], "themes": ["퀀텀컴퓨팅", "AI"],
+     "headline": "양자컴퓨팅 상용화 가시화…구글 Willow 칩 발표에 QTUM ETF 급등",
+     "sentiment": 0.80, "relevance": 0.88, "source": "The Verge"},
+    {"stock_ids": ["US_SPCX"], "themes": ["우주항공", "위성인터넷", "Starlink"],
+     "headline": "SpaceX Starlink, 글로벌 가입자 1억 명 돌파…위성 인터넷 시장 주도권 확고",
+     "sentiment": 0.90, "relevance": 0.95, "source": "Reuters"},
+    {"stock_ids": ["US_SPCX"], "themes": ["우주항공", "재사용 로켓", "국방/정부계약"],
+     "headline": "SpaceX, NASA·DoD 발사 계약 연속 수주…Falcon 9 재사용 발사 누적 300회 돌파",
+     "sentiment": 0.85, "relevance": 0.92, "source": "Bloomberg"},
+    {"stock_ids": ["US_SPCX"], "themes": ["우주항공", "Starlink", "AI 인프라"],
+     "headline": "Starlink Direct-to-Cell 서비스 확대…위성-지상 통합 AI 네트워크 인프라 부각",
+     "sentiment": 0.75, "relevance": 0.88, "source": "Wall Street Journal"},
+    # ── 파생상품 이슈 — 기초자산/현물 ETF의 직접 악재로 분류되면 안 되는 사례 ──
+    {"stock_ids": ["KR_000660"], "themes": ["반도체"],
+     "headline": "SK하이닉스 레버리지 ETN, 변동성 확대에 25% 폭락…괴리율 경고",
+     "sentiment": -0.75, "relevance": 0.70, "source": "이데일리"},
 ]
 
 
@@ -107,9 +209,33 @@ def _keyword_sentiment(text: str) -> float:
     return round((pos - neg) / total, 2)
 
 
+def _clean_html(text: str) -> str:
+    """HTML 태그·엔티티 제거"""
+    text = unescape(text)
+    text = re.sub(r"<[^>]+>", "", text)
+    return text.strip()
+
+
+def _parse_naver_pubdate(pub_date_str: str) -> str:
+    """RFC 2822 날짜 → ISO 포맷 (예: 'Fri, 29 May 2026 10:23:45 +0900')"""
+    try:
+        from email.utils import parsedate_to_datetime
+        dt = parsedate_to_datetime(pub_date_str)
+        return dt.isoformat()
+    except Exception:
+        return datetime.now().isoformat()
+
+
 class NewsCollector:
     def __init__(self) -> None:
-        self.use_mock = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
+        self.use_mock     = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
+        self.naver_id     = os.getenv("NAVER_CLIENT_ID", "").strip()
+        self.naver_secret = os.getenv("NAVER_CLIENT_SECRET", "").strip()
+
+    def _naver_available(self) -> bool:
+        return bool(self.naver_id and self.naver_secret)
+
+    # ── 공개 API ─────────────────────────────────────────────────────────────
 
     def collect(
         self,
@@ -120,12 +246,93 @@ class NewsCollector:
         if self.use_mock:
             logger.info("NewsCollector: Mock 모드")
             return self._collect_mock(targets, max_per_stock)
-        logger.info("NewsCollector: 실제 데이터 모드 (yfinance)")
-        return self._collect_real(targets, max_per_stock)
+        logger.info("NewsCollector: 실제 데이터 모드")
+        return self._collect_real_smart(targets, max_per_stock)
 
-    # ── 실제 데이터 ──────────────────────────────────────────────────────────
 
-    def _collect_real(
+    # ── 실제 데이터: 소스 자동 선택 ──────────────────────────────────────────
+
+    def _collect_real_smart(
+        self, stock_ids: list[str], max_per_stock: int
+    ) -> dict[str, list[dict]]:
+        """
+        KR_* → 네이버 뉴스 API (설정 시) 우선, 미설정 시 Mock 폴백
+        US/TW/NL → yfinance, 실패 시 Mock 폴백
+        """
+        result: dict[str, list[dict]] = {}
+        kr_stocks  = [s for s in stock_ids if s.startswith("KR_")]
+        int_stocks = [s for s in stock_ids if not s.startswith("KR_")]
+
+        # ── 한국 종목: 네이버 API ──
+        if kr_stocks:
+            if self._naver_available():
+                for sid in kr_stocks:
+                    items = self._collect_naver_single(sid, max_per_stock)
+                    result[sid] = items if items else self._mock_for_stock(sid, max_per_stock)
+            else:
+                logger.info("NAVER_CLIENT_ID 미설정 → 한국 종목 Mock 폴백")
+                for sid in kr_stocks:
+                    result[sid] = self._mock_for_stock(sid, max_per_stock)
+
+        # ── 해외 종목: yfinance ──
+        if int_stocks:
+            yf_result = self._collect_yfinance(int_stocks, max_per_stock)
+            result.update(yf_result)
+
+        return result
+
+    # ── 네이버 뉴스 API ───────────────────────────────────────────────────────
+
+    def _collect_naver_single(self, stock_id: str, max_items: int) -> list[dict]:
+        """네이버 검색 API로 단일 종목 뉴스 수집"""
+        query = _NAVER_QUERY.get(stock_id, "")
+        if not query:
+            return []
+
+        url = (
+            "https://openapi.naver.com/v1/search/news.json"
+            f"?query={_url_quote(query)}&display={max_items}&sort=date"
+        )
+        req = urllib.request.Request(url)
+        req.add_header("X-Naver-Client-Id",     self.naver_id)
+        req.add_header("X-Naver-Client-Secret",  self.naver_secret)
+
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                data = _json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            logger.warning(f"네이버 API HTTP 오류 ({stock_id}): {e.code} {e.reason}")
+            return []
+        except Exception as e:
+            logger.warning(f"네이버 API 실패 ({stock_id}): {e}")
+            return []
+
+        items: list[dict] = []
+        for raw in data.get("items", [])[:max_items]:
+            title = _clean_html(raw.get("title", ""))
+            desc  = _clean_html(raw.get("description", ""))
+            link  = raw.get("link", "").strip()
+            if not title:
+                continue
+            sentiment = _keyword_sentiment(title + " " + desc)
+            items.append({
+                "headline":     title,
+                "sentiment":    sentiment,
+                "relevance":    0.85,
+                "source":       "네이버 뉴스",
+                "published_at": _parse_naver_pubdate(raw.get("pubDate", "")),
+                "link":         link,
+                "themes":       [],
+                "_mock":        False,
+                **classify_news_item(title),
+            })
+
+        logger.info(f"네이버 뉴스 수집 ({stock_id}): {len(items)}건")
+        return items
+
+    # ── yfinance 뉴스 ─────────────────────────────────────────────────────────
+
+    def _collect_yfinance(
         self, stock_ids: list[str], max_per_stock: int
     ) -> dict[str, list[dict]]:
         try:
@@ -135,7 +342,6 @@ class NewsCollector:
             return self._collect_mock(stock_ids, max_per_stock)
 
         result: dict[str, list[dict]] = {}
-
         for sid in stock_ids:
             sym = _YFINANCE_TICKER.get(sid)
             if not sym:
@@ -143,56 +349,58 @@ class NewsCollector:
                 continue
             try:
                 news_raw = yf.Ticker(sym).news or []
-                items = []
+                items: list[dict] = []
                 for n in news_raw[:max_per_stock]:
-                    headline = n.get("title") or n.get("headline", "")
+                    # yfinance v0.2+ 구조: content.title / 구버전: title
+                    content  = n.get("content", {}) if isinstance(n.get("content"), dict) else {}
+                    headline = (
+                        content.get("title")
+                        or n.get("title")
+                        or n.get("headline", "")
+                    )
                     if not headline:
                         continue
-                    sentiment = _keyword_sentiment(headline)
-                    relevance = 0.85
-                    pub_ts = n.get("providerPublishTime") or n.get("published", 0)
-                    if pub_ts:
-                        published_at = datetime.fromtimestamp(pub_ts).isoformat()
+                    # 링크: canonicalUrl > clickThroughUrl > link
+                    link = (
+                        (content.get("canonicalUrl") or {}).get("url", "")
+                        or (content.get("clickThroughUrl") or {}).get("url", "")
+                        or n.get("link", "")
+                    )
+                    pub_ts = (
+                        content.get("pubDate")
+                        or n.get("providerPublishTime")
+                        or n.get("published", 0)
+                    )
+                    if isinstance(pub_ts, str):
+                        published_at = pub_ts
+                    elif pub_ts:
+                        published_at = datetime.fromtimestamp(int(pub_ts)).isoformat()
                     else:
                         published_at = datetime.now().isoformat()
+
+                    publisher = (
+                        (content.get("provider") or {}).get("displayName", "")
+                        or n.get("publisher", "Yahoo Finance")
+                    )
                     items.append({
                         "headline":     headline,
-                        "sentiment":    sentiment,
-                        "relevance":    relevance,
-                        "source":       n.get("publisher", "Yahoo Finance"),
+                        "sentiment":    _keyword_sentiment(headline),
+                        "relevance":    0.85,
+                        "source":       publisher,
                         "published_at": published_at,
-                        "link":         n.get("link", ""),
+                        "link":         link,
                         "themes":       [],
                         "_mock":        False,
+                        **classify_news_item(headline),
                     })
-                result[sid] = items or self._mock_for_stock(sid, max_per_stock)
+                result[sid] = items if items else self._mock_for_stock(sid, max_per_stock)
             except Exception as e:
-                logger.warning(f"뉴스 수집 실패 ({sid}): {e} → Mock 폴백")
+                logger.warning(f"yfinance 뉴스 실패 ({sid}): {e} → Mock 폴백")
                 result[sid] = self._mock_for_stock(sid, max_per_stock)
 
         return result
 
-    def collect_theme_news(self, theme_ids: list[str]) -> dict[str, list[dict]]:
-        """테마별 뉴스 수집 (테마 리포트용) — Mock 전용"""
-        result: dict[str, list[dict]] = {}
-        now = datetime.now()
-        for theme_id in theme_ids:
-            result[theme_id] = []
-            for news in _NEWS_POOL:
-                if theme_id in news["themes"]:
-                    pub_offset = random.randint(0, 480)
-                    result[theme_id].append({
-                        "headline":     news["headline"],
-                        "sentiment":    news["sentiment"],
-                        "relevance":    news["relevance"],
-                        "source":       news["source"],
-                        "published_at": (now - timedelta(minutes=pub_offset)).isoformat(),
-                        "themes":       news["themes"],
-                        "_mock":        True,
-                    })
-        return result
-
-    # ── Mock 데이터 ──────────────────────────────────────────────────────────
+    # ── Mock 데이터 ───────────────────────────────────────────────────────────
 
     def _collect_mock(
         self, stock_ids: list[str], max_per_stock: int
@@ -210,6 +418,10 @@ class NewsCollector:
             )
             pub_offset   = random.randint(0, 480)
             published_at = (now - timedelta(minutes=pub_offset)).isoformat()
+            _hl = news["headline"][:80]
+            _search_link = (
+                f"https://news.google.com/search?q={_url_quote(_hl)}&hl=ko&gl=KR"
+            )
             for sid in affected:
                 result.setdefault(sid, [])
                 if len(result[sid]) < max_per_stock:
@@ -219,8 +431,10 @@ class NewsCollector:
                         "relevance":    news["relevance"],
                         "source":       news["source"],
                         "published_at": published_at,
+                        "link":         _search_link,
                         "themes":       news["themes"],
                         "_mock":        True,
+                        **classify_news_item(news["headline"]),
                     })
         return result
 

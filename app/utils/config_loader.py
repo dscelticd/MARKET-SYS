@@ -74,12 +74,6 @@ class UserProfile:
     def evening_time(self) -> str:
         return self.report_preferences.get("evening_report_time", "18:30")
 
-    def score_to_rating(self, score: float) -> str:
-        for grade, bounds in self.rating_thresholds.items():
-            if bounds["min_score"] <= score <= bounds["max_score"]:
-                return grade
-        return "보통"
-
 
 class ReportConfig:
     def __init__(self) -> None:

@@ -24,6 +24,7 @@ ENV/
 data/reports/
 data/history/
 data/cache/
+data/logs/
 data/*.log
 data/*.log.*
 

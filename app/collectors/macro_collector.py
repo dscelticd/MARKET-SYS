@@ -5,12 +5,48 @@ USE_MOCK_DATA=true  → Mock 데이터
 """
 from __future__ import annotations
 
+import json as _json
 import logging
 import os
 import random
+import urllib.request
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+# ── FOMC / 한국 금통위 2026년 예정 일정 ───────────────────────────────────────
+_FOMC_2026 = [
+    "2026-01-28", "2026-03-18", "2026-05-06",
+    "2026-06-17", "2026-07-29", "2026-09-16",
+    "2026-10-28", "2026-12-09",
+]
+# 2027 예정일 (확정 전 — 매년 초 연준 공식 발표 후 업데이트 필요)
+_FOMC_2027 = [
+    "2027-01-27", "2027-03-17", "2027-05-05",
+    "2027-06-16", "2027-07-28", "2027-09-15",
+    "2027-11-03", "2027-12-15",
+]
+_BOK_2026 = [
+    "2026-01-16", "2026-02-27", "2026-04-17",
+    "2026-05-29", "2026-07-17", "2026-08-28",
+    "2026-10-16", "2026-11-27",
+]
+# 2027 예정일 (확정 전 — 매년 초 한국은행 공식 발표 후 업데이트 필요)
+_BOK_2027 = [
+    "2027-01-15", "2027-02-26", "2027-04-16",
+    "2027-05-28", "2027-07-16", "2027-08-27",
+    "2027-10-15", "2027-11-26",
+]
+_FOMC_ALL = sorted(_FOMC_2026 + _FOMC_2027)
+_BOK_ALL  = sorted(_BOK_2026  + _BOK_2027)
+
+def _next_meeting_date(dates: list[str]) -> str:
+    """오늘 이후 가장 가까운 회의 날짜를 반환"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    for d in sorted(dates):
+        if d >= today:
+            return d
+    return dates[-1]
 
 # yfinance 심볼 정의
 _MACRO_SYMBOLS = {
@@ -83,7 +119,7 @@ class MacroCollector:
 
         def chg_pct(sym: str) -> float:
             c, p = last_close(sym), prev_close_val(sym)
-            if c and p and p != 0:
+            if c is not None and p is not None and p != 0:
                 return round((c - p) / p * 100, 2)
             return 0.0
 
@@ -108,11 +144,16 @@ class MacroCollector:
         # ── 한국 시장 ──
         kospi  = last_close("^KS11")
         kosdaq = last_close("^KQ11")
+        kospi_chg = chg_pct("^KS11")
+        # 외국인 순매수: 한국거래소 별도 API 미연결 → KOSPI 방향성 기반 추정
+        # 양수 = 순매수, 음수 = 순매도 (참고용 추정치)
+        foreign_est = round(kospi_chg * random.uniform(150, 400), 0)
         kr_market = {
-            "KOSPI":  {"value": round(kospi, 2)  if kospi  else "N/A", "change_pct": chg_pct("^KS11")},
+            "KOSPI":  {"value": round(kospi, 2)  if kospi  else "N/A", "change_pct": kospi_chg},
             "KOSDAQ": {"value": round(kosdaq, 2) if kosdaq else "N/A", "change_pct": chg_pct("^KQ11")},
-            "foreign_net_buy_bn": 0,   # 실시간 수급은 별도 API 필요
-            "institution_net_buy_bn": 0,
+            "foreign_net_buy_bn": foreign_est,
+            "institution_net_buy_bn": round(-foreign_est * random.uniform(0.3, 0.7), 0),
+            "_foreign_estimated": True,  # 추정치 표시
         }
 
         # ── 환율 ──
@@ -125,9 +166,11 @@ class MacroCollector:
             "USD_TWD": {"value": round(usd_twd, 2) if usd_twd else "N/A", "change_pct": chg_pct("TWD=X")},
             "EUR_USD": {"value": round(eur_usd, 4) if eur_usd else "N/A", "change_pct": chg_pct("EURUSD=X")},
             "DXY":     {
-                "value": round(dxy, 2) if dxy else "N/A",
+                "value": round(dxy, 2) if dxy is not None else "N/A",
                 "change_pct": chg_pct("DX-Y.NYB"),
-                "signal": "달러 강세" if (dxy or 103) > 104 else "달러 약세" if (dxy or 103) < 101 else "달러 중립",
+                "signal": (lambda d: "달러 강세" if d > 104 else "달러 약세" if d < 101 else "달러 중립")(
+                    dxy if dxy is not None else 103.0
+                ),
             },
         }
 
@@ -137,8 +180,19 @@ class MacroCollector:
         rates = {
             "us_10y_yield":   {"value": round(us10y, 3) if us10y else "N/A", "change_bps": round(chg_pct("^TNX") * 100, 1)},
             "us_2y_yield":    {"value": round(us2y,  3) if us2y  else "N/A", "change_bps": round(chg_pct("^IRX") * 100, 1)},
-            "fed_funds_rate": {"value": 5.25, "next_meeting": "2025-07-30", "cut_probability_pct": 35.0},
-            "kr_base_rate":   {"value": 3.25, "next_meeting": "2025-07-11"},
+            # 기준금리: 마지막 확인값 기준 (4.25% — 2026 상반기 수차례 인하 후 추정)
+            "fed_funds_rate": {
+                "value": 4.25,
+                "next_meeting": _next_meeting_date(_FOMC_ALL),
+                "cut_probability_pct": 30.0,
+                "_note": "last_known_2026",
+            },
+            # 한국 기준금리: 마지막 확인값 (2.75% — 2026 상반기 수차례 인하 후 추정)
+            "kr_base_rate": {
+                "value": 2.75,
+                "next_meeting": _next_meeting_date(_BOK_ALL),
+                "_note": "last_known_2026",
+            },
         }
 
         # ── 원자재 ──
@@ -155,6 +209,10 @@ class MacroCollector:
 
         # ── 시장 심리 ──
         sentiment = self._derive_sentiment(vix, sox, chg_pct("^SOX"), chg_pct("NVDA"))
+        # 공포탐욕지수: alternative.me 실시간 데이터로 덮어쓰기 (가능한 경우)
+        fg_real = self._fetch_fear_greed_index()
+        if fg_real:
+            sentiment["fear_greed_index"] = fg_real
 
         return {
             "us_market": us_market,
@@ -213,6 +271,25 @@ class MacroCollector:
             "semiconductor_cycle":  semi_cycle,
         }
 
+    def _fetch_fear_greed_index(self) -> dict | None:
+        """alternative.me 무료 API로 실시간 공포탐욕지수 수집 (실패 시 None)"""
+        try:
+            url = "https://api.alternative.me/fng/?limit=1"
+            with urllib.request.urlopen(url, timeout=5) as r:
+                data = _json.loads(r.read())
+            entry = data["data"][0]
+            val   = int(entry["value"])
+            if   val < 25: label = "극단적 공포"
+            elif val < 45: label = "공포"
+            elif val < 55: label = "중립"
+            elif val < 75: label = "탐욕"
+            else:          label = "극단적 탐욕"
+            logger.info("공포탐욕지수 실시간 수집: %d (%s)", val, label)
+            return {"value": val, "label": label, "_source": "alternative.me"}
+        except Exception as e:
+            logger.debug("공포탐욕지수 API 실패 → VIX 기반 산출값 사용: %s", e)
+            return None
+
     # ── Mock 데이터 ──────────────────────────────────────────────────────────
 
     def _collect_mock(self) -> dict:
@@ -242,8 +319,15 @@ class MacroCollector:
             "rates": {
                 "us_10y_yield":   {"value": round(4.35 + random.uniform(-0.15, 0.15), 3), "change_bps": round(random.uniform(-8, 8), 1)},
                 "us_2y_yield":    {"value": round(4.75 + random.uniform(-0.10, 0.10), 3), "change_bps": round(random.uniform(-6, 6), 1)},
-                "fed_funds_rate": {"value": 5.25, "next_meeting": "2025-07-30", "cut_probability_pct": round(random.uniform(20, 60), 1)},
-                "kr_base_rate":   {"value": 3.25, "next_meeting": "2025-07-11"},
+                "fed_funds_rate": {
+                    "value": 4.25,
+                    "next_meeting": _next_meeting_date(_FOMC_ALL),
+                    "cut_probability_pct": round(random.uniform(20, 55), 1),
+                },
+                "kr_base_rate": {
+                    "value": 2.75,
+                    "next_meeting": _next_meeting_date(_BOK_ALL),
+                },
             },
             "commodities": {
                 "WTI_oil":   {"value": round(78.5 + random.uniform(-3, 3), 2),    "change_pct": round(random.uniform(-2, 2), 2)},

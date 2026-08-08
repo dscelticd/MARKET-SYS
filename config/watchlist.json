@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "관심종목 설정 파일 — AI/반도체/HBM/데이터센터/전력 인프라 중심",
+  "version": "2.0",
+  "description": "관심종목 설정 — 반도체·AI·광통신·전력·ETF 포트폴리오",
   "stocks": [
     {
       "id": "KR_005930",
@@ -11,15 +11,28 @@
       "currency": "KRW",
       "sector": "반도체",
       "industry": "메모리/비메모리 반도체, 스마트폰, 가전",
-      "themes": ["AI", "반도체", "HBM", "스마트폰"],
-      "related_markets": ["KOSPI", "NASDAQ", "PHLX SOX"],
-      "related_companies": ["SK하이닉스", "NVIDIA", "TSMC", "Apple"],
+      "themes": [
+        "AI",
+        "반도체",
+        "HBM",
+        "스마트폰"
+      ],
+      "related_markets": [
+        "KOSPI",
+        "NASDAQ",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "SK하이닉스",
+        "NVIDIA",
+        "TSMC",
+        "Apple"
+      ],
       "macro_variables": [
         "달러/원 환율",
         "DRAM 현물가",
         "글로벌 IT 수요",
-        "미중 반도체 규제",
-        "한국 수출 지표"
+        "미중 반도체 규제"
       ],
       "interest_level": 5,
       "status": "보유",
@@ -34,19 +47,65 @@
       "currency": "KRW",
       "sector": "반도체",
       "industry": "메모리 반도체 (DRAM, HBM)",
-      "themes": ["AI", "반도체", "HBM", "데이터센터"],
-      "related_markets": ["KOSPI", "NASDAQ", "PHLX SOX"],
-      "related_companies": ["삼성전자", "NVIDIA", "Micron", "TSMC"],
+      "themes": [
+        "AI",
+        "반도체",
+        "HBM",
+        "데이터센터"
+      ],
+      "related_markets": [
+        "KOSPI",
+        "NASDAQ",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "삼성전자",
+        "NVIDIA",
+        "Micron",
+        "TSMC"
+      ],
       "macro_variables": [
         "달러/원 환율",
         "HBM 수요",
         "DRAM 현물가",
-        "AI 서버 투자 사이클",
-        "미중 반도체 규제"
+        "AI 서버 투자 사이클"
       ],
       "interest_level": 5,
       "status": "보유",
-      "memo": "HBM3E 독점 공급 → NVIDIA 의존도 및 확장 여부 모니터링"
+      "memo": "HBM3E 독점 공급 → NVIDIA 의존도 및 HBM4 전환 일정 모니터링"
+    },
+    {
+      "id": "KR_069500",
+      "name": "KODEX 200",
+      "ticker": "069500",
+      "country": "KR",
+      "market": "KOSPI",
+      "currency": "KRW",
+      "sector": "ETF",
+      "industry": "국내 주식 ETF (KOSPI 200 추종)",
+      "themes": [
+        "국내주식 ETF",
+        "KOSPI",
+        "인덱스"
+      ],
+      "related_markets": [
+        "KOSPI"
+      ],
+      "related_companies": [
+        "삼성전자",
+        "SK하이닉스",
+        "현대차",
+        "LG에너지솔루션"
+      ],
+      "macro_variables": [
+        "달러/원 환율",
+        "외국인 순매수",
+        "한국 GDP 성장률",
+        "기준금리"
+      ],
+      "interest_level": 4,
+      "status": "보유",
+      "memo": "한국 시장 전체 방향성 파악용 — 코스피 200 지수 ETF"
     },
     {
       "id": "KR_010120",
@@ -57,13 +116,25 @@
       "currency": "KRW",
       "sector": "전력 인프라",
       "industry": "전력기기, 배전반, 스마트그리드",
-      "themes": ["전력 인프라", "데이터센터", "AI 인프라", "에너지 전환"],
-      "related_markets": ["KOSPI", "NYSE"],
-      "related_companies": ["HD현대일렉트릭", "Eaton", "Schneider Electric", "ABB"],
+      "themes": [
+        "전력 인프라",
+        "데이터센터",
+        "AI 인프라",
+        "에너지 전환"
+      ],
+      "related_markets": [
+        "KOSPI",
+        "NYSE"
+      ],
+      "related_companies": [
+        "HD현대일렉트릭",
+        "Eaton",
+        "Schneider Electric",
+        "ABB"
+      ],
       "macro_variables": [
         "미국 인프라 투자",
         "데이터센터 전력 수요",
-        "전력망 노후화 교체 사이클",
         "달러/원 환율",
         "구리 가격"
       ],
@@ -72,96 +143,248 @@
       "memo": "미국 데이터센터 전력 인프라 수주 모멘텀 확인 중"
     },
     {
-      "id": "KR_267260",
-      "name": "HD현대일렉트릭",
-      "ticker": "267260",
+      "id": "KR_015760",
+      "name": "한국전력",
+      "ticker": "015760",
       "country": "KR",
       "market": "KOSPI",
       "currency": "KRW",
       "sector": "전력 인프라",
-      "industry": "변압기, 차단기, 전력솔루션",
-      "themes": ["전력 인프라", "데이터센터", "AI 인프라", "에너지 전환"],
-      "related_markets": ["KOSPI", "NYSE"],
-      "related_companies": ["LS ELECTRIC", "Eaton", "Siemens Energy", "GE Vernova"],
-      "macro_variables": [
-        "미국 전력망 투자",
-        "변압기 수요",
-        "달러/원 환율",
-        "미국 IRA 정책",
-        "구리/철강 가격"
+      "industry": "전력 생산·송배전 (공기업)",
+      "themes": [
+        "전력 인프라",
+        "공기업",
+        "에너지",
+        "배당"
       ],
-      "interest_level": 4,
-      "status": "관찰",
-      "memo": "초고압 변압기 미국 수출 수주 잔고 추이 모니터링"
-    },
-    {
-      "id": "KR_012450",
-      "name": "한화에어로스페이스",
-      "ticker": "012450",
-      "country": "KR",
-      "market": "KOSPI",
-      "currency": "KRW",
-      "sector": "방산/항공",
-      "industry": "항공엔진, 방산 시스템, K방산",
-      "themes": ["방산", "K방산", "우주항공"],
-      "related_markets": ["KOSPI", "NYSE"],
-      "related_companies": ["한화시스템", "LIG넥스원", "BAE Systems", "Lockheed Martin"],
+      "related_markets": [
+        "KOSPI"
+      ],
+      "related_companies": [
+        "한국가스공사",
+        "한국수력원자력",
+        "한전KPS"
+      ],
       "macro_variables": [
-        "글로벌 방산 예산",
-        "유럽 재무장 사이클",
-        "달러/원 환율",
-        "원자재 가격",
-        "지정학 리스크"
+        "전기요금 정책",
+        "연료비(LNG·석탄)",
+        "원/달러 환율",
+        "한국 전력 수요"
       ],
       "interest_level": 3,
       "status": "관찰",
-      "memo": "유럽 방산 수주 확장 및 폴란드 K2 계약 이행 모니터링"
+      "memo": "전기요금 현실화 여부 및 재무구조 개선 모니터링"
     },
     {
-      "id": "US_NVDA",
-      "name": "NVIDIA",
-      "ticker": "NVDA",
-      "country": "US",
-      "market": "NASDAQ",
-      "currency": "USD",
-      "sector": "반도체",
-      "industry": "AI GPU, 데이터센터, 자율주행 칩",
-      "themes": ["AI", "반도체", "HBM", "데이터센터", "자율주행"],
-      "related_markets": ["NASDAQ", "PHLX SOX", "KOSPI"],
-      "related_companies": ["SK하이닉스", "삼성전자", "TSMC", "AMD", "Microsoft", "Alphabet"],
-      "macro_variables": [
-        "AI 설비투자(CapEx) 사이클",
-        "미중 반도체 수출 규제",
-        "달러 인덱스",
-        "미국 기준금리",
-        "클라우드 3사(AWS/Azure/GCP) CapEx"
+      "id": "KR_066570",
+      "name": "LG전자",
+      "ticker": "066570",
+      "country": "KR",
+      "market": "KOSPI",
+      "currency": "KRW",
+      "sector": "가전/전장",
+      "industry": "가전, 전기차 부품(전장), OLED TV",
+      "themes": [
+        "가전",
+        "전기차부품",
+        "OLED",
+        "B2B"
       ],
-      "interest_level": 5,
-      "status": "보유",
-      "memo": "Blackwell 수요/공급 균형, H20 중국 수출 규제 영향 모니터링"
+      "related_markets": [
+        "KOSPI",
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "삼성전자",
+        "현대차",
+        "LG디스플레이",
+        "Stellantis"
+      ],
+      "macro_variables": [
+        "글로벌 가전 수요",
+        "전기차 시장 성장",
+        "달러/원 환율",
+        "원자재 가격"
+      ],
+      "interest_level": 3,
+      "status": "관찰",
+      "memo": "전장 사업부(VS) 흑자 전환 및 테슬라·현대차 부품 수주 확대 모니터링"
     },
     {
-      "id": "US_AMD",
-      "name": "AMD",
-      "ticker": "AMD",
+      "id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "ticker": "QQQ",
       "country": "US",
       "market": "NASDAQ",
       "currency": "USD",
-      "sector": "반도체",
-      "industry": "AI GPU, 데이터센터, PC CPU",
-      "themes": ["AI", "반도체", "데이터센터"],
-      "related_markets": ["NASDAQ", "PHLX SOX"],
-      "related_companies": ["NVIDIA", "Intel", "TSMC", "Microsoft"],
+      "sector": "ETF",
+      "industry": "나스닥 100 추종 ETF",
+      "themes": [
+        "미국주식 ETF",
+        "나스닥",
+        "성장주",
+        "빅테크"
+      ],
+      "related_markets": [
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "NVIDIA",
+        "Apple",
+        "Microsoft",
+        "Alphabet",
+        "Amazon"
+      ],
       "macro_variables": [
-        "AI GPU 시장 점유율",
-        "데이터센터 투자 사이클",
-        "미중 반도체 규제",
         "미국 기준금리",
-        "달러 인덱스"
+        "달러 인덱스",
+        "빅테크 실적",
+        "AI CapEx"
+      ],
+      "interest_level": 4,
+      "status": "보유",
+      "memo": "나스닥 100 전체 방향성 파악 — 성장주 지수 ETF"
+    },
+    {
+      "id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "ticker": "VOO",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "ETF",
+      "industry": "S&P 500 추종 ETF",
+      "themes": [
+        "미국주식 ETF",
+        "S&P500",
+        "분산투자",
+        "장기투자"
+      ],
+      "related_markets": [
+        "NYSE",
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "Apple",
+        "Microsoft",
+        "NVIDIA",
+        "Amazon",
+        "Alphabet"
+      ],
+      "macro_variables": [
+        "미국 기준금리",
+        "달러 인덱스",
+        "미국 GDP",
+        "기업 실적"
+      ],
+      "interest_level": 4,
+      "status": "보유",
+      "memo": "미국 시장 전체 방향성 파악 — S&P 500 분산투자"
+    },
+    {
+      "id": "US_QTUM",
+      "name": "Defiance Quantum ETF",
+      "ticker": "QTUM",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "ETF",
+      "industry": "양자컴퓨팅·머신러닝 테마 ETF",
+      "themes": [
+        "ETF",
+        "퀀텀컴퓨팅",
+        "AI",
+        "테마"
+      ],
+      "related_markets": [
+        "NASDAQ",
+        "NYSE"
+      ],
+      "related_companies": [
+        "IBM",
+        "IonQ",
+        "Honeywell",
+        "Google",
+        "Microsoft"
+      ],
+      "macro_variables": [
+        "양자컴퓨팅 상용화 일정",
+        "AI 투자 사이클",
+        "미국 기준금리"
+      ],
+      "interest_level": 3,
+      "status": "관찰",
+      "memo": "양자컴퓨팅 상용화 모멘텀 — 고위험 테마 ETF"
+    },
+    {
+      "id": "US_VST",
+      "name": "Vistra Energy",
+      "ticker": "VST",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "전력/에너지",
+      "industry": "전력 생산 (원자력·천연가스·재생에너지)",
+      "themes": [
+        "전력",
+        "원자력",
+        "AI 인프라",
+        "에너지 전환"
+      ],
+      "related_markets": [
+        "NYSE",
+        "S&P 500"
+      ],
+      "related_companies": [
+        "Constellation Energy",
+        "NRG Energy",
+        "NextEra Energy"
+      ],
+      "macro_variables": [
+        "미국 전력 수요",
+        "천연가스 가격",
+        "원자력 정책",
+        "데이터센터 전력 계약"
       ],
       "interest_level": 4,
       "status": "관찰",
-      "memo": "MI300X 수요 및 NVIDIA 대비 점유율 확장 속도 확인 중"
+      "memo": "AI 데이터센터 전력 공급 계약 및 원전 재가동 일정 모니터링"
+    },
+    {
+      "id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "ticker": "SCHD",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "ETF",
+      "industry": "미국 배당성장주 ETF",
+      "themes": [
+        "배당",
+        "분산투자",
+        "ETF",
+        "장기투자"
+      ],
+      "related_markets": [
+        "NYSE",
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "Pfizer",
+        "Broadcom",
+        "Coca-Cola",
+        "Verizon",
+        "Amgen"
+      ],
+      "macro_variables": [
+        "미국 기준금리",
+        "달러 인덱스",
+        "배당 성장률",
+        "미국 경기"
+      ],
+      "interest_level": 4,
+      "status": "보유",
+      "memo": "배당 재투자 장기 복리 전략 — 금리 인하 시 수혜"
     },
     {
       "id": "TW_TSM",
@@ -172,14 +395,25 @@
       "currency": "USD",
       "sector": "반도체",
       "industry": "파운드리 (2nm/3nm/5nm)",
-      "themes": ["AI", "반도체", "파운드리", "HBM"],
-      "related_markets": ["NYSE", "TWSE", "PHLX SOX", "KOSPI"],
-      "related_companies": ["NVIDIA", "Apple", "AMD", "삼성전자", "ASML"],
+      "themes": [
+        "AI",
+        "반도체",
+        "파운드리"
+      ],
+      "related_markets": [
+        "NYSE",
+        "TWSE",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "NVIDIA",
+        "Apple",
+        "AMD",
+        "삼성전자"
+      ],
       "macro_variables": [
         "AI 칩 수요",
         "미중 지정학 리스크 (대만 해협)",
-        "달러/대만달러 환율",
-        "반도체 장비 공급망",
         "미국 CHIPS Act"
       ],
       "interest_level": 5,
@@ -187,96 +421,209 @@
       "memo": "2nm 램프업 일정 및 애리조나 팹 진행 상황 모니터링"
     },
     {
-      "id": "NL_ASML",
-      "name": "ASML",
-      "ticker": "ASML",
-      "country": "NL",
+      "id": "US_SNDK",
+      "name": "SanDisk",
+      "ticker": "SNDK",
+      "country": "US",
       "market": "NASDAQ",
       "currency": "USD",
-      "sector": "반도체 장비",
-      "industry": "EUV/DUV 리소그래피 장비",
-      "themes": ["AI", "반도체", "반도체 장비"],
-      "related_markets": ["NASDAQ", "AEX", "PHLX SOX"],
-      "related_companies": ["TSMC", "삼성전자", "Intel", "SK하이닉스"],
+      "sector": "반도체",
+      "industry": "낸드플래시 메모리, SSD, 스토리지 솔루션",
+      "themes": [
+        "반도체",
+        "낸드플래시",
+        "스토리지",
+        "AI 인프라"
+      ],
+      "related_markets": [
+        "NASDAQ",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "SK하이닉스",
+        "삼성전자",
+        "Micron",
+        "Kioxia"
+      ],
       "macro_variables": [
-        "EUV 장비 수요",
-        "미중 수출 통제 (네덜란드)",
-        "달러/유로 환율",
-        "반도체 투자 사이클",
-        "유럽 금리"
+        "낸드 가격 사이클",
+        "AI 스토리지 수요",
+        "달러 인덱스",
+        "미중 반도체 규제"
       ],
       "interest_level": 4,
       "status": "관찰",
-      "memo": "High-NA EUV 출하 일정 및 중국 EUV 수출 제한 영향 확인"
+      "memo": "WD에서 분사 후 독립 — NAND 가격 반등 및 AI 스토리지 수요 모니터링"
     },
     {
-      "id": "US_MSFT",
-      "name": "Microsoft",
-      "ticker": "MSFT",
+      "id": "US_NVDA",
+      "name": "NVIDIA",
+      "ticker": "NVDA",
       "country": "US",
       "market": "NASDAQ",
       "currency": "USD",
-      "sector": "빅테크/클라우드",
-      "industry": "클라우드(Azure), AI, 소프트웨어",
-      "themes": ["AI", "데이터센터", "클라우드"],
-      "related_markets": ["NASDAQ", "S&P 500"],
-      "related_companies": ["NVIDIA", "OpenAI", "Alphabet", "Amazon"],
+      "sector": "반도체",
+      "industry": "AI GPU, 데이터센터, 자율주행 칩",
+      "themes": [
+        "AI",
+        "반도체",
+        "HBM",
+        "데이터센터"
+      ],
+      "related_markets": [
+        "NASDAQ",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "SK하이닉스",
+        "삼성전자",
+        "TSMC",
+        "AMD"
+      ],
       "macro_variables": [
-        "AI CapEx 투자",
-        "클라우드 성장률",
-        "미국 기준금리",
-        "달러 인덱스",
-        "기업 IT 예산"
+        "AI 설비투자(CapEx) 사이클",
+        "미중 반도체 수출 규제",
+        "달러 인덱스"
+      ],
+      "interest_level": 5,
+      "status": "보유",
+      "memo": "Blackwell 수요/공급 균형, H20 중국 수출 규제 영향 모니터링"
+    },
+    {
+      "id": "US_COHR",
+      "name": "Coherent Corp",
+      "ticker": "COHR",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "광통신",
+      "industry": "광트랜시버, 레이저, 광학 부품",
+      "themes": [
+        "광통신",
+        "데이터센터",
+        "AI 인프라",
+        "네트워킹"
+      ],
+      "related_markets": [
+        "NYSE",
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "Ciena",
+        "오이솔루션",
+        "Lumentum",
+        "Applied Optoelectronics"
+      ],
+      "macro_variables": [
+        "데이터센터 광통신 투자",
+        "AI 클러스터 확장 속도",
+        "달러 인덱스"
       ],
       "interest_level": 4,
       "status": "관찰",
-      "memo": "Azure AI 성장률 및 Copilot 수익화 속도 모니터링"
+      "memo": "800G→1.6T 광트랜시버 전환 — AI 데이터센터 초고속 광통신 핵심 공급사"
     },
     {
-      "id": "US_GOOGL",
-      "name": "Alphabet",
-      "ticker": "GOOGL",
+      "id": "US_CIEN",
+      "name": "Ciena",
+      "ticker": "CIEN",
+      "country": "US",
+      "market": "NYSE",
+      "currency": "USD",
+      "sector": "광통신",
+      "industry": "광네트워크 장비, 소프트웨어, 서비스",
+      "themes": [
+        "광통신",
+        "네트워킹",
+        "데이터센터",
+        "AI 인프라"
+      ],
+      "related_markets": [
+        "NYSE",
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "Coherent Corp",
+        "Nokia",
+        "Infinera",
+        "Cisco"
+      ],
+      "macro_variables": [
+        "클라우드 CapEx",
+        "광통신 장비 수요",
+        "달러 인덱스"
+      ],
+      "interest_level": 3,
+      "status": "관찰",
+      "memo": "AI 백본망 업그레이드 수혜 — 하이퍼스케일러 광네트워크 장비 공급"
+    },
+    {
+      "id": "KR_138080",
+      "name": "오이솔루션",
+      "ticker": "138080",
+      "country": "KR",
+      "market": "KOSDAQ",
+      "currency": "KRW",
+      "sector": "광통신",
+      "industry": "광트랜시버 (SFP/QSFP), 광부품",
+      "themes": [
+        "광통신",
+        "데이터센터",
+        "AI 인프라",
+        "수출"
+      ],
+      "related_markets": [
+        "KOSDAQ"
+      ],
+      "related_companies": [
+        "Coherent Corp",
+        "Ciena",
+        "Lumentum"
+      ],
+      "macro_variables": [
+        "달러/원 환율",
+        "북미 데이터센터 투자",
+        "광트랜시버 수요"
+      ],
+      "interest_level": 4,
+      "status": "관찰",
+      "memo": "북미 하이퍼스케일러향 고속 광트랜시버 수출 확대 — 광통신 국내 대표주"
+    },
+    {
+      "id": "US_SPCX",
+      "name": "SpaceX",
+      "ticker": "SPCX",
       "country": "US",
       "market": "NASDAQ",
       "currency": "USD",
-      "sector": "빅테크/클라우드",
-      "industry": "클라우드(GCP), AI, 광고, TPU",
-      "themes": ["AI", "데이터센터", "클라우드"],
-      "related_markets": ["NASDAQ", "S&P 500"],
-      "related_companies": ["NVIDIA", "Microsoft", "Amazon", "Meta"],
+      "sector": "우주항공",
+      "industry": "로켓 발사, 위성 인터넷(Starlink), 우주 운송",
+      "themes": [
+        "우주항공",
+        "위성인터넷",
+        "Starlink",
+        "재사용 로켓",
+        "국방/정부계약",
+        "AI 인프라"
+      ],
+      "related_markets": [
+        "NASDAQ"
+      ],
+      "related_companies": [
+        "Boeing",
+        "Northrop Grumman",
+        "Rocket Lab",
+        "Amazon (Project Kuiper)"
+      ],
       "macro_variables": [
-        "AI CapEx 투자",
-        "디지털 광고 시장",
-        "미국 기준금리",
+        "미국 우주 예산(NASA/DoD)",
+        "위성 인터넷 가입자 수",
         "달러 인덱스",
-        "규제 리스크(반독점)"
+        "지정학 리스크"
       ],
-      "interest_level": 3,
+      "interest_level": 5,
       "status": "관찰",
-      "memo": "Gemini Ultra 성능 및 GCP 점유율 확장 속도 확인"
-    },
-    {
-      "id": "US_TSLA",
-      "name": "Tesla",
-      "ticker": "TSLA",
-      "country": "US",
-      "market": "NASDAQ",
-      "currency": "USD",
-      "sector": "전기차/AI",
-      "industry": "전기차, 자율주행, 에너지 저장, Robotaxi",
-      "themes": ["AI", "자율주행", "전기차", "에너지 전환"],
-      "related_markets": ["NASDAQ", "S&P 500"],
-      "related_companies": ["NVIDIA", "삼성SDI", "LG에너지솔루션", "Waymo"],
-      "macro_variables": [
-        "EV 수요",
-        "리튬/배터리 가격",
-        "미국 금리",
-        "중국 EV 경쟁",
-        "FSD 규제 승인"
-      ],
-      "interest_level": 3,
-      "status": "관찰",
-      "memo": "Robotaxi 출시 일정 및 중국 판매량 회복 여부 모니터링"
+      "memo": "Starlink 가입자 성장 및 Falcon 9·Starship 발사 수주 모니터링"
     }
   ]
 }

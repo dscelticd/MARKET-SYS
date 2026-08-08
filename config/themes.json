@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "관심 테마 설정 — AI/반도체/전력 인프라/방산 중심",
+  "version": "2.0",
+  "description": "관심 테마 설정 — AI/반도체/광통신/전력/ETF 중심",
   "themes": [
     {
       "id": "AI",
@@ -19,16 +19,16 @@
         "규제 강화",
         "중국 AI 굴기"
       ],
-      "related_sectors": ["반도체", "빅테크/클라우드", "반도체 장비"],
-      "related_stocks": ["US_NVDA", "US_MSFT", "US_GOOGL", "KR_000660", "KR_005930", "US_AMD", "TW_TSM"],
+      "related_sectors": ["반도체", "광통신", "전력/에너지"],
+      "related_stocks": ["US_NVDA", "KR_000660", "KR_005930", "TW_TSM", "US_COHR", "US_CIEN"],
       "macro_sensitivity": "high",
       "interest_level": 5
     },
     {
       "id": "반도체",
       "name": "반도체",
-      "description": "메모리/비메모리/파운드리/장비 전반의 반도체 공급망 테마",
-      "sub_themes": ["HBM", "파운드리", "AI 반도체", "반도체 장비"],
+      "description": "메모리/비메모리/파운드리/낸드 전반의 반도체 공급망 테마",
+      "sub_themes": ["HBM", "파운드리", "AI 반도체", "낸드플래시"],
       "key_drivers": [
         "AI 수요 기반 반도체 사이클 상승",
         "HBM 고부가가치 전환",
@@ -41,8 +41,8 @@
         "레거시 반도체 공급 과잉",
         "지정학 리스크 (대만)"
       ],
-      "related_sectors": ["반도체", "반도체 장비"],
-      "related_stocks": ["KR_005930", "KR_000660", "US_NVDA", "US_AMD", "TW_TSM", "NL_ASML"],
+      "related_sectors": ["반도체"],
+      "related_stocks": ["KR_005930", "KR_000660", "US_NVDA", "TW_TSM", "US_SNDK"],
       "macro_sensitivity": "high",
       "interest_level": 5
     },
@@ -69,15 +69,37 @@
       "interest_level": 5
     },
     {
+      "id": "광통신",
+      "name": "광통신",
+      "description": "AI 데이터센터 초고속 광네트워크 인프라 테마",
+      "sub_themes": ["광트랜시버", "광네트워크 장비", "800G/1.6T"],
+      "key_drivers": [
+        "AI 클러스터 내 초고속 광통신 수요 폭증",
+        "800G → 1.6T 트랜시버 전환",
+        "하이퍼스케일러 백본망 업그레이드",
+        "한국 광부품 기업 북미 수출 확대"
+      ],
+      "key_risks": [
+        "데이터센터 투자 사이클 둔화",
+        "공급 과잉 우려",
+        "경쟁사 진입",
+        "달러 강세 시 수출 마진 압박"
+      ],
+      "related_sectors": ["광통신"],
+      "related_stocks": ["US_COHR", "US_CIEN", "KR_138080"],
+      "macro_sensitivity": "medium",
+      "interest_level": 4
+    },
+    {
       "id": "데이터센터",
       "name": "데이터센터",
       "description": "AI 연산 수요를 뒷받침하는 데이터센터 인프라 전반 테마",
-      "sub_themes": ["AI 데이터센터", "하이퍼스케일러", "전력 인프라", "냉각 시스템"],
+      "sub_themes": ["AI 데이터센터", "하이퍼스케일러", "전력 인프라", "광통신"],
       "key_drivers": [
         "AI 학습/추론 수요 급증",
         "클라우드 3사 CapEx 확대",
         "전력 소비 증가 → 전력 인프라 투자",
-        "엣지 데이터센터 확산"
+        "광통신 업그레이드 사이클"
       ],
       "key_risks": [
         "전력 공급 병목",
@@ -85,8 +107,8 @@
         "과잉 투자 경고",
         "운영 비용 상승"
       ],
-      "related_sectors": ["빅테크/클라우드", "전력 인프라", "반도체"],
-      "related_stocks": ["US_NVDA", "US_MSFT", "US_GOOGL", "KR_010120", "KR_267260"],
+      "related_sectors": ["광통신", "전력 인프라", "반도체"],
+      "related_stocks": ["US_NVDA", "KR_010120", "US_COHR", "US_CIEN", "US_VST", "KR_138080"],
       "macro_sensitivity": "medium",
       "interest_level": 4
     },
@@ -94,12 +116,12 @@
       "id": "전력 인프라",
       "name": "전력 인프라",
       "description": "AI/데이터센터 전력 수요 급증으로 주목받는 전력망 인프라 테마",
-      "sub_themes": ["변압기", "배전반", "스마트그리드", "에너지 저장"],
+      "sub_themes": ["변압기", "배전반", "스마트그리드", "원자력"],
       "key_drivers": [
         "데이터센터 전력 수요 폭증",
         "노후 전력망 교체 사이클 (미국)",
         "IRA 기반 클린에너지 투자",
-        "한국 전력기기 기업 미국 수주 확대"
+        "원전 재가동 및 SMR 수요"
       ],
       "key_risks": [
         "미국 관세 정책 변화",
@@ -107,54 +129,54 @@
         "납기 지연 리스크",
         "경쟁사 공급 확대"
       ],
-      "related_sectors": ["전력 인프라"],
-      "related_stocks": ["KR_010120", "KR_267260"],
+      "related_sectors": ["전력 인프라", "전력/에너지"],
+      "related_stocks": ["KR_010120", "KR_015760", "US_VST"],
       "macro_sensitivity": "medium",
       "interest_level": 4
     },
     {
-      "id": "자율주행",
-      "name": "자율주행",
-      "description": "Robotaxi, FSD, 자율주행 칩 등 자율주행 상용화 테마",
-      "sub_themes": ["Robotaxi", "FSD", "자율주행 칩", "라이다/레이더"],
+      "id": "우주항공",
+      "name": "우주항공 / 뉴스페이스",
+      "description": "민간 주도의 우주 발사·위성 인터넷·우주 운송 상업화 테마",
+      "sub_themes": ["위성인터넷 (Starlink)", "재사용 로켓", "국방/정부 발사 계약", "우주 관광"],
       "key_drivers": [
-        "Tesla FSD 규제 승인",
-        "Waymo 상업화 확대",
-        "AI 칩 자율주행 적용 확대",
-        "자율주행 법제화 진전"
+        "Starlink 가입자 수 급증 및 글로벌 확장",
+        "재사용 로켓으로 발사 비용 혁신적 절감",
+        "NASA·DoD 발사 계약 수주 확대",
+        "저궤도(LEO) 위성 인터넷 인프라 구축 가속"
       ],
       "key_risks": [
-        "규제 불확실성",
-        "기술 성숙도",
-        "안전 사고 리스크",
-        "경쟁 심화"
+        "규제 리스크 (FCC 주파수 허가, 위성 충돌 우려)",
+        "경쟁사 확대 (Amazon Project Kuiper, OneWeb)",
+        "발사 실패 사고 리스크",
+        "지정학 리스크 (우주 군사화 갈등)"
       ],
-      "related_sectors": ["전기차/AI", "반도체"],
-      "related_stocks": ["US_TSLA", "US_NVDA"],
+      "related_sectors": ["우주항공", "위성통신", "국방"],
+      "related_stocks": ["US_SPCX"],
       "macro_sensitivity": "low",
-      "interest_level": 3
+      "interest_level": 5
     },
     {
-      "id": "방산",
-      "name": "방산 / K방산",
-      "description": "글로벌 방산 예산 증가 및 한국 방산 수출 확대 테마",
-      "sub_themes": ["K방산", "유럽 재무장", "우주항공"],
+      "id": "ETF",
+      "name": "ETF / 지수 투자",
+      "description": "미국·한국 주요 지수 및 테마 ETF 분산투자 트래킹",
+      "sub_themes": ["인덱스 ETF", "배당 ETF", "테마 ETF"],
       "key_drivers": [
-        "유럽 국방비 증대 (NATO 2% 기준 상향)",
-        "폴란드/루마니아 K방산 수출 확대",
-        "한국 방산 가성비 경쟁력",
-        "지정학 리스크 지속"
+        "미국 경기 연착륙 기대",
+        "금리 인하 사이클 진입",
+        "지수 ETF 패시브 자금 유입",
+        "배당 재투자 복리 효과"
       ],
       "key_risks": [
-        "지정학 완화 시 수요 감소",
-        "달러 강세 시 원화 환산 마진 변동",
-        "납기/품질 이슈",
-        "미국 무기 수출 경쟁"
+        "금리 재인상 리스크",
+        "달러 강세",
+        "경기 침체",
+        "ETF 구성 변경 리스크"
       ],
-      "related_sectors": ["방산/항공"],
-      "related_stocks": ["KR_012450"],
-      "macro_sensitivity": "low",
-      "interest_level": 3
+      "related_sectors": ["ETF"],
+      "related_stocks": ["US_QQQ", "US_VOO", "US_SCHD", "US_QTUM", "KR_069500"],
+      "macro_sensitivity": "medium",
+      "interest_level": 4
     }
   ]
 }

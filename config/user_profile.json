@@ -62,24 +62,32 @@
     }
   },
   "signal_weights": {
-    "price_momentum": 0.25,
-    "news_sentiment": 0.2,
-    "macro_alignment": 0.2,
-    "sector_strength": 0.2,
-    "volume_signal": 0.15
+    "price_momentum": 0.2,
+    "news_sentiment": 0.15,
+    "macro_alignment": 0.15,
+    "sector_strength": 0.15,
+    "volume_signal": 0.1,
+    "technical_signal": 0.15,
+    "analyst_signal": 0.1
   },
   "watchlist_display_order": [
-    "KR_000660",
     "KR_005930",
-    "US_NVDA",
-    "TW_TSM",
-    "NL_ASML",
-    "US_AMD",
-    "US_MSFT",
-    "US_GOOGL",
+    "KR_000660",
+    "KR_069500",
     "KR_010120",
-    "KR_267260",
-    "KR_012450",
-    "US_TSLA"
+    "KR_015760",
+    "KR_066570",
+    "US_QQQ",
+    "US_VOO",
+    "US_QTUM",
+    "US_VST",
+    "US_SCHD",
+    "TW_TSM",
+    "US_SNDK",
+    "US_NVDA",
+    "US_COHR",
+    "US_CIEN",
+    "KR_138080",
+    "US_SPCX"
   ]
 }

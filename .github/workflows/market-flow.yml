@@ -1,0 +1,127 @@
+name: Market Flow Auto Report
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 실행 트리거
+#   - 매일 07:00 KST (= 22:00 UTC 전날)  → 아침 브리핑
+#   - 매일 18:30 KST (= 09:30 UTC)       → 저녁 결산
+#   - 수동 실행 (workflow_dispatch)       → 테스트용
+# ──────────────────────────────────────────────────────────────────────────────
+on:
+  schedule:
+    - cron: '0 22 * * *'    # 07:00 KST  (아침 브리핑)
+    - cron: '30 9 * * *'    # 18:30 KST  (저녁 결산)
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: '리포트 유형 선택'
+        required: true
+        default: 'morning'
+        type: choice
+        options:
+          - morning
+          - evening
+
+jobs:
+  run-report:
+    name: 리포트 생성 및 이메일 발송
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      # ── 1. 코드 체크아웃 ────────────────────────────────────────────────────
+      - name: 코드 체크아웃
+        uses: actions/checkout@v4
+
+      # ── 2. Python 환경 설정 ─────────────────────────────────────────────────
+      - name: Python 3.11 설정
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: 'requirements-cloud.txt'
+
+      # ── 3. 의존성 설치 (클라우드 전용 — Dashboard 제외) ─────────────────────
+      - name: 의존성 설치
+        run: pip install --upgrade pip && pip install -r requirements-cloud.txt
+
+      # ── 4. .env 파일 생성 (Secrets → 환경변수) ─────────────────────────────
+      - name: .env 파일 생성
+        env:
+          ANTHROPIC_API_KEY:   ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL:        ${{ secrets.CLAUDE_MODEL }}
+          SMTP_USER:           ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD:       ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_FROM:          ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO:            ${{ secrets.EMAIL_TO }}
+          NAVER_CLIENT_ID:     ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
+          TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          {
+            echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
+            echo "CLAUDE_MODEL=${CLAUDE_MODEL:-claude-sonnet-4-6}"
+            echo "SMTP_HOST=smtp.gmail.com"
+            echo "SMTP_PORT=587"
+            echo "SMTP_USER=${SMTP_USER}"
+            echo "SMTP_PASSWORD=${SMTP_PASSWORD}"
+            echo "EMAIL_FROM=${EMAIL_FROM}"
+            echo "EMAIL_TO=${EMAIL_TO}"
+            echo "USE_MOCK_DATA=false"
+            echo "NAVER_CLIENT_ID=${NAVER_CLIENT_ID}"
+            echo "NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}"
+            echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}"
+            echo "TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}"
+            echo "REPORT_SAVE_DIR=data/reports"
+            echo "REPORT_LANGUAGE=ko"
+          } > .env
+
+      # ── 5. 데이터 디렉토리 생성 ─────────────────────────────────────────────
+      - name: 데이터 디렉토리 생성
+        run: mkdir -p data/reports data/history data/logs data/cache
+
+      # ── 6. 리포트 유형 결정 ─────────────────────────────────────────────────
+      - name: 리포트 유형 결정
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "REPORT_TYPE=${{ inputs.report_type }}" >> "$GITHUB_ENV"
+          else
+            HOUR_UTC=$(date -u +%H)
+            if [ "$HOUR_UTC" -eq 22 ] || [ "$HOUR_UTC" -eq 23 ]; then
+              echo "REPORT_TYPE=morning" >> "$GITHUB_ENV"
+            else
+              echo "REPORT_TYPE=evening" >> "$GITHUB_ENV"
+            fi
+          fi
+
+      # ── 7. 리포트 생성 + 이메일 발송 ────────────────────────────────────────
+      - name: 리포트 생성 및 이메일 발송
+        run: python app/main.py --report "$REPORT_TYPE" --send-email
+
+      # ── 8. 실패 시 Telegram 오류 알림 ─────────────────────────────────────
+      - name: 오류 알림 (실패 시)
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PYEOF'
+          import os
+          from dotenv import load_dotenv; load_dotenv()
+          from app.utils.telegram_notifier import TelegramNotifier
+          n = TelegramNotifier()
+          n.notify_error(
+              f"GitHub Actions 워크플로 실패 (run #{os.getenv('GITHUB_RUN_NUMBER','?')})",
+              os.getenv("REPORT_TYPE", "unknown"),
+          )
+          PYEOF
+        continue-on-error: true
+
+      # ── 9. 로그 업로드 (실패 시 디버깅용) ──────────────────────────────────
+      - name: 로그 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-flow-logs-${{ env.REPORT_TYPE }}-${{ github.run_number }}
+          path: data/logs/
+          retention-days: 7

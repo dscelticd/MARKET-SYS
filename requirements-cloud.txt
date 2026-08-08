@@ -1,0 +1,12 @@
+# Market Flow — 클라우드(GitHub Actions) 실행용 최소 패키지
+# 대시보드(Streamlit/Plotly)와 로컬 스케줄러(schedule)는 제외
+
+# Claude API
+anthropic>=0.40.0
+
+# 환경변수 로드
+python-dotenv>=1.0.0
+
+# 실시간 시장 데이터
+yfinance>=1.4.0
+

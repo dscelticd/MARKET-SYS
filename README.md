@@ -224,6 +224,70 @@ streamlit run app/dashboard.py
 
 ---
 
+## ✅ 운영 체크리스트
+
+처음 실제 운영을 시작할 때, 아래 순서로 확인하세요.
+
+### 1단계 — Mock 모드에서 동작 확인 (`.env`: `USE_MOCK_DATA=true`)
+- [ ] `python app/healthcheck.py` — 설정 오류 없는지 확인
+- [ ] `python app/main.py --report morning` — 아침 리포트 생성 확인
+- [ ] `python app/main.py --report evening` — 저녁 리포트 생성 확인
+- [ ] `streamlit run app/dashboard.py` — 대시보드에서 등급 카드 확인
+- [ ] `data/reports/` — 리포트 파일(.md, .json) 생성 여부 확인
+- [ ] `data/logs/market_flow.log` — 로그 파일 생성 여부 확인
+
+### 2단계 — 실데이터 모드 전환 (`.env`: `USE_MOCK_DATA=false`)
+- [ ] `USE_MOCK_DATA=false` 로 변경 후 저장
+- [ ] `python app/main.py --report morning` 재실행
+- [ ] 리포트 맨 아래 `[데이터 상태]` 섹션 확인
+  - 가격 데이터: 실제 N개 수집 여부
+  - 거시 지표: yfinance 실제 데이터 기준 표시 여부
+  - **신뢰도 점수 70점 이상** 확인
+- [ ] 로그에서 `[COLLECTOR_ERROR]` 또는 `[VALIDATION_WARNING]` 없는지 확인
+- [ ] 대시보드에서 "데이터 신뢰도" 사이드바 점수 확인
+
+### 3단계 — 이메일 발송 테스트
+- [ ] `.env` 에 `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_TO` 입력
+- [ ] `python app/main.py --report morning --send-email` 실행
+- [ ] 수신 이메일 확인 (스팸 폴더도 확인)
+- [ ] 실패 시 `data/logs/market_flow.log` 에서 `[EMAIL_SEND_ERROR]` 확인
+
+### 4단계 — 텔레그램 알림 테스트 (선택)
+- [ ] `@BotFather` → `/newbot` → 토큰 발급
+- [ ] 봇에 메시지 1회 전송 후 `chat_id` 확인
+- [ ] `.env` 에 `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` 입력
+- [ ] `python app/main.py --report morning` 실행 → 알림 수신 여부 확인
+  (등급 변화 또는 data_quality 급락 시에만 발송됩니다)
+- [ ] 미수신 시 로그에서 `[TELEGRAM_NOTIFY_ERROR]` 확인
+
+### 5단계 — 스케줄러 등록 (Windows 작업 스케줄러)
+- [ ] `자동실행 설정.bat` 더블클릭 (또는 아래 수동 등록)
+  ```
+  작업 스케줄러 → 기본 작업 만들기
+  → 트리거: 매일 07:00  → 동작: "스케줄러 실행.bat" 경로 입력
+  ```
+- [ ] 또는 `스케줄러 실행.bat` 수동 실행 후 07:00 / 18:30 알림 대기
+- [ ] PC 절전모드를 사용하는 경우 "절전 모드 해제 후 실행" 옵션 활성화
+
+### 6단계 — 로그 확인 위치
+```
+data/
+└── logs/
+    └── market_flow.log    ← 전체 실행 로그 (UTF-8, 누적 저장)
+```
+
+**로그 카테고리 키워드** (오류 검색 시 사용):
+| 키워드 | 의미 |
+|--------|------|
+| `[COLLECTOR_ERROR]` | 가격·뉴스·거시 데이터 수집 실패 |
+| `[VALIDATION_WARNING]` | 데이터 품질 경고, 등급 캡 적용 |
+| `[CLAUDE_API_ERROR]` | Claude API 호출 실패 |
+| `[EMAIL_SEND_ERROR]` | 이메일 발송 실패 |
+| `[TELEGRAM_NOTIFY_ERROR]` | 텔레그램 알림 실패 |
+| `[REPORT_SAVE_ERROR]` | 리포트 파일 저장 실패 |
+
+---
+
 ## 🛠️ 문제 해결
 
 ### API 키가 로드되지 않을 때

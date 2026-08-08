@@ -12,7 +12,7 @@
       "key_events_today",
       "investment_caution"
     ],
-    "max_tokens": 4096,
+    "max_tokens": 10000,
     "focus": "당일 시장 전망 및 관심종목 브리핑"
   },
   "evening_report": {
@@ -25,7 +25,7 @@
       "tomorrow_watchpoints",
       "investment_caution"
     ],
-    "max_tokens": 4096,
+    "max_tokens": 10000,
     "focus": "당일 결산 및 내일 주요 모니터링 포인트"
   },
   "rating_system": {

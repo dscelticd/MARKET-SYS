@@ -12,7 +12,11 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import logging
+import os
 import sys
+import traceback
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
@@ -32,14 +36,35 @@ except ImportError:
     pass  # python-dotenv 미설치 시 환경변수는 시스템 레벨에서 주입
 
 from app.utils.config_loader import get_config
+from app.utils.data_validator import DataValidator
+from app.utils.telegram_notifier import TelegramNotifier
 from app.collectors.price_collector import PriceCollector
 from app.collectors.news_collector import NewsCollector
 from app.collectors.macro_collector import MacroCollector
 from app.engine.signal_scorer import SignalScorer
-from app.engine.rating_analyzer import RatingAnalyzer
+from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.reports.report_builder import ReportBuilder, save_report
 from app.delivery.email_sender import EmailSender
+
+
+# ── 로깅 설정 ────────────────────────────────────────────────────────────────
+def _setup_logging() -> None:
+    """실행 로그를 data/logs/market_flow.log 에 누적 저장"""
+    log_dir = _PROJECT_ROOT / "data" / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_file = log_dir / "market_flow.log"
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s  %(levelname)-8s  %(name)s  %(message)s",
+        handlers=[
+            logging.FileHandler(log_file, encoding="utf-8"),
+            logging.StreamHandler(sys.stdout),
+        ],
+    )
+
+logger = logging.getLogger("market_flow")
 
 
 # ── 컬러 출력 헬퍼 ──────────────────────────────────────────────────────────
@@ -76,143 +101,277 @@ def print_rating(r: dict) -> None:
 # ── 파이프라인 ───────────────────────────────────────────────────────────────
 
 def run_pipeline(report_type: str, send_email: bool) -> None:
+    _setup_logging()
     date_str = datetime.now().strftime("%Y-%m-%d")
     time_str = datetime.now().strftime("%H:%M")
 
+    logger.info("파이프라인 시작 — type=%s  date=%s %s", report_type, date_str, time_str)
     print(f"\n{BOLD}🚀 Market Flow Intelligence System{RESET}")
     print(f"   리포트 유형: {report_type.upper()}  |  일시: {date_str} {time_str}")
 
-    # ── Step 1: 설정 로드 ──
-    print_section("Step 1. 설정 로드")
-    cfg = get_config()
-    stocks = cfg.watchlist.stocks
-    stock_ids = [s["id"] for s in stocks]
-    print(f"  관심종목: {len(stocks)}개 로드 완료")
-    print(f"  관심테마: {len(cfg.themes.themes)}개 로드 완료")
-    print(f"  투자성향: {cfg.user.risk_tolerance}")
+    notifier = TelegramNotifier()
 
-    # ── Step 2: Collector 실행 ──
-    import os as _os
-    use_mock = _os.getenv("USE_MOCK_DATA", "true").lower() == "true"
-    data_mode = "Mock" if use_mock else "실제 데이터 (yfinance)"
-    print_section(f"Step 2. 데이터 수집 ({data_mode})")
+    try:
+        # ── Step 1: 설정 로드 ──
+        print_section("Step 1. 설정 로드")
+        cfg = get_config()
+        stocks = cfg.watchlist.stocks
+        stock_ids = [s["id"] for s in stocks]
+        print(f"  관심종목: {len(stocks)}개 로드 완료")
+        print(f"  관심테마: {len(cfg.themes.themes)}개 로드 완료")
+        print(f"  투자성향: {cfg.user.risk_tolerance}")
+        logger.info("설정 로드 완료 — %d개 종목", len(stocks))
 
-    price_col = PriceCollector()
-    news_col  = NewsCollector()
-    macro_col = MacroCollector()
+        # ── Step 2: Collector 실행 ──
+        use_mock = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
+        data_mode = "Mock" if use_mock else "실제 데이터 (yfinance)"
+        print_section(f"Step 2. 데이터 수집 ({data_mode})")
 
-    price_data = price_col.collect(stock_ids)
-    news_data  = news_col.collect(stock_ids)
-    macro_data = macro_col.collect()
+        price_col = PriceCollector()
+        news_col  = NewsCollector()
+        macro_col = MacroCollector()
 
-    real_count = sum(1 for d in price_data.values() if not d.get("_mock"))
-    mock_count = len(price_data) - real_count
-    print(f"  가격 데이터: {len(price_data)}개 종목 (실제:{real_count} / Mock:{mock_count})")
-    print(f"  뉴스 데이터: {sum(len(v) for v in news_data.values())}건")
-    print(f"  거시 지표: {'실제' if not macro_data.get('_mock') else 'Mock'} 수집 완료")
+        try:
+            price_data = price_col.collect(stock_ids)
+        except Exception as e:
+            logger.error("[COLLECTOR_ERROR] 가격 데이터 수집 실패: %s", e)
+            raise
+        try:
+            news_data  = news_col.collect(stock_ids)
+        except Exception as e:
+            logger.error("[COLLECTOR_ERROR] 뉴스 데이터 수집 실패: %s", e)
+            raise
+        try:
+            macro_data = macro_col.collect()
+        except Exception as e:
+            logger.error("[COLLECTOR_ERROR] 거시지표 수집 실패: %s", e)
+            raise
 
-    # ── Step 3: 신호 점수 계산 ──
-    print_section("Step 3. 신호 점수 계산")
-    scorer = SignalScorer(weights=cfg.user.signal_weights)
-    theme_map = {t["id"]: t for t in cfg.themes.themes}
-    score_results = []
+        real_count = sum(1 for d in price_data.values() if not d.get("_mock"))
+        mock_count = len(price_data) - real_count
+        print(f"  가격 데이터: {len(price_data)}개 종목 (실제:{real_count} / Mock:{mock_count})")
+        print(f"  뉴스 데이터: {sum(len(v) for v in news_data.values())}건")
+        print(f"  거시 지표: {'실제' if not macro_data.get('_mock') else 'Mock'} 수집 완료")
+        logger.info("데이터 수집 완료 — 가격:%d(실제%d/Mock%d) 뉴스:%d건",
+                    len(price_data), real_count, mock_count,
+                    sum(len(v) for v in news_data.values()))
 
-    for stock in stocks:
-        sid = stock["id"]
-        sr = scorer.score(
-            stock_info=stock,
-            price_data=price_data.get(sid, {}),
-            news_data=news_data.get(sid, []),
-            macro_data=macro_data,
-            theme_config=theme_map,
-        )
-        score_results.append(sr)
+        # ── Step 2-1: 데이터 품질 검증 ──
+        print_section("Step 2-1. 데이터 품질 검증")
+        validator       = DataValidator()
+        data_quality    = validator.validate(price_data, news_data, macro_data, stocks)
+        conf            = data_quality["overall"]["confidence"]
+        status          = data_quality["overall"]["status"]
+        issues          = data_quality["overall"]["issues"]
+        critical_error  = data_quality["overall"].get("critical_data_error", False)
+        critical_reasons = data_quality["overall"].get("critical_error_reasons", [])
+        print(f"  데이터 신뢰도: {conf:.0f}점 ({status})")
+        if critical_error:
+            print(f"  🚨 치명적 데이터 오류 감지 — 지수·ETF·대형주 모순으로 시장 판단 보류")
+            for reason in critical_reasons:
+                print(f"     - {reason}")
+                logger.error("[CRITICAL_DATA_ERROR] %s", reason)
+        if issues:
+            for iss in issues:
+                print(f"  ⚠️  {iss}")
+                logger.warning("[VALIDATION_WARNING] %s", iss)
+        logger.info("데이터 품질 — 신뢰도:%.0f점 (%s)  이슈:%d건  치명적오류:%s",
+                    conf, status, len(issues), critical_error)
 
-    print(f"  신호 점수 계산 완료: {len(score_results)}개 종목")
+        # 치명적 오류 시 공포탐욕 지수 산출 보류 — 단일 지표 오류가 시장 심리
+        # 판단 전체를 오염시키지 않도록 방어
+        if critical_error:
+            sentiment = macro_data.setdefault("sentiment", {})
+            sentiment["fear_greed_index"] = {"value": None, "label": "판단보류"}
+            sentiment["_fear_greed_suppressed"] = True
+            sentiment["_fear_greed_suppressed_reason"] = "지수 데이터 이상 감지"
 
-    # ── Step 4: 등급 산정 ──
-    print_section("Step 4. 투자 판단 보조 등급 산정")
-    analyzer = RatingAnalyzer()
-    rating_results = analyzer.analyze_batch(score_results, stocks)
-    rating_dicts   = [r.to_dict() for r in rating_results]
+        # ── Step 3: 신호 점수 계산 ──
+        print_section("Step 3. 신호 점수 계산")
+        scorer = SignalScorer(weights=cfg.user.signal_weights)
+        theme_map = {t["id"]: t for t in cfg.themes.themes}
+        score_results = []
 
-    # 표시 순서 적용
-    order_map = {sid: i for i, sid in enumerate(cfg.user.display_order)}
-    rating_dicts.sort(key=lambda r: order_map.get(r["stock_id"], 999))
+        for stock in stocks:
+            sid = stock["id"]
+            sr = scorer.score(
+                stock_info=stock,
+                price_data=price_data.get(sid, {}),
+                news_data=news_data.get(sid, []),
+                macro_data=macro_data,
+                theme_config=theme_map,
+            )
+            score_results.append(sr)
 
-    dist = analyzer.grade_distribution(rating_results)
-    print(f"  등급 분포: {' | '.join(f'{g}: {n}개' for g, n in dist.items() if n > 0)}")
-    print()
-    for r in rating_dicts:
-        print_rating(r)
+        print(f"  신호 점수 계산 완료: {len(score_results)}개 종목")
 
-    # ── Step 4-1: 히스토리 저장 & 변화 감지 ──
-    tracker = HistoryTracker()
-    changes = tracker.get_changes(rating_dicts, report_type)
-    changed = [c for c in changes if c["direction"] in ("상승", "하락")]
-    if changed:
-        print(f"\n  [{CHANGE_EMOJI['상승']} 등급 변화 감지: {len(changed)}개]")
-        for c in changed:
-            arrow = CHANGE_EMOJI[c["direction"]]
-            print(f"    {arrow} {c['name']:16s}  {c['prev_grade']} → {c['curr_grade']}  ({c['score_delta']:+.0f}점)")
-    tracker.save_today(rating_dicts, report_type)
+        # ── Step 4: 등급 산정 ──
+        print_section("Step 4. 투자 판단 보조 등급 산정")
+        analyzer = RatingAnalyzer()
+        rating_results = analyzer.analyze_batch(score_results, stocks)
+        rating_dicts   = [r.to_dict() for r in rating_results]
 
-    # ── Step 5: Claude API 리포트 생성 ──
-    print_section("Step 5. 리포트 생성")
-    builder = ReportBuilder()
+        # 표시 순서 적용
+        order_map = {sid: i for i, sid in enumerate(cfg.user.display_order)}
+        rating_dicts.sort(key=lambda r: order_map.get(r["stock_id"], 999))
 
-    if report_type == "morning":
-        print("  아침 브리핑 리포트 생성 중...")
-        report_content = builder.build_morning_report(
+        # ── Step 4-1: data_quality 기반 등급 캡 적용 ──
+        rating_dicts = apply_grade_cap(rating_dicts, conf, critical_data_error=critical_error)
+        capped = [r for r in rating_dicts if r.get("grade_capped")]
+        if capped:
+            print(f"  ⚠️  등급 제한 적용: {len(capped)}개 종목")
+            for r in capped:
+                print(f"     {r['name']}: {r['raw_grade']} → {r['grade']}  ({r['cap_reason']})")
+                logger.warning("[VALIDATION_WARNING] 등급 캡 적용 — %s: %s→%s (%s)",
+                               r["name"], r["raw_grade"], r["grade"], r["cap_reason"])
+
+        # 등급 캡 적용 후(rating_dicts) 기준 분포 — rating_results는 캡 적용 전 원본이라 사용하지 않음
+        dist = Counter(r["grade"] for r in rating_dicts)
+        dist_str = " | ".join(f"{g}: {n}개" for g, n in dist.items() if n > 0)
+        print(f"  등급 분포 (final): {dist_str}")
+        print()
+        for r in rating_dicts:
+            print_rating(r)
+        logger.info("등급 산정 완료 — %s", dist_str)
+
+        # ── Step 4-2: 히스토리 저장 & 변화 감지 ──
+        tracker = HistoryTracker()
+        prev_quality = tracker.get_previous_quality(report_type)
+        changes = tracker.get_changes(rating_dicts, report_type)
+        changed = [c for c in changes if c["direction"] in ("상승", "하락")]
+        if changed:
+            print(f"\n  [{CHANGE_EMOJI['상승']} 등급 변화 감지: {len(changed)}개]")
+            for c in changed:
+                arrow = CHANGE_EMOJI[c["direction"]]
+                print(f"    {arrow} {c['name']:16s}  {c['prev_grade']} → {c['curr_grade']}  ({c['score_delta']:+.0f}점)")
+        tracker.save_today(
+            rating_dicts, report_type,
             price_data=price_data,
             news_data=news_data,
-            macro_data=macro_data,
-            ratings=rating_dicts,
-            report_date=date_str,
-            grade_changes=changes,
+            data_quality=data_quality,
         )
-    else:
-        print("  저녁 결산 리포트 생성 중...")
-        report_content = builder.build_evening_report(
-            price_data=price_data,
-            news_data=news_data,
-            macro_data=macro_data,
-            ratings=rating_dicts,
-            report_date=date_str,
-            grade_changes=changes,
+        logger.info("이력 저장 완료")
+
+        # ── Step 4-3: 텔레그램 알림 (치명적 오류 + 등급 변화 + 품질 급락) ──
+        if notifier.is_configured():
+            try:
+                if critical_error:
+                    notifier.notify_critical_data_error(critical_reasons, report_type)
+                    print(f"  📱 텔레그램 치명적 데이터 오류 알림 발송")
+                    logger.error("[CRITICAL_DATA_ERROR] 텔레그램 긴급 알림 발송")
+
+                sent = notifier.notify_grade_changes(
+                    changes, data_confidence=conf, report_type=report_type
+                )
+                if sent:
+                    print(f"  📱 텔레그램 등급 변화 알림 발송")
+                    logger.info("텔레그램 등급 변화 알림 발송")
+
+                # 품질 급락 알림
+                dropped = notifier.notify_quality_drop(conf, prev_quality, report_type)
+                if dropped:
+                    print(f"  📱 텔레그램 품질 급락 알림 발송")
+                    logger.warning("[VALIDATION_WARNING] 텔레그램 품질 급락 알림 발송 — %.0f점", conf)
+            except Exception as e:
+                logger.error("[TELEGRAM_NOTIFY_ERROR] 텔레그램 알림 실패: %s", e)
+
+        # ── Step 5: Claude API 리포트 생성 ──
+        print_section("Step 5. 리포트 생성")
+        builder = ReportBuilder()
+
+        try:
+            if report_type == "morning":
+                print("  아침 브리핑 리포트 생성 중...")
+                report_content = builder.build_morning_report(
+                    price_data=price_data,
+                    news_data=news_data,
+                    macro_data=macro_data,
+                    ratings=rating_dicts,
+                    report_date=date_str,
+                    grade_changes=changes,
+                    data_quality=data_quality,
+                )
+            else:
+                print("  저녁 결산 리포트 생성 중...")
+                report_content = builder.build_evening_report(
+                    price_data=price_data,
+                    news_data=news_data,
+                    macro_data=macro_data,
+                    ratings=rating_dicts,
+                    report_date=date_str,
+                    grade_changes=changes,
+                    data_quality=data_quality,
+                )
+            print("  리포트 생성 완료")
+            logger.info("리포트 생성 완료")
+        except Exception as e:
+            logger.error("[CLAUDE_API_ERROR] 리포트 생성 실패: %s", e)
+            raise
+
+        # ── Step 6: 리포트 저장 ──
+        print_section("Step 6. 리포트 저장")
+        save_dir = cfg.report_save_dir()
+        try:
+            saved_path = save_report(report_content, report_type, save_dir)
+            print(f"  저장 완료: {saved_path}")
+        except Exception as e:
+            logger.error("[REPORT_SAVE_ERROR] 리포트 파일 저장 실패: %s", e)
+            raise
+
+        # 등급 JSON도 함께 저장 (대시보드 참조용)
+        date_prefix = datetime.now().strftime("%Y%m%d")
+        json_path = save_dir / f"{date_prefix}_{report_type}_ratings.json"
+        # 뉴스 요약: 파일 크기 제한을 위해 종목당 최대 3건만 저장
+        news_summary = {k: v[:3] for k, v in news_data.items() if v}
+        json_path.write_text(
+            json.dumps(
+                {
+                    "date": date_str,
+                    "type": report_type,
+                    "ratings": rating_dicts,
+                    "macro": macro_data,
+                    "data_quality": data_quality,
+                    "price": price_data,
+                    "news": news_summary,
+                    "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
+                },
+                ensure_ascii=False, indent=2,
+            ),
+            encoding="utf-8",
         )
-    print("  리포트 생성 완료")
+        print(f"  등급 JSON 저장: {json_path}")
+        logger.info("파일 저장 완료 — %s", saved_path)
 
-    # ── Step 6: 리포트 저장 ──
-    print_section("Step 6. 리포트 저장")
-    save_dir = cfg.report_save_dir()
-    saved_path = save_report(report_content, report_type, save_dir)
-    print(f"  저장 완료: {saved_path}")
+        # ── Step 7: 이메일 발송 (옵션) ──
+        if send_email:
+            print_section("Step 7. 이메일 발송")
+            sender = EmailSender()
+            if sender.is_configured():
+                try:
+                    sender.send_report(
+                        report_type, report_content, date_str,
+                        news_data=news_data, ratings=rating_dicts,
+                    )
+                    logger.info("이메일 발송 완료")
+                except Exception as e:
+                    logger.error("[EMAIL_SEND_ERROR] 이메일 발송 실패: %s", e)
+                    print(f"  ❌ 이메일 발송 실패: {e}")
+            else:
+                print("  ⚠️  이메일 설정 미완료 — .env에 SMTP 정보를 입력하세요.")
 
-    # 등급 JSON도 함께 저장 (대시보드 참조용)
-    date_prefix = datetime.now().strftime("%Y%m%d")
-    json_path = save_dir / f"{date_prefix}_{report_type}_ratings.json"
-    json_path.write_text(
-        json.dumps(
-            {"date": date_str, "type": report_type, "ratings": rating_dicts, "macro": macro_data},
-            ensure_ascii=False, indent=2
-        ),
-        encoding="utf-8",
-    )
-    print(f"  등급 JSON 저장: {json_path}")
+        # ── 완료 ──
+        print(f"\n{BOLD}✅ Market Flow {report_type.upper()} 리포트 완료{RESET}")
+        print(f"   데이터 신뢰도: {conf:.0f}점 ({status})")
+        print(f"   리포트 파일: {saved_path}\n")
+        logger.info("파이프라인 완료 ✅")
 
-    # ── Step 7: 이메일 발송 (옵션) ──
-    if send_email:
-        print_section("Step 7. 이메일 발송")
-        sender = EmailSender()
-        if sender.is_configured():
-            sender.send_report(report_type, report_content, date_str)
-        else:
-            print("  ⚠️  이메일 설정 미완료 — .env에 SMTP 정보를 입력하세요.")
-
-    # ── 완료 ──
-    print(f"\n{BOLD}✅ Market Flow {report_type.upper()} 리포트 완료{RESET}")
-    print(f"   리포트 파일: {saved_path}\n")
+    except Exception as exc:
+        tb = traceback.format_exc()
+        logger.error("파이프라인 실패 ❌\n%s", tb)
+        print(f"\n{BOLD}❌ 오류 발생: {exc}{RESET}")
+        if notifier.is_configured():
+            notifier.notify_error(str(exc), report_type)
+        raise
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────
@@ -244,6 +403,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    _setup_logging()
     run_pipeline(report_type=args.report, send_email=args.send_email)
 
 
