@@ -105,6 +105,10 @@ def _format_technical_block(price_data: dict[str, dict]) -> str:
             if hist is not None:
                 parts.append(f"MACD히스토그램={'↑' if hist > 0 else '↓'}({hist:+.2f})")
 
+        candle = p.get("candle_pattern") or {}
+        if candle.get("pattern"):
+            parts.append(f"당일캔들={candle['pattern']}({candle.get('direction', '')})")
+
         if analyst and analyst.get("target_mean"):
             upside = analyst.get("upside_pct")
             rec    = analyst.get("recommendation", "")
