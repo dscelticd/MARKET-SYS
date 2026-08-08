@@ -23,11 +23,18 @@ _ATTENTION_GRADES = {"추천", "위험", "판단보류"}
 
 
 def select_attention_stocks(ratings: list[dict], grade_changes: list[dict] | None = None) -> list[str]:
-    """차트를 첨부할 "주목 종목" stock_id 목록 (rating 표시 순서 유지)"""
+    """차트를 첨부할 "주목 종목" stock_id 목록 (rating 표시 순서 유지).
+    판단보류 진입/복원(critical_data_error 등 데이터 품질 이벤트)으로 인한 등급 변화는
+    종목 고유의 신호 변화가 아니므로 제외 — 그렇지 않으면 판단보류가 한꺼번에 정상
+    등급으로 복원되는 시점에 전종목이 "등급 변화"로 잡혀 이 필터 자체가 무력화된다.
+    """
     ids = {r["stock_id"] for r in ratings if r.get("grade") in _ATTENTION_GRADES}
     for c in (grade_changes or []):
-        if c.get("direction") in ("상승", "하락") and c.get("stock_id"):
-            ids.add(c["stock_id"])
+        if c.get("direction") not in ("상승", "하락") or not c.get("stock_id"):
+            continue
+        if c.get("prev_grade") == "판단보류" or c.get("curr_grade") == "판단보류":
+            continue
+        ids.add(c["stock_id"])
     return [r["stock_id"] for r in ratings if r["stock_id"] in ids]
 
 

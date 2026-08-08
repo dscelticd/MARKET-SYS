@@ -56,6 +56,24 @@ def test_select_attention_stocks_includes_graded_changes():
     assert selected == ["A"]  # B는 "유지"라 제외
 
 
+def test_select_attention_stocks_excludes_judgement_pending_recovery():
+    """판단보류 → 정상 등급으로 전종목이 한꺼번에 복원될 때 필터가 무력화되면 안 됨
+    (실제 발생한 회귀: critical_data_error 해제 시 18개 종목이 전부 "등급 변화"로
+    잡혀 주목 종목 제한 없이 전종목 차트가 첨부됨)
+    """
+    ratings = [
+        {"stock_id": "A", "name": "A사", "grade": "보통"},
+        {"stock_id": "B", "name": "B사", "grade": "안전"},
+        {"stock_id": "C", "name": "C사", "grade": "추천"},
+    ]
+    changes = [
+        {"stock_id": "A", "direction": "상승", "prev_grade": "판단보류", "curr_grade": "보통"},
+        {"stock_id": "B", "direction": "상승", "prev_grade": "판단보류", "curr_grade": "안전"},
+    ]
+    selected = select_attention_stocks(ratings, changes)
+    assert selected == ["C"]  # C는 추천 등급이라 포함, A/B는 판단보류 복원이라 제외
+
+
 def test_select_attention_stocks_preserves_ratings_order():
     ratings = [
         {"stock_id": "Z", "name": "Z사", "grade": "위험"},
