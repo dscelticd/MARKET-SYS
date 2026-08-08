@@ -150,7 +150,10 @@ class SignalScorer:
         sector = stock.get("sector", "")
 
         ai_cycle = sentiment.get("ai_capex_cycle", "보합")
-        if ai_cycle == "강한 상승" and ("AI" in stock.get("themes", []) or "반도체" in stock.get("themes", [])):
+        # "AI 인프라"는 광통신/전력 종목들의 실제 태그 — "AI" 단독 매칭 시 누락되어 함께 확인
+        if ai_cycle == "강한 상승" and any(
+            t in stock.get("themes", []) for t in ("AI", "AI 인프라", "반도체")
+        ):
             score += 15
         elif ai_cycle == "완만한 상승":
             score += 7
@@ -432,7 +435,9 @@ class SignalScorer:
         sentiment = macro.get("sentiment", {})
         ai_cycle = sentiment.get("ai_capex_cycle", "보합")
         semi_cycle = sentiment.get("semiconductor_cycle", "")
-        if ai_cycle in ("강한 상승",) and "AI" in stock.get("themes", []):
+        if ai_cycle in ("강한 상승",) and any(
+            t in stock.get("themes", []) for t in ("AI", "AI 인프라")
+        ):
             positives.append(f"AI CapEx 사이클 '{ai_cycle}' — 테마 수혜")
         if semi_cycle and "업사이클" in semi_cycle and "반도체" in stock.get("sector", ""):
             positives.append(f"반도체 사이클 '{semi_cycle}' — 업사이클 구간")
