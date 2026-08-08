@@ -190,9 +190,12 @@ def _markdown_to_html_body(md: str) -> str:
         if re.match(r"^\d+\. ", stripped):
             items = []
             while i < len(lines) and re.match(r"^\d+\. ", lines[i].strip()):
+                # 백슬래시 포함 정규식은 f-string 표현식({}) 밖에서 미리 계산
+                # (Python 3.11 이하는 f-string 표현식 내 백슬래시를 허용하지 않음)
+                item_text = re.sub(r"^\d+\. ", "", lines[i].strip())
                 items.append(
                     f'<li style="margin:3px 0;color:#374151;">'
-                    f"{_inline(re.sub(r'^\d+\. ', '', lines[i].strip()))}</li>"
+                    f"{_inline(item_text)}</li>"
                 )
                 i += 1
             parts.append(
