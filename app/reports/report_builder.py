@@ -178,6 +178,31 @@ def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
+    """외국인/기관/개인(추정) 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님)"""
+    lines = []
+    for sid, p in price_data.items():
+        flow = p.get("investor_flow") or {}
+        if not flow:
+            continue
+
+        parts = [f"{p['name']}"]
+        for days in (5, 20):
+            frgn = flow.get(f"foreign_net_{days}d")
+            inst = flow.get(f"institution_net_{days}d")
+            indiv = flow.get(f"individual_net_{days}d_est")
+            if frgn is None or inst is None:
+                continue
+            parts.append(
+                f"{days}일누적 외국인{frgn:+,}주·기관{inst:+,}주·개인(추정){indiv:+,}주"
+            )
+        lines.append("  " + " | ".join(parts))
+
+    if not lines:
+        return "(수급 데이터 없음 — 해외 종목은 외국인/기관/개인 구분 데이터가 제공되지 않음)"
+    return "\n".join(lines)
+
+
 def _format_rating_block(ratings: list[dict]) -> str:
     lines = []
     for r in ratings:
@@ -282,6 +307,7 @@ class ReportBuilder:
 
         technical_block = _format_technical_block(price_data)
         sr_block = _format_support_resistance_block(price_data)
+        flow_block = _format_investor_flow_block(price_data)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -295,6 +321,9 @@ class ReportBuilder:
 
 ## 지지/저항 박스 · 손익비 · 조건부 시나리오 (예측 아님 — 조건 충족 시 참고할 자리)
 {sr_block}
+
+## 수급 동향 (외국인/기관/개인 순매매, KR 종목만 — 참고용)
+{flow_block}
 
 ## 투자 판단 보조 등급 요약
 {_format_rating_block(ratings)}
@@ -325,6 +354,11 @@ class ReportBuilder:
 - 손익비가 낮은(2.0 미만) 종목은 "현재 가격대는 손익비 기준으로 신규 진입을 서두를 근거가 약한 구간" 정도로만 언급하고, 특정 행동을 지시하지 마세요.
 - 저항/지지가 확인되지 않은 종목(신고가·신저가 구간)은 그 사실 자체를 있는 그대로 서술하세요.
 
+## 수급 서술 규칙 (중요)
+- 수급(외국인/기관/개인 순매매)은 매매 신호가 아닌 참고 정보로만 서술하세요.
+- "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
+- 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -346,6 +380,7 @@ class ReportBuilder:
 
         technical_block = _format_technical_block(price_data)
         sr_block = _format_support_resistance_block(price_data)
+        flow_block = _format_investor_flow_block(price_data)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -359,6 +394,9 @@ class ReportBuilder:
 
 ## 지지/저항 박스 · 손익비 · 조건부 시나리오 (예측 아님 — 조건 충족 시 참고할 자리)
 {sr_block}
+
+## 수급 동향 (외국인/기관/개인 순매매, KR 종목만 — 참고용)
+{flow_block}
 
 ## 투자 판단 보조 등급 결산
 {_format_rating_block(ratings)}
@@ -388,6 +426,11 @@ class ReportBuilder:
 - 지지/저항·손익비 정보는 "매수/매도하라"가 아니라 "이 조건이 뜨면 ~검토할 수 있는 자리" 형태의 조건부 참고로만 서술하세요.
 - 손익비가 낮은(2.0 미만) 종목은 "현재 가격대는 손익비 기준으로 신규 진입을 서두를 근거가 약한 구간" 정도로만 언급하고, 특정 행동을 지시하지 마세요.
 - 저항/지지가 확인되지 않은 종목(신고가·신저가 구간)은 그 사실 자체를 있는 그대로 서술하세요.
+
+## 수급 서술 규칙 (중요)
+- 수급(외국인/기관/개인 순매매)은 매매 신호가 아닌 참고 정보로만 서술하세요.
+- "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
+- 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

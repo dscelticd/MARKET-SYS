@@ -2181,6 +2181,30 @@ def main():
                         unsafe_allow_html=True,
                     )
 
+            # ── 수급 동향 (외국인/기관/개인 추정 순매매, KR 종목만) ────────────
+            _flow = (_pi or {}).get("investor_flow") or {}
+            if _flow:
+                st.divider()
+                st.markdown(
+                    '**💹 수급 동향** '
+                    '<span style="font-size:0.75em;color:#9ca3af;">'
+                    '(참고용 — 개인은 외국인·기관 합산 잔차 추정치)</span>',
+                    unsafe_allow_html=True,
+                )
+                fc_a, fc_b = st.columns(2)
+                for _col, _days in ((fc_a, 5), (fc_b, 20)):
+                    _frgn  = _flow.get(f"foreign_net_{_days}d")
+                    _inst  = _flow.get(f"institution_net_{_days}d")
+                    _indiv = _flow.get(f"individual_net_{_days}d_est")
+                    if _frgn is None:
+                        continue
+                    _col.markdown(f"**{_days}일 누적**")
+                    _col.markdown(
+                        f"외국인 {'🔵' if _frgn >= 0 else '🔴'} {_frgn:+,}주  \n"
+                        f"기관 {'🔵' if _inst >= 0 else '🔴'} {_inst:+,}주  \n"
+                        f"개인(추정) {'🔵' if _indiv >= 0 else '🔴'} {_indiv:+,}주"
+                    )
+
             st.divider()
 
             # 긍정·부정·확인 요인

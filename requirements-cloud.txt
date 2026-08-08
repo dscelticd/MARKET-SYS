@@ -10,3 +10,7 @@ python-dotenv>=1.0.0
 # 실시간 시장 데이터
 yfinance>=1.4.0
 
+# 수급(외국인/기관/개인 순매매) 데이터 — 네이버 금융 스크래핑
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+

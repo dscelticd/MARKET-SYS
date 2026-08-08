@@ -9,9 +9,16 @@ from __future__ import annotations
 import logging
 import os
 import random
+import re
 from datetime import datetime
 
+import requests
+from bs4 import BeautifulSoup
+
 logger = logging.getLogger(__name__)
+
+# 수급(외국인/기관/개인 순매매) 데이터 소스 — 네이버 금융 (비공식, 구조 변경 시 실패 가능 → Mock 폴백)
+_NAVER_FRGN_URL = "https://finance.naver.com/item/frgn.naver"
 
 # ETF 및 한국 종목은 야후 애널리스트 데이터 제공이 불안정 → 건너뜀
 _SKIP_ANALYST_SYMBOLS  = {"QQQ", "VOO", "QTUM", "SCHD"}
@@ -209,6 +216,78 @@ def _mock_support_resistance(price: float) -> dict:
     }
 
 
+def _parse_frgn_table(html: str) -> list[dict]:
+    """네이버 금융 frgn.naver 페이지에서 일별 기관/외국인 순매매량(주식수)을 최신순으로 파싱.
+    구조 식별은 텍스트가 아닌 테이블 속성(width=680, class=type2)으로 — 페이지 내 다른 type2
+    테이블(매도/매수 상위 종목 등)과 혼동되지 않도록 함.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    table = soup.find("table", attrs={"width": "680", "class": "type2"})
+    if table is None:
+        return []
+    rows = []
+    for tr in table.find_all("tr"):
+        tds = tr.find_all("td")
+        if len(tds) != 9:
+            continue
+        date_text = tds[0].get_text(strip=True)
+        if not re.match(r"^\d{4}\.\d{2}\.\d{2}$", date_text):
+            continue
+        try:
+            institution_net = int(tds[5].get_text(strip=True).replace(",", ""))
+            foreign_net = int(tds[6].get_text(strip=True).replace(",", ""))
+        except ValueError:
+            continue
+        rows.append({"institution_net": institution_net, "foreign_net": foreign_net})
+    return rows
+
+
+def _summarize_investor_flow(daily_rows: list[dict]) -> dict:
+    """일별 수급(최신순 리스트) → 3/5/10/20일 누적 순매매량(주식수) 요약.
+    개인 순매매는 KRX가 별도 집계하지 않아 -(기관+외국인)으로 추정(기타법인 등 오차 존재 — 참고용).
+    """
+    result: dict = {"_mock": False}
+    for days in (3, 5, 10, 20):
+        window = daily_rows[:days]
+        if not window:
+            continue
+        inst_sum = sum(r["institution_net"] for r in window)
+        frgn_sum = sum(r["foreign_net"] for r in window)
+        result[f"institution_net_{days}d"] = inst_sum
+        result[f"foreign_net_{days}d"] = frgn_sum
+        result[f"individual_net_{days}d_est"] = -(inst_sum + frgn_sum)
+    return result
+
+
+def _fetch_investor_flow(ticker: str) -> dict:
+    """KR 종목의 외국인/기관 순매매 수급 데이터 수집 (네이버 금융 — 비공식 소스).
+    실패(구조 변경·네트워크 오류·데이터 부족) 시 예외를 던져 호출부에서 Mock 폴백 처리.
+    """
+    resp = requests.get(
+        _NAVER_FRGN_URL,
+        params={"code": ticker, "page": 1},
+        headers={"User-Agent": "Mozilla/5.0"},
+        timeout=10,
+    )
+    resp.encoding = "euc-kr"
+    daily_rows = _parse_frgn_table(resp.text)
+    if len(daily_rows) < 3:
+        raise ValueError(f"수급 데이터 파싱 실패 또는 부족 (rows={len(daily_rows)})")
+    return _summarize_investor_flow(daily_rows)
+
+
+def _mock_investor_flow() -> dict:
+    """Mock 모드 / 실데이터 수집 실패 시 합성 수급 데이터"""
+    result: dict = {"_mock": True}
+    for days in (3, 5, 10, 20):
+        inst = random.randint(-2_000_000, 2_000_000)
+        frgn = random.randint(-3_000_000, 3_000_000)
+        result[f"institution_net_{days}d"] = inst
+        result[f"foreign_net_{days}d"] = frgn
+        result[f"individual_net_{days}d_est"] = -(inst + frgn)
+    return result
+
+
 def _fetch_analyst_data(ticker_obj, sym: str, current_price: float) -> dict:
     """애널리스트 목표주가·추천등급 수집 (ETF·한국 종목 제외)"""
     if sym in _SKIP_ANALYST_SYMBOLS or any(sym.endswith(s) for s in _SKIP_ANALYST_SUFFIXES):
@@ -356,6 +435,15 @@ class PriceCollector:
                 # ticker 표시용 정리 (.KS/.KQ 제거)
                 display_ticker = sym.replace(".KS", "").replace(".KQ", "")
 
+                # 수급(외국인/기관/개인 순매매) — KRX 시장 구조상 KR 종목에만 존재
+                investor_flow: dict = {}
+                if sid.startswith("KR_"):
+                    try:
+                        investor_flow = _fetch_investor_flow(display_ticker)
+                    except Exception as e:
+                        logger.debug("수급 데이터 수집 실패 (%s): %s → Mock 폴백", sid, e)
+                        investor_flow = _mock_investor_flow()
+
                 result[sid] = {
                     "stock_id":      sid,
                     "ticker":        display_ticker,
@@ -376,6 +464,7 @@ class PriceCollector:
                     "technical":     technical,
                     "analyst":       analyst,
                     "support_resistance": support_resistance,
+                    "investor_flow": investor_flow,
                 }
             except Exception as e:
                 logger.warning(f"{sid}({sym}) 실제 데이터 실패: {e} → Mock 폴백")
@@ -446,5 +535,6 @@ class PriceCollector:
                 "technical": technical,
                 "analyst":   analyst,
                 "support_resistance": _mock_support_resistance(price),
+                "investor_flow": _mock_investor_flow() if sid.startswith("KR_") else {},
             }
         return result
