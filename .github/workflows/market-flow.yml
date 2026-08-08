@@ -108,7 +108,9 @@ jobs:
         run: |
           python - <<'PYEOF'
           import os
-          from dotenv import load_dotenv; load_dotenv()
+          # heredoc(python -)로 실행하면 호출자 프레임이 없어 find_dotenv()의
+          # 프레임 검사가 AssertionError를 냄 -> 경로를 명시해 우회
+          from dotenv import load_dotenv; load_dotenv(".env")
           from app.utils.telegram_notifier import TelegramNotifier
           n = TelegramNotifier()
           n.notify_error(
