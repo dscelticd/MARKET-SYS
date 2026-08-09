@@ -12,7 +12,9 @@ requests>=2.31.0
 beautifulsoup4>=4.12.0
 
 # 캔들차트 이미지 생성 (주목 종목 이메일 첨부용)
-mplfinance>=0.12.10
+# mplfinance는 PyPI에 정식(stable) 릴리즈가 없고 전부 알파/베타 태그만 존재 —
+# 정식 버전을 요구하면 설치가 실패하므로 하한을 프리릴리스 태그로 지정
+mplfinance>=0.12.10b0
 
 # 스케줄러
 schedule>=1.2.0
