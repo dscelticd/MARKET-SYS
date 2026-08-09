@@ -75,6 +75,31 @@ def test_select_attention_stocks_excludes_judgement_pending_recovery():
     assert selected == ["C"]  # C는 추천 등급이라 포함, A/B는 판단보류 복원이라 제외
 
 
+def test_select_attention_stocks_includes_large_daily_movers():
+    """등급이 안전/보통이어도 당일 등락률 ±5% 이상이면 주목 종목에 포함되어야 함
+    (실제 발생한 문제: COHR +13.44%, 오이솔루션 +18.53% 등 급등에도 등급이 여러
+    요소로 상쇄돼 "안전"에 머물러 차트가 하나도 첨부되지 않았음)
+    """
+    ratings = [
+        {"stock_id": "A", "name": "A사", "grade": "안전"},
+        {"stock_id": "B", "name": "B사", "grade": "보통"},
+        {"stock_id": "C", "name": "C사", "grade": "안전"},
+    ]
+    price_data = {
+        "A": {"change_pct": 13.44},
+        "B": {"change_pct": -4.88},   # 5% 미만 → 제외
+        "C": {"change_pct": -18.53},
+    }
+    selected = select_attention_stocks(ratings, price_data=price_data)
+    assert selected == ["A", "C"]
+
+
+def test_select_attention_stocks_ignores_missing_change_pct():
+    ratings = [{"stock_id": "A", "name": "A사", "grade": "안전"}]
+    price_data = {"A": {}}  # change_pct 없음
+    assert select_attention_stocks(ratings, price_data=price_data) == []
+
+
 def test_select_attention_stocks_preserves_ratings_order():
     ratings = [
         {"stock_id": "Z", "name": "Z사", "grade": "위험"},

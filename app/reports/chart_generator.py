@@ -2,7 +2,10 @@
 캔들차트 이미지 생성 — 일봉(90봉)·주봉 + MA5/20/60/120 + 볼린저밴드
 
 이메일 용량·발송 시간·스팸 필터링 위험을 고려해 전 종목이 아닌 "주목 종목"
-(등급 추천/위험/판단보류 이거나 당일 등급 변화가 있는 종목)에만 차트를 첨부한다.
+(등급 추천/위험/판단보류 · 당일 등급 변화 · 당일 등락률 ±5% 이상 급등락)에만
+차트를 첨부한다. 등급만으로는 리스크 점수 등 여러 요소가 상쇄돼 큰 폭으로
+급등락한 날에도 "안전/보통"으로 분류되어 차트가 하나도 안 붙는 경우가 실제
+발생함 — 등급 기준에 급등락 기준을 추가로 보완함.
 Mock 모드에서는 실제 캔들 이력이 없어 합성 데이터가 실제처럼 오인될 수 있으므로
 차트 생성을 생략한다.
 """
@@ -25,6 +28,7 @@ logging.getLogger("matplotlib.font_manager").setLevel(logging.ERROR)
 
 _MA_COLORS = {5: "#2563eb", 20: "#f59e0b", 60: "#16a34a", 120: "#dc2626"}
 _ATTENTION_GRADES = {"추천", "위험", "판단보류"}
+_ATTENTION_MOVE_PCT = 5.0  # 당일 등락률이 이 값 이상(절대값)이면 등급과 무관하게 주목 종목에 포함
 
 # 한글 렌더링용 폰트 후보 — Windows(Malgun Gothic), GitHub Actions(Ubuntu, fonts-nanum
 # 워크플로에서 설치), macOS(AppleGothic) 순으로 시도, 전부 없으면 DejaVu Sans로 폴백
@@ -54,11 +58,18 @@ def _get_korean_style():
     return _korean_style
 
 
-def select_attention_stocks(ratings: list[dict], grade_changes: list[dict] | None = None) -> list[str]:
+def select_attention_stocks(
+    ratings: list[dict],
+    grade_changes: list[dict] | None = None,
+    price_data: dict[str, dict] | None = None,
+) -> list[str]:
     """차트를 첨부할 "주목 종목" stock_id 목록 (rating 표시 순서 유지).
     판단보류 진입/복원(critical_data_error 등 데이터 품질 이벤트)으로 인한 등급 변화는
     종목 고유의 신호 변화가 아니므로 제외 — 그렇지 않으면 판단보류가 한꺼번에 정상
     등급으로 복원되는 시점에 전종목이 "등급 변화"로 잡혀 이 필터 자체가 무력화된다.
+    당일 등락률이 ±5%(_ATTENTION_MOVE_PCT) 이상이면 등급과 무관하게 포함 — 리스크
+    점수 등 다른 요소에 상쇄돼 급등락에도 등급이 "안전/보통"에 머무는 경우가 있어
+    등급 기준만으로는 정작 주목해야 할 날에 차트가 하나도 안 붙는 문제가 있었다.
     """
     ids = {r["stock_id"] for r in ratings if r.get("grade") in _ATTENTION_GRADES}
     for c in (grade_changes or []):
@@ -67,6 +78,10 @@ def select_attention_stocks(ratings: list[dict], grade_changes: list[dict] | Non
         if c.get("prev_grade") == "판단보류" or c.get("curr_grade") == "판단보류":
             continue
         ids.add(c["stock_id"])
+    for sid, p in (price_data or {}).items():
+        chg = p.get("change_pct")
+        if chg is not None and abs(chg) >= _ATTENTION_MOVE_PCT:
+            ids.add(sid)
     return [r["stock_id"] for r in ratings if r["stock_id"] in ids]
 
 
@@ -163,15 +178,20 @@ def generate_stock_charts(stock_id: str) -> dict:
     return result
 
 
-def generate_report_charts(ratings: list[dict], grade_changes: list[dict] | None = None) -> list[dict]:
-    """주목 종목(추천/위험/판단보류 또는 당일 등급 변화)의 차트를 생성해 이메일 첨부용
-    리스트로 반환: [{"stock_id", "name", "daily": bytes|None, "weekly": bytes|None}, ...]
+def generate_report_charts(
+    ratings: list[dict],
+    grade_changes: list[dict] | None = None,
+    price_data: dict[str, dict] | None = None,
+) -> list[dict]:
+    """주목 종목(추천/위험/판단보류·당일 등급 변화·당일 등락률 ±5% 이상)의 차트를
+    생성해 이메일 첨부용 리스트로 반환:
+    [{"stock_id", "name", "daily": bytes|None, "weekly": bytes|None}, ...]
     Mock 모드에서는 실제 캔들 이력이 아니므로 빈 리스트를 반환한다.
     """
     if os.getenv("USE_MOCK_DATA", "true").lower() == "true":
         return []
 
-    attention_ids = select_attention_stocks(ratings, grade_changes)
+    attention_ids = select_attention_stocks(ratings, grade_changes, price_data)
     name_map = {r["stock_id"]: r["name"] for r in ratings}
 
     charts = []
