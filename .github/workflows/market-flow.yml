@@ -45,6 +45,10 @@ jobs:
       - name: 의존성 설치
         run: pip install --upgrade pip && pip install -r requirements-cloud.txt
 
+      # ── 3-1. 한글 폰트 설치 (캔들차트 이미지 한글 렌더링용) ───────────────────
+      - name: 한글 폰트 설치
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-nanum
+
       # ── 4. .env 파일 생성 (Secrets → 환경변수) ─────────────────────────────
       - name: .env 파일 생성
         env:

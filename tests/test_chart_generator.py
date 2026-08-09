@@ -18,6 +18,7 @@ from app.reports.chart_generator import (
     resample_weekly,
     generate_candle_chart_png,
     generate_report_charts,
+    _get_korean_style,
 )
 
 
@@ -101,6 +102,35 @@ def test_generate_candle_chart_png_returns_none_for_insufficient_data():
     df = _synthetic_ohlcv(5)
     assert generate_candle_chart_png(df, "TEST", tail=90) is None
     assert generate_candle_chart_png(None, "TEST", tail=90) is None
+
+
+def test_korean_style_embeds_font_family_in_rc():
+    """한글 폰트 설정은 mpf.plot() 호출 전 rcParams 직접 수정이 아니라 스타일 객체의
+    rc 딕셔너리 안에 있어야 함 — mplfinance가 plot() 내부에서 plt.style.use('default')를
+    호출해 사전 설정된 rcParams를 초기화해버리기 때문에(실제로 겪은 회귀), 반드시 스타일
+    자체를 통해 전달되어야 살아남는다.
+    """
+    style = _get_korean_style()
+    assert "font.family" in style["rc"]
+    assert "Malgun Gothic" in style["rc"]["font.family"]
+
+
+def test_korean_style_is_cached_singleton():
+    assert _get_korean_style() is _get_korean_style()
+
+
+def test_generate_candle_chart_png_renders_korean_title_without_missing_glyphs():
+    """한글 제목/축 레이블이 실제로 깨지지 않고 렌더링되는지 확인 (Glyph missing 경고 없음)"""
+    import warnings
+
+    df = _synthetic_ohlcv(200)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        png = generate_candle_chart_png(df, "삼성전자(005930) — 일봉(90일)", tail=90)
+        glyph_warnings = [str(x.message) for x in caught if "Glyph" in str(x.message)]
+
+    assert png is not None
+    assert glyph_warnings == []
 
 
 def test_generate_report_charts_skips_in_mock_mode(monkeypatch):
