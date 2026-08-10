@@ -15,6 +15,14 @@ import io
 import logging
 import os
 
+import matplotlib
+# PNG 저장만 하는 서버/배치 워크플로에는 GUI 백엔드가 전혀 필요 없음 — 명시하지
+# 않으면 matplotlib이 tkinter 설치 여부만 보고 TkAgg를 자동 선택하는데, Tcl/Tk가
+# 불완전하게 설치된 환경(예: 이 프로젝트 로컬 환경)에서는 차트 생성이 통째로
+# 실패한다. 실제로 pytest 전체 스위트를 한 번에 실행할 때 다른 모듈이 먼저
+# matplotlib을 임포트하면서 TkAgg가 선택돼 캔들차트 테스트가 실패하는 것으로 확인.
+matplotlib.use("Agg")
+
 import pandas as pd
 
 from app.collectors.price_collector import YFINANCE_MAP

@@ -208,20 +208,6 @@ class TelegramNotifier:
         )
         self._send(msg)
 
-    def notify_pipeline_complete(
-        self, report_type: str, grades_summary: str
-    ) -> None:
-        """파이프라인 완료 알림 (선택적 사용 — 매번 보내면 피로감)"""
-        if not self.is_configured():
-            return
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
-        type_label = "📅 아침 브리핑" if report_type == "morning" else "🌙 저녁 결산"
-        msg = (
-            f"✅ *{type_label} 완료* ({now})\n\n"
-            f"{grades_summary}"
-        )
-        self._send(msg)
-
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 
     @staticmethod

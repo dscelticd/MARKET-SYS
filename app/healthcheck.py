@@ -44,6 +44,9 @@ packages = {
     "streamlit":   "대시보드",
     "plotly":      "차트",
     "pandas":      "데이터 처리",
+    "requests":    "네이버 수급 스크래핑 / DART 공시",
+    "bs4":         "네이버 수급 스크래핑 (beautifulsoup4)",
+    "mplfinance":  "캔들차트 이미지 생성",
 }
 for pkg, desc in packages.items():
     try:
@@ -81,6 +84,27 @@ else:
     check("WARN", "EMAIL_TO", "미설정 — 이메일 발송 불가 (선택 사항)")
 
 check("OK", "USE_MOCK_DATA", f"{'Mock 모드' if use_mock == 'true' else '실제 데이터 모드'} ({use_mock})")
+
+naver_id     = os.getenv("NAVER_CLIENT_ID", "")
+naver_secret = os.getenv("NAVER_CLIENT_SECRET", "")
+telegram_tok = os.getenv("TELEGRAM_BOT_TOKEN", "")
+telegram_cid = os.getenv("TELEGRAM_CHAT_ID", "")
+dart_key     = os.getenv("DART_API_KEY", "")
+
+if naver_id and naver_secret:
+    check("OK", "NAVER_CLIENT_ID/SECRET", "설정됨 — 국내 종목 뉴스 실데이터")
+else:
+    check("WARN", "NAVER_CLIENT_ID/SECRET", "미설정 — 국내 종목 뉴스는 테스트 데이터로 대체 (선택 사항)")
+
+if telegram_tok and telegram_cid:
+    check("OK", "TELEGRAM_BOT_TOKEN/CHAT_ID", "설정됨 — 등급 변화/오류 알림 발송")
+else:
+    check("WARN", "TELEGRAM_BOT_TOKEN/CHAT_ID", "미설정 — 텔레그램 알림 비활성화 (선택 사항)")
+
+if dart_key:
+    check("OK", "DART_API_KEY", "설정됨 — 공시 데이터 연동")
+else:
+    check("WARN", "DART_API_KEY", "미설정 — 공시 데이터 미연동 (선택 사항, opendart.fss.or.kr에서 무료 발급)")
 
 # ── 3. 설정 파일 ─────────────────────────────────────────────────────────────
 print("\n[3] 설정 파일 확인")

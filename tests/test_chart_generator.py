@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import os
 
+import matplotlib
 import numpy as np
 import pandas as pd
 
@@ -20,6 +21,16 @@ from app.reports.chart_generator import (
     generate_report_charts,
     _get_korean_style,
 )
+
+
+def test_matplotlib_backend_forced_to_agg():
+    """chart_generator.py는 PNG 저장만 하는 배치 워크플로라 GUI 백엔드가 불필요함.
+    명시하지 않으면 tkinter 설치 여부만 보고 TkAgg를 자동 선택하는데, Tcl/Tk가
+    불완전한 환경(로컬 개발 환경 포함)에서는 차트 생성이 통째로 실패한다 —
+    실제로 pytest 전체 스위트를 함께 실행할 때 다른 모듈이 먼저 matplotlib을
+    임포트하면서 이 문제가 재현됐음(회귀 방지용 테스트).
+    """
+    assert matplotlib.get_backend().lower() == "agg"
 
 
 def _synthetic_ohlcv(n: int = 200) -> pd.DataFrame:

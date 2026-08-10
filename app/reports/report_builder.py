@@ -73,6 +73,18 @@ def _format_price_block(price_data: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_memo_block(stocks: list[dict] | None) -> str:
+    """사용자가 watchlist.json에 직접 남긴 종목별 관전 포인트(memo) — 대시보드
+    편집 화면에서만 쓰이고 리포트 프롬프트에는 전달되지 않던 필드를 연결.
+    """
+    if not stocks:
+        return "(등록된 관전 포인트 없음)"
+    lines = [f"  {s['name']}: {s['memo']}" for s in stocks if s.get("memo")]
+    if not lines:
+        return "(등록된 관전 포인트 없음)"
+    return "\n".join(lines)
+
+
 def _format_technical_block(price_data: dict[str, dict]) -> str:
     """기술적 지표 + 애널리스트 컨센서스 상세 블록 (Claude 전망 분석용)"""
     lines = []
@@ -390,6 +402,8 @@ class ReportBuilder:
         disclosure_data: dict[str, list] | None = None,
         accuracy_report: dict[int, dict] | None = None,
         portfolio_summary: dict | None = None,
+        stocks: list[dict] | None = None,
+        max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -400,6 +414,7 @@ class ReportBuilder:
         disclosure_block = _format_disclosure_block(disclosure_data)
         accuracy_block = _format_accuracy_block(accuracy_report)
         portfolio_block = _format_portfolio_block(portfolio_summary)
+        memo_block = _format_memo_block(stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -407,6 +422,9 @@ class ReportBuilder:
 
 ## 관심종목 가격 현황 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
+
+## 사용자 관전 포인트 (종목별 직접 등록한 관심사 — 관련 있으면 자연스럽게 반영)
+{memo_block}
 
 ## 기술적 지표 상세 (RSI·이동평균·MACD·애널리스트 컨센서스)
 {technical_block}
@@ -477,7 +495,7 @@ class ReportBuilder:
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
-        report = self._call_claude(prompt, max_tokens=10000)
+        report = self._call_claude(prompt, max_tokens=max_tokens)
         return self._append_data_quality(report, data_quality, ratings)
 
     def build_evening_report(
@@ -492,6 +510,8 @@ class ReportBuilder:
         disclosure_data: dict[str, list] | None = None,
         accuracy_report: dict[int, dict] | None = None,
         portfolio_summary: dict | None = None,
+        stocks: list[dict] | None = None,
+        max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -502,6 +522,7 @@ class ReportBuilder:
         disclosure_block = _format_disclosure_block(disclosure_data)
         accuracy_block = _format_accuracy_block(accuracy_report)
         portfolio_block = _format_portfolio_block(portfolio_summary)
+        memo_block = _format_memo_block(stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -509,6 +530,9 @@ class ReportBuilder:
 
 ## 관심종목 당일 가격 결산 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
+
+## 사용자 관전 포인트 (종목별 직접 등록한 관심사 — 관련 있으면 자연스럽게 반영)
+{memo_block}
 
 ## 기술적 지표 상세 (RSI·이동평균·MACD·애널리스트 컨센서스)
 {technical_block}
@@ -579,7 +603,7 @@ class ReportBuilder:
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
-        report = self._call_claude(prompt, max_tokens=10000)
+        report = self._call_claude(prompt, max_tokens=max_tokens)
         return self._append_data_quality(report, data_quality, ratings)
 
     def _call_claude(

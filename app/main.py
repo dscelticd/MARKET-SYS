@@ -373,6 +373,8 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     disclosure_data=disclosure_data,
                     accuracy_report=accuracy_report,
                     portfolio_summary=portfolio_summary,
+                    stocks=stocks,
+                    max_tokens=cfg.report.morning.get("max_tokens", 10000),
                 )
             else:
                 print("  저녁 결산 리포트 생성 중...")
@@ -387,6 +389,8 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     disclosure_data=disclosure_data,
                     accuracy_report=accuracy_report,
                     portfolio_summary=portfolio_summary,
+                    stocks=stocks,
+                    max_tokens=cfg.report.evening.get("max_tokens", 10000),
                 )
             print("  리포트 생성 완료")
             logger.info("리포트 생성 완료")
