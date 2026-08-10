@@ -208,8 +208,13 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     )
 
         # ── 포트폴리오 관점 진단 (테마/섹터 집중도·당일 동조화) ──
-        portfolio_summary = build_portfolio_summary(stocks, price_data)
-        if portfolio_summary["risk_flags"]:
+        # 보조 진단 기능이라 disclosure_col과 동일하게 실패해도 파이프라인을 막지 않음
+        try:
+            portfolio_summary = build_portfolio_summary(stocks, price_data)
+        except Exception as e:
+            logger.warning("[PORTFOLIO_ANALYSIS_ERROR] 포트폴리오 집중도 진단 실패 (무시하고 계속): %s", e)
+            portfolio_summary = {}
+        if portfolio_summary.get("risk_flags"):
             print(f"  포트폴리오 집중 리스크: {len(portfolio_summary['risk_flags'])}건 감지")
             for flag in portfolio_summary["risk_flags"]:
                 print(f"    ⚠️  {flag}")

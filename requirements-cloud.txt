@@ -10,6 +10,10 @@ python-dotenv>=1.0.0
 # 실시간 시장 데이터
 yfinance>=1.4.0
 
+# chart_generator.py가 직접 import — yfinance/mplfinance의 전이 의존성으로 우연히
+# 설치되고 있었으나, 두 패키지 중 하나가 pandas 의존을 바꾸면 조용히 깨질 수 있어 명시
+pandas>=2.2.0
+
 # 수급(외국인/기관/개인 순매매) 데이터 — 네이버 금융 스크래핑
 requests>=2.31.0
 beautifulsoup4>=4.12.0
