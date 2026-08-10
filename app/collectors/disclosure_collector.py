@@ -21,14 +21,23 @@ logger = logging.getLogger(__name__)
 
 # 한국 종목 고유번호(corp_code) 매핑 — DART 전자공시 기준
 # https://opendart.fss.or.kr/api/company.json?corp_code= 로 조회 가능
+#
+# 2026-08-10 전수 재검증: DART corpCode.xml 전체 목록(opendart.fss.or.kr/api/corpCode.xml)을
+# 내려받아 stock_code 기준으로 대조한 결과 7개 중 3개가 잘못된 값으로 확인됨 —
+#   - KR_010120(LS ELECTRIC)의 기존 값 00258801은 실제로는 카카오(035720)의 코드였음
+#     (실제 API 호출 결과 카카오 공시가 LS ELECTRIC 자리에 노출되는 것으로 확인)
+#   - KR_015760(한국전력) 기존 값 00104747, KR_138080(오이솔루션) 기존 값 01043688은
+#     DART에 존재하지 않는 코드라 조용히 0건만 반환되고 있었음
+# KODEX 200(069500)은 ETF라 개별 기업 공시 대상이 아니어서(stock_code로 매칭되는
+# corp_code 없음) 매핑에서 제외 — 무리하게 자산운용사 코드를 넣으면 KODEX 200과
+# 무관한 회사 공시가 섞여 나오는 동일한 문제가 재발함.
 _CORP_CODE: dict[str, str] = {
     "KR_005930": "00126380",   # 삼성전자
     "KR_000660": "00164779",   # SK하이닉스
-    "KR_069500": "01117481",   # KODEX 200 (삼성자산운용)
-    "KR_010120": "00258801",   # LS ELECTRIC
-    "KR_015760": "00104747",   # 한국전력
+    "KR_010120": "00105855",   # LS ELECTRIC (엘에스일렉트릭)
+    "KR_015760": "00159193",   # 한국전력공사
     "KR_066570": "00401731",   # LG전자
-    "KR_138080": "01043688",   # 오이솔루션
+    "KR_138080": "00571483",   # 오이솔루션
 }
 
 _DART_BASE = "https://opendart.fss.or.kr/api"
