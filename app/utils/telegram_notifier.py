@@ -167,6 +167,34 @@ class TelegramNotifier:
         ]
         return self._send("\n".join(lines))
 
+    def notify_scraper_failure(
+        self, source: str, fail_count: int, total_count: int, report_type: str = "morning"
+    ) -> bool:
+        """비공식 스크래핑 소스(예: 네이버 금융 수급)의 실패율이 높을 때 발송.
+        개별 종목의 일시적 네트워크 오류가 아니라 페이지 구조 자체가 바뀌었을
+        가능성을 사용자에게 알리기 위한 용도 — 실패 시 자동으로 Mock 데이터로
+        조용히 폴백되기 때문에, 이 알림이 없으면 사용자는 스크래핑이 며칠째
+        실패 중인지 전혀 알 수 없다.
+
+        반환값: 발송됐으면 True
+        """
+        if not self.is_configured():
+            return False
+        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        label = "📅 아침" if report_type == "morning" else "🌙 저녁"
+        fail_pct = (fail_count / total_count * 100) if total_count else 0
+        lines = [
+            f"⚠️ *Market Flow {label} 데이터 수집 실패율 경고*",
+            f"일시: {now}",
+            "",
+            f"소스: {_escape(source)}",
+            f"실패: *{fail_count}/{total_count}종목* \\({fail_pct:.0f}%\\)",
+            "",
+            "_비공식 소스라 페이지 구조가 바뀌었을 가능성이 있습니다\\. "
+            "해당 데이터는 자동으로 추정치로 대체되어 리포트 발송은 정상 진행됩니다\\._",
+        ]
+        return self._send("\n".join(lines))
+
     def notify_error(self, error_msg: str, report_type: str = "morning") -> None:
         """파이프라인 오류 알림"""
         if not self.is_configured():

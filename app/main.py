@@ -20,10 +20,15 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-# Windows 터미널 UTF-8 강제 (이모지/한글 출력)
-if sys.platform == "win32":
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+def _force_utf8_console() -> None:
+    """Windows 터미널 UTF-8 강제 (이모지/한글 출력).
+    CLI로 직접 실행될 때만 호출해야 함 — 모듈 임포트 시점에 무조건 실행하면
+    sys.stdout을 재할당해버려 pytest 등 stdout을 자체 캡처하는 도구가 깨진다
+    (실제로 이 모듈을 테스트에서 import하자 pytest capture teardown이 크래시함).
+    """
+    if sys.platform == "win32":
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+        sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
 
 # .env 로드 (프로젝트 루트 기준)
 _PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -80,6 +85,10 @@ GRADE_COLORS = {
 RESET = "\033[0m"
 BOLD  = "\033[1m"
 
+# 네이버 수급 스크래핑(비공식 소스)의 실패율이 이 값 이상이면 페이지 구조 변경
+# 가능성으로 보고 텔레그램 경고 — 1~2종목의 일시적 네트워크 오류는 알림에서 제외
+_SCRAPER_FAILURE_ALERT_THRESHOLD = 0.7
+
 
 def print_section(title: str) -> None:
     print(f"\n{BOLD}{'─' * 60}{RESET}")
@@ -98,6 +107,20 @@ def print_rating(r: dict) -> None:
         print(f"     ✅ {r['positive_factors'][0]}")
     if r["negative_factors"]:
         print(f"     ⚠️  {r['negative_factors'][0]}")
+
+
+def check_kr_investor_flow_failure_rate(price_data: dict) -> tuple[int, int] | None:
+    """KR 종목의 네이버 수급 스크래핑 (실패 건수, 전체 건수) 반환.
+    KR 종목 자체가 없거나 investor_flow 데이터가 하나도 없으면 None.
+    """
+    kr_flows = [
+        d["investor_flow"] for sid, d in price_data.items()
+        if sid.startswith("KR_") and d.get("investor_flow")
+    ]
+    if not kr_flows:
+        return None
+    fail_count = sum(1 for f in kr_flows if f.get("_mock"))
+    return fail_count, len(kr_flows)
 
 
 # ── 파이프라인 ───────────────────────────────────────────────────────────────
@@ -167,6 +190,21 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         logger.info("데이터 수집 완료 — 가격:%d(실제%d/Mock%d) 뉴스:%d건 공시:%d건",
                     len(price_data), real_count, mock_count,
                     sum(len(v) for v in news_data.values()), disc_count)
+
+        # ── 네이버 수급 스크래핑 실패율 모니터링 (비공식 소스 — 조용히 Mock 폴백되므로
+        # 며칠째 실패 중이어도 사용자가 알 방법이 없었음) ──
+        flow_check = check_kr_investor_flow_failure_rate(price_data)
+        if flow_check is not None:
+            flow_fail, flow_total = flow_check
+            fail_rate = flow_fail / flow_total
+            print(f"  수급 데이터(네이버): {flow_total - flow_fail}/{flow_total}종목 실제 수집 성공")
+            if fail_rate >= _SCRAPER_FAILURE_ALERT_THRESHOLD:
+                logger.error("[SCRAPER_ERROR] 네이버 수급 스크래핑 실패율 %.0f%% (%d/%d) — 페이지 구조 변경 가능성",
+                             fail_rate * 100, flow_fail, flow_total)
+                if notifier.is_configured():
+                    notifier.notify_scraper_failure(
+                        "네이버 금융(외국인/기관 수급)", flow_fail, flow_total, report_type
+                    )
 
         # ── Step 2-1: 데이터 품질 검증 ──
         print_section("Step 2-1. 데이터 품질 검증")
@@ -444,6 +482,7 @@ def main() -> None:
     )
 
     args = parser.parse_args()
+    _force_utf8_console()
     _setup_logging()
     run_pipeline(report_type=args.report, send_email=args.send_email)
 
