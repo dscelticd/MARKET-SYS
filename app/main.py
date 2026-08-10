@@ -267,6 +267,20 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         )
         logger.info("이력 저장 완료")
 
+        # ── Step 4-2-1: 등급 적중률 집계 (N일 전 등급 vs 오늘 가격) ──
+        # 시스템 운영 초기(누적 이력 부족)에는 자연히 "데이터 부족"으로 비어 있다가
+        # 매일 실행이 쌓일수록 채워지는 구조 — 순수 forward-looking 리포트에 자기
+        # 검증 통계를 더해 신뢰도를 스스로 증명하기 위한 기능.
+        accuracy_report = tracker.compute_accuracy_report(price_data)
+        for days, stats in accuracy_report.items():
+            if stats["sample_count"] > 0:
+                print(f"  등급 적중률({days}일 전 기준): {stats['overall_hit_rate']}% "
+                      f"({stats['sample_count']}건, 기준일 {stats['reference_date']})")
+            else:
+                print(f"  등급 적중률({days}일 전 기준): 데이터 부족")
+        logger.info("등급 적중률 집계 완료 — %s",
+                     {d: s["overall_hit_rate"] for d, s in accuracy_report.items()})
+
         # ── Step 4-3: 텔레그램 알림 (치명적 오류 + 등급 변화 + 품질 급락) ──
         if notifier.is_configured():
             try:
@@ -306,6 +320,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     grade_changes=changes,
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
+                    accuracy_report=accuracy_report,
                 )
             else:
                 print("  저녁 결산 리포트 생성 중...")
@@ -318,6 +333,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     grade_changes=changes,
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
+                    accuracy_report=accuracy_report,
                 )
             print("  리포트 생성 완료")
             logger.info("리포트 생성 완료")
@@ -351,6 +367,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "price": price_data,
                     "news": news_summary,
                     "disclosures": disclosure_data,
+                    "accuracy_report": accuracy_report,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,

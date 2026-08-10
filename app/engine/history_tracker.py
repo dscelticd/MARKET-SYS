@@ -15,6 +15,17 @@ _HISTORY_FILE = _HISTORY_DIR / "ratings_history.json"
 
 GRADE_ORDER = {"추천": 5, "안전": 4, "보통": 3, "주의": 2, "위험": 1, "판단보류": 0}
 
+# 등급 적중률 판단 대상 — "보통"은 방향성 판단이 없는 중립 등급, "판단보류"는
+# 데이터 품질 문제로 인한 것이라 종목 신호와 무관하므로 둘 다 집계에서 제외.
+_BULLISH_GRADES = {"추천", "안전"}
+_BEARISH_GRADES = {"주의", "위험"}
+# 적중 판정에 ±2%p 여유를 두는 이유: "투자 판단 보조" 등급은 정밀 매매 신호가
+# 아니라 방향성 참고 지표이므로, 등락률 0%를 엄격한 기준으로 삼으면 보합에 가까운
+# 정상적인 흐름까지 "불일치"로 오분류해 통계가 실제보다 나빠 보이는 왜곡이 생김.
+_ACCURACY_TOLERANCE_PCT = 2.0
+_ACCURACY_MIN_CONFIDENCE = 50.0  # 이 미만이면 그 날짜의 등급·주가 스냅샷 자체를 신뢰할 수 없어 제외
+_ACCURACY_LOOKBACK_DAYS = (5, 20)  # 몇 일 전 등급을 오늘 가격과 비교할지
+
 CHANGE_EMOJI = {
     "상승": "📈",
     "하락": "📉",
@@ -211,6 +222,99 @@ class HistoryTracker:
             if entry_date >= cutoff:
                 result.append(entry)
         return result
+
+    # ── 등급 적중률 추적 ─────────────────────────────────────────────────────
+
+    def compute_accuracy_report(self, current_price_data: dict) -> dict:
+        """N일 전 등급(추천/안전 ↔ 주의/위험)이 오늘 가격 기준으로 방향성이 맞았는지 집계.
+        "보통"(중립)·"판단보류"(데이터 품질 이슈)는 종목 신호와 무관하므로 제외.
+        누적 이력이 부족하면 해당 lookback의 sample_count가 0으로 반환됨 — 시스템을
+        막 시작한 시점에는 자연히 비어 있고, 매일 실행이 쌓일수록 채워지는 구조.
+
+        반환: {lookback_days: {sample_count, overall_hit_rate, reference_date, grade_stats}}
+        """
+        return {
+            days: self._compute_accuracy_for_lookback(current_price_data, days)
+            for days in _ACCURACY_LOOKBACK_DAYS
+        }
+
+    def _compute_accuracy_for_lookback(self, current_price_data: dict, lookback_days: int) -> dict:
+        empty = {
+            "lookback_days": lookback_days, "sample_count": 0,
+            "overall_hit_rate": None, "reference_date": None, "grade_stats": {},
+        }
+        target_entry = self._find_closest_entry_before(lookback_days)
+        if target_entry is None:
+            return empty
+
+        confidence = target_entry.get("data_quality", {}).get("overall", {}).get("confidence")
+        if confidence is not None and confidence < _ACCURACY_MIN_CONFIDENCE:
+            return empty  # 그 시점 데이터 신뢰도 자체가 낮으면 스냅샷 전체를 신뢰할 수 없음
+
+        raw_stats: dict[str, dict] = {}
+        for sid, grade in target_entry.get("grades", {}).items():
+            if grade not in _BULLISH_GRADES and grade not in _BEARISH_GRADES:
+                continue
+            past_price = target_entry.get("closing_prices", {}).get(sid)
+            curr_price = current_price_data.get(sid, {}).get("price")
+            if not past_price or not curr_price or past_price <= 0:
+                continue
+
+            return_pct = (curr_price - past_price) / past_price * 100
+            if grade in _BULLISH_GRADES:
+                hit = return_pct >= -_ACCURACY_TOLERANCE_PCT
+            else:
+                hit = return_pct <= _ACCURACY_TOLERANCE_PCT
+
+            s = raw_stats.setdefault(grade, {"count": 0, "hit": 0, "returns": []})
+            s["count"] += 1
+            s["hit"] += int(hit)
+            s["returns"].append(return_pct)
+
+        if not raw_stats:
+            return empty
+
+        grade_stats = {
+            grade: {
+                "count": s["count"],
+                "hit": s["hit"],
+                "hit_rate": round(s["hit"] / s["count"] * 100, 1),
+                "avg_return_pct": round(sum(s["returns"]) / len(s["returns"]), 2),
+            }
+            for grade, s in raw_stats.items()
+        }
+        total_count = sum(s["count"] for s in raw_stats.values())
+        total_hit   = sum(s["hit"] for s in raw_stats.values())
+
+        return {
+            "lookback_days": lookback_days,
+            "sample_count": total_count,
+            "overall_hit_rate": round(total_hit / total_count * 100, 1),
+            "reference_date": target_entry["date"],
+            "grade_stats": grade_stats,
+        }
+
+    def _find_closest_entry_before(self, lookback_days: int) -> dict | None:
+        """오늘로부터 lookback_days 이전 시점에 가장 가까운(그 시점 또는 그 이전 중 최신)
+        저장 항목을 반환. 같은 날짜에 아침/저녁 두 건이 있으면 아침을 우선한다.
+        """
+        target_date = datetime.now() - timedelta(days=lookback_days)
+        dated: list[tuple[datetime, dict]] = []
+        for entry in self._data.values():
+            try:
+                d = datetime.strptime(entry["date"], "%Y-%m-%d")
+            except Exception:
+                continue
+            if d <= target_date:
+                dated.append((d, entry))
+        if not dated:
+            return None
+
+        dated.sort(key=lambda x: x[0])
+        closest_date = dated[-1][0]
+        same_day = [e for d, e in dated if d == closest_date]
+        morning = next((e for e in same_day if e.get("report_type") == "morning"), None)
+        return morning or same_day[0]
 
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 

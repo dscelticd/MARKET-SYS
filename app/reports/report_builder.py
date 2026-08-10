@@ -202,6 +202,32 @@ def _format_disclosure_block(disclosure_data: dict[str, list[dict]] | None) -> s
     return "\n".join(lines)
 
 
+def _format_accuracy_block(accuracy_report: dict[int, dict] | None) -> str:
+    """등급 적중률 자기검증 블록 — N일 전 등급(추천/안전 ↔ 주의/위험)이 오늘 가격
+    기준으로 방향성이 맞았는지 집계한 결과. "보통"·"판단보류"는 집계 대상 아님.
+    """
+    if not accuracy_report:
+        return "(등급 적중률 데이터 없음)"
+
+    lines = []
+    for days in sorted(accuracy_report.keys()):
+        stats = accuracy_report[days]
+        if not stats or stats.get("sample_count", 0) == 0:
+            lines.append(f"  {days}일 전 기준: 누적 이력 부족(데이터 쌓이는 중)")
+            continue
+        parts = [f"{days}일 전 기준 전체 적중률 {stats['overall_hit_rate']}%",
+                 f"샘플 {stats['sample_count']}건(기준일 {stats['reference_date']})"]
+        grade_parts = [
+            f"{grade} {g['hit']}/{g['count']}건({g['hit_rate']}%, 평균수익률{g['avg_return_pct']:+.1f}%)"
+            for grade, g in stats.get("grade_stats", {}).items()
+        ]
+        lines.append(f"  {' | '.join(parts)}")
+        if grade_parts:
+            lines.append(f"    {' | '.join(grade_parts)}")
+
+    return "\n".join(lines)
+
+
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     """외국인/기관/개인(추정) 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님)"""
     lines = []
@@ -326,6 +352,7 @@ class ReportBuilder:
         grade_changes: list[dict] | None = None,
         data_quality: dict | None = None,
         disclosure_data: dict[str, list] | None = None,
+        accuracy_report: dict[int, dict] | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -334,6 +361,7 @@ class ReportBuilder:
         sr_block = _format_support_resistance_block(price_data)
         flow_block = _format_investor_flow_block(price_data)
         disclosure_block = _format_disclosure_block(disclosure_data)
+        accuracy_block = _format_accuracy_block(accuracy_report)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -353,6 +381,9 @@ class ReportBuilder:
 
 ## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
 {disclosure_block}
+
+## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
+{accuracy_block}
 
 ## 투자 판단 보조 등급 요약
 {_format_rating_block(ratings)}
@@ -392,6 +423,11 @@ class ReportBuilder:
 - 공시는 사실 확인 정보로만 서술하세요 — 공시 발생 자체를 호재/악재로 단정하지 말고, 내용을 있는 그대로 전달하세요.
 - 공시 데이터가 없으면("공시 데이터 없음") 이 항목은 언급하지 마세요.
 
+## 등급 적중률 서술 규칙
+- 적중률은 과거 등급이 사후적으로 방향성이 맞았는지에 대한 참고 통계이며, 미래 수익을 보장하지 않습니다 — 이 점을 명시하세요.
+- "누적 이력 부족"으로 나온 항목은 아직 통계를 낼 만큼 데이터가 쌓이지 않았다는 뜻이므로, 그 자체를 부정적 신호로 해석하지 마세요.
+- 샘플 수가 적으면(예: 5건 미만) 통계적 유의성이 낮다는 점을 함께 언급하세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -408,6 +444,7 @@ class ReportBuilder:
         grade_changes: list[dict] | None = None,
         data_quality: dict | None = None,
         disclosure_data: dict[str, list] | None = None,
+        accuracy_report: dict[int, dict] | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -416,6 +453,7 @@ class ReportBuilder:
         sr_block = _format_support_resistance_block(price_data)
         flow_block = _format_investor_flow_block(price_data)
         disclosure_block = _format_disclosure_block(disclosure_data)
+        accuracy_block = _format_accuracy_block(accuracy_report)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -435,6 +473,9 @@ class ReportBuilder:
 
 ## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
 {disclosure_block}
+
+## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
+{accuracy_block}
 
 ## 투자 판단 보조 등급 결산
 {_format_rating_block(ratings)}
@@ -473,6 +514,11 @@ class ReportBuilder:
 ## 공시 서술 규칙
 - 공시는 사실 확인 정보로만 서술하세요 — 공시 발생 자체를 호재/악재로 단정하지 말고, 내용을 있는 그대로 전달하세요.
 - 공시 데이터가 없으면("공시 데이터 없음") 이 항목은 언급하지 마세요.
+
+## 등급 적중률 서술 규칙
+- 적중률은 과거 등급이 사후적으로 방향성이 맞았는지에 대한 참고 통계이며, 미래 수익을 보장하지 않습니다 — 이 점을 명시하세요.
+- "누적 이력 부족"으로 나온 항목은 아직 통계를 낼 만큼 데이터가 쌓이지 않았다는 뜻이므로, 그 자체를 부정적 신호로 해석하지 마세요.
+- 샘플 수가 적으면(예: 5건 미만) 통계적 유의성이 낮다는 점을 함께 언급하세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
