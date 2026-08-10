@@ -228,6 +228,42 @@ def _format_accuracy_block(accuracy_report: dict[int, dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_portfolio_block(portfolio_summary: dict | None) -> str:
+    """포트폴리오 관점(테마/섹터 집중도·당일 동조화) 블록 — 종목 단위 판단을 보완하는
+    워치리스트 전체 시야. 실제 통계적 상관계수가 아닌 근사 지표임을 서술 규칙에서 명시.
+    """
+    if not portfolio_summary:
+        return "(포트폴리오 집중도 데이터 없음)"
+
+    lines = []
+    top_themes = [t for t in portfolio_summary.get("theme_concentration", []) if t["count"] >= 2][:5]
+    if top_themes:
+        theme_parts = [f"{t['theme']} {t['count']}종목({t['pct']}%)" for t in top_themes]
+        lines.append(f"  테마 집중도(상위): {' | '.join(theme_parts)}")
+
+    top_sectors = portfolio_summary.get("sector_concentration", [])[:3]
+    if top_sectors:
+        sector_parts = [f"{s['sector']} {s['count']}종목({s['pct']}%)" for s in top_sectors]
+        lines.append(f"  섹터 집중도(상위): {' | '.join(sector_parts)}")
+
+    align = portfolio_summary.get("directional_alignment") or {}
+    if align.get("total"):
+        lines.append(
+            f"  당일 동조화: 상승 {align['up']}·하락 {align['down']}·보합 {align['flat']}"
+            f" (다수 방향 {align['majority_direction']} 쏠림 {align['alignment_pct']}%)"
+        )
+
+    risk_flags = portfolio_summary.get("risk_flags") or []
+    if risk_flags:
+        lines.append("  집중 리스크 경고:")
+        for flag in risk_flags:
+            lines.append(f"    - {flag}")
+
+    if not lines:
+        return "(포트폴리오 집중도 데이터 없음)"
+    return "\n".join(lines)
+
+
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     """외국인/기관/개인(추정) 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님)"""
     lines = []
@@ -353,6 +389,7 @@ class ReportBuilder:
         data_quality: dict | None = None,
         disclosure_data: dict[str, list] | None = None,
         accuracy_report: dict[int, dict] | None = None,
+        portfolio_summary: dict | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -362,6 +399,7 @@ class ReportBuilder:
         flow_block = _format_investor_flow_block(price_data)
         disclosure_block = _format_disclosure_block(disclosure_data)
         accuracy_block = _format_accuracy_block(accuracy_report)
+        portfolio_block = _format_portfolio_block(portfolio_summary)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -381,6 +419,9 @@ class ReportBuilder:
 
 ## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
 {disclosure_block}
+
+## 포트폴리오 관점 (테마/섹터 집중도·당일 동조화 — 통계적 상관계수 아닌 근사 지표)
+{portfolio_block}
 
 ## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
 {accuracy_block}
@@ -428,6 +469,11 @@ class ReportBuilder:
 - "누적 이력 부족"으로 나온 항목은 아직 통계를 낼 만큼 데이터가 쌓이지 않았다는 뜻이므로, 그 자체를 부정적 신호로 해석하지 마세요.
 - 샘플 수가 적으면(예: 5건 미만) 통계적 유의성이 낮다는 점을 함께 언급하세요.
 
+## 포트폴리오 관점 서술 규칙
+- 테마/섹터 집중도와 당일 동조화율은 워치리스트 구성에 대한 참고 진단이며, "리밸런싱하라"·"비중을 줄여라" 같은 구체적 매매 지시를 하지 마세요.
+- 당일 동조화율은 통계적 상관계수가 아닙니다 — "오늘 하루" 종목들이 같은 방향으로 몰렸는지를 보여주는 단순 집계임을 처음 언급할 때 명시하세요.
+- 집중 리스크 경고가 있으면 "해당 테마/섹터가 흔들릴 경우 워치리스트 상당 부분이 동시에 영향받을 수 있다"는 사실을 전달하되, 이것이 좋다/나쁘다는 가치 판단은 하지 마세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -445,6 +491,7 @@ class ReportBuilder:
         data_quality: dict | None = None,
         disclosure_data: dict[str, list] | None = None,
         accuracy_report: dict[int, dict] | None = None,
+        portfolio_summary: dict | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -454,6 +501,7 @@ class ReportBuilder:
         flow_block = _format_investor_flow_block(price_data)
         disclosure_block = _format_disclosure_block(disclosure_data)
         accuracy_block = _format_accuracy_block(accuracy_report)
+        portfolio_block = _format_portfolio_block(portfolio_summary)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -476,6 +524,9 @@ class ReportBuilder:
 
 ## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
 {accuracy_block}
+
+## 포트폴리오 관점 (테마/섹터 집중도·당일 동조화 — 통계적 상관계수 아닌 근사 지표)
+{portfolio_block}
 
 ## 투자 판단 보조 등급 결산
 {_format_rating_block(ratings)}
@@ -519,6 +570,11 @@ class ReportBuilder:
 - 적중률은 과거 등급이 사후적으로 방향성이 맞았는지에 대한 참고 통계이며, 미래 수익을 보장하지 않습니다 — 이 점을 명시하세요.
 - "누적 이력 부족"으로 나온 항목은 아직 통계를 낼 만큼 데이터가 쌓이지 않았다는 뜻이므로, 그 자체를 부정적 신호로 해석하지 마세요.
 - 샘플 수가 적으면(예: 5건 미만) 통계적 유의성이 낮다는 점을 함께 언급하세요.
+
+## 포트폴리오 관점 서술 규칙
+- 테마/섹터 집중도와 당일 동조화율은 워치리스트 구성에 대한 참고 진단이며, "리밸런싱하라"·"비중을 줄여라" 같은 구체적 매매 지시를 하지 마세요.
+- 당일 동조화율은 통계적 상관계수가 아닙니다 — "오늘 하루" 종목들이 같은 방향으로 몰렸는지를 보여주는 단순 집계임을 처음 언급할 때 명시하세요.
+- 집중 리스크 경고가 있으면 "해당 테마/섹터가 흔들릴 경우 워치리스트 상당 부분이 동시에 영향받을 수 있다"는 사실을 전달하되, 이것이 좋다/나쁘다는 가치 판단은 하지 마세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

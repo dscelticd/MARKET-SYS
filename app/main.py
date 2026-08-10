@@ -50,6 +50,7 @@ from app.collectors.disclosure_collector import DisclosureCollector
 from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
+from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.reports.report_builder import ReportBuilder, save_report
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
@@ -206,6 +207,13 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                         "네이버 금융(외국인/기관 수급)", flow_fail, flow_total, report_type
                     )
 
+        # ── 포트폴리오 관점 진단 (테마/섹터 집중도·당일 동조화) ──
+        portfolio_summary = build_portfolio_summary(stocks, price_data)
+        if portfolio_summary["risk_flags"]:
+            print(f"  포트폴리오 집중 리스크: {len(portfolio_summary['risk_flags'])}건 감지")
+            for flag in portfolio_summary["risk_flags"]:
+                print(f"    ⚠️  {flag}")
+
         # ── Step 2-1: 데이터 품질 검증 ──
         print_section("Step 2-1. 데이터 품질 검증")
         validator       = DataValidator()
@@ -359,6 +367,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
                     accuracy_report=accuracy_report,
+                    portfolio_summary=portfolio_summary,
                 )
             else:
                 print("  저녁 결산 리포트 생성 중...")
@@ -372,6 +381,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
                     accuracy_report=accuracy_report,
+                    portfolio_summary=portfolio_summary,
                 )
             print("  리포트 생성 완료")
             logger.info("리포트 생성 완료")
@@ -406,6 +416,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "news": news_summary,
                     "disclosures": disclosure_data,
                     "accuracy_report": accuracy_report,
+                    "portfolio_summary": portfolio_summary,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,
