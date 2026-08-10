@@ -182,6 +182,26 @@ def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+def _format_disclosure_block(disclosure_data: dict[str, list[dict]] | None) -> str:
+    """최근 7일 DART 공시 블록 (KR 종목만 — DART_API_KEY 미설정 시 항상 비어 있음)"""
+    if not disclosure_data:
+        return "(공시 데이터 없음 — DART 연동 미설정 또는 최근 7일 공시 없음)"
+
+    lines = []
+    for sid, items in disclosure_data.items():
+        if not items:
+            continue
+        for item in items[:3]:  # 종목당 최대 3건만 노출
+            corp = item.get("corp_name", sid)
+            title = item.get("title", "")
+            date = item.get("rcept_dt", "")
+            lines.append(f"  {corp}: {title} ({date})")
+
+    if not lines:
+        return "(공시 데이터 없음 — DART 연동 미설정 또는 최근 7일 공시 없음)"
+    return "\n".join(lines)
+
+
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     """외국인/기관/개인(추정) 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님)"""
     lines = []
@@ -305,6 +325,7 @@ class ReportBuilder:
         report_date: str | None = None,
         grade_changes: list[dict] | None = None,
         data_quality: dict | None = None,
+        disclosure_data: dict[str, list] | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -312,6 +333,7 @@ class ReportBuilder:
         technical_block = _format_technical_block(price_data)
         sr_block = _format_support_resistance_block(price_data)
         flow_block = _format_investor_flow_block(price_data)
+        disclosure_block = _format_disclosure_block(disclosure_data)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -328,6 +350,9 @@ class ReportBuilder:
 
 ## 수급 동향 (외국인/기관/개인 순매매, KR 종목만 — 참고용)
 {flow_block}
+
+## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
+{disclosure_block}
 
 ## 투자 판단 보조 등급 요약
 {_format_rating_block(ratings)}
@@ -363,6 +388,10 @@ class ReportBuilder:
 - "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
 - 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
 
+## 공시 서술 규칙
+- 공시는 사실 확인 정보로만 서술하세요 — 공시 발생 자체를 호재/악재로 단정하지 말고, 내용을 있는 그대로 전달하세요.
+- 공시 데이터가 없으면("공시 데이터 없음") 이 항목은 언급하지 마세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -378,6 +407,7 @@ class ReportBuilder:
         report_date: str | None = None,
         grade_changes: list[dict] | None = None,
         data_quality: dict | None = None,
+        disclosure_data: dict[str, list] | None = None,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -385,6 +415,7 @@ class ReportBuilder:
         technical_block = _format_technical_block(price_data)
         sr_block = _format_support_resistance_block(price_data)
         flow_block = _format_investor_flow_block(price_data)
+        disclosure_block = _format_disclosure_block(disclosure_data)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
@@ -401,6 +432,9 @@ class ReportBuilder:
 
 ## 수급 동향 (외국인/기관/개인 순매매, KR 종목만 — 참고용)
 {flow_block}
+
+## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
+{disclosure_block}
 
 ## 투자 판단 보조 등급 결산
 {_format_rating_block(ratings)}
@@ -435,6 +469,10 @@ class ReportBuilder:
 - 수급(외국인/기관/개인 순매매)은 매매 신호가 아닌 참고 정보로만 서술하세요.
 - "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
 - 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
+
+## 공시 서술 규칙
+- 공시는 사실 확인 정보로만 서술하세요 — 공시 발생 자체를 호재/악재로 단정하지 말고, 내용을 있는 그대로 전달하세요.
+- 공시 데이터가 없으면("공시 데이터 없음") 이 항목은 언급하지 마세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

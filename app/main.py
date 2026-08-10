@@ -41,6 +41,7 @@ from app.utils.telegram_notifier import TelegramNotifier
 from app.collectors.price_collector import PriceCollector
 from app.collectors.news_collector import NewsCollector
 from app.collectors.macro_collector import MacroCollector
+from app.collectors.disclosure_collector import DisclosureCollector
 from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
@@ -128,9 +129,10 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         data_mode = "Mock" if use_mock else "실제 데이터 (yfinance)"
         print_section(f"Step 2. 데이터 수집 ({data_mode})")
 
-        price_col = PriceCollector()
-        news_col  = NewsCollector()
-        macro_col = MacroCollector()
+        price_col       = PriceCollector()
+        news_col        = NewsCollector()
+        macro_col       = MacroCollector()
+        disclosure_col  = DisclosureCollector()
 
         try:
             price_data = price_col.collect(stock_ids)
@@ -147,20 +149,32 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         except Exception as e:
             logger.error("[COLLECTOR_ERROR] 거시지표 수집 실패: %s", e)
             raise
+        # 공시(DART)는 보조 데이터 — DART_API_KEY 미설정 시 빈 결과로 자동 폴백되며,
+        # 수집 실패가 전체 파이프라인을 막지 않도록 다른 collector와 달리 raise하지 않음
+        try:
+            disclosure_data = disclosure_col.collect(stock_ids)
+        except Exception as e:
+            logger.warning("[COLLECTOR_ERROR] 공시 데이터 수집 실패 (무시하고 계속): %s", e)
+            disclosure_data = {}
 
         real_count = sum(1 for d in price_data.values() if not d.get("_mock"))
         mock_count = len(price_data) - real_count
+        disc_count = sum(len(v) for v in disclosure_data.values())
         print(f"  가격 데이터: {len(price_data)}개 종목 (실제:{real_count} / Mock:{mock_count})")
         print(f"  뉴스 데이터: {sum(len(v) for v in news_data.values())}건")
         print(f"  거시 지표: {'실제' if not macro_data.get('_mock') else 'Mock'} 수집 완료")
-        logger.info("데이터 수집 완료 — 가격:%d(실제%d/Mock%d) 뉴스:%d건",
+        print(f"  공시 데이터: {'연동' if disclosure_col.is_configured() else '미연동(DART_API_KEY 없음)'} ({disc_count}건)")
+        logger.info("데이터 수집 완료 — 가격:%d(실제%d/Mock%d) 뉴스:%d건 공시:%d건",
                     len(price_data), real_count, mock_count,
-                    sum(len(v) for v in news_data.values()))
+                    sum(len(v) for v in news_data.values()), disc_count)
 
         # ── Step 2-1: 데이터 품질 검증 ──
         print_section("Step 2-1. 데이터 품질 검증")
         validator       = DataValidator()
-        data_quality    = validator.validate(price_data, news_data, macro_data, stocks)
+        data_quality    = validator.validate(
+            price_data, news_data, macro_data, stocks,
+            disclosure_connected=disclosure_col.is_configured(),
+        )
         conf            = data_quality["overall"]["confidence"]
         status          = data_quality["overall"]["status"]
         issues          = data_quality["overall"]["issues"]
@@ -291,6 +305,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     report_date=date_str,
                     grade_changes=changes,
                     data_quality=data_quality,
+                    disclosure_data=disclosure_data,
                 )
             else:
                 print("  저녁 결산 리포트 생성 중...")
@@ -302,6 +317,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     report_date=date_str,
                     grade_changes=changes,
                     data_quality=data_quality,
+                    disclosure_data=disclosure_data,
                 )
             print("  리포트 생성 완료")
             logger.info("리포트 생성 완료")
@@ -334,6 +350,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "data_quality": data_quality,
                     "price": price_data,
                     "news": news_summary,
+                    "disclosures": disclosure_data,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,

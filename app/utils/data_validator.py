@@ -67,11 +67,12 @@ class DataValidator:
         news_data: dict[str, list],
         macro_data: dict,
         stocks: list[dict],
+        disclosure_connected: bool = False,
     ) -> dict[str, Any]:
         price_q  = self._check_price(price_data, stocks)
         news_q   = self._check_news(news_data)
         macro_q  = self._check_macro(macro_data)
-        disc_q   = {"connected": False}  # 공시 연동은 추후 구현
+        disc_q   = {"connected": disclosure_connected}
 
         critical_data_error, critical_reasons, warning_reasons = (
             self._validate_kospi_consistency(price_data, macro_data)
@@ -357,8 +358,9 @@ class DataValidator:
             + (f" (중복 {n['duplicates_removed']}건 제거)" if n["duplicates_removed"] > 0 else "")
         )
         macro_detail = m["basis"]
-        disc_detail  = "추후 지원 예정" if not d["connected"] else "✅ 연동됨"
+        disc_detail  = "추후 지원 예정" if not d["connected"] else "최근 7일 공시 반영"
         disc_icon    = "🔶" if not d["connected"] else "✅"
+        disc_status_label = "미연동" if not d["connected"] else "연동됨"
 
         conf = o["confidence"]
         conf_bar = _confidence_bar(conf)
@@ -374,7 +376,7 @@ class DataValidator:
             f"| 가격 데이터 | {_icon(p['status'])} {p['status']} | {price_detail} |",
             f"| 뉴스 데이터 | {_icon(n['status'])} {n['status']} | {news_detail} |",
             f"| 거시 지표   | {_icon(m['status'])} {m['status']} | {macro_detail} |",
-            f"| 공시 연동   | {disc_icon} 미연동 | {disc_detail} |",
+            f"| 공시 연동   | {disc_icon} {disc_status_label} | {disc_detail} |",
             "",
             f"**전체 데이터 신뢰도: {conf:.0f}점/100점** {conf_bar} ({status_label})",
             "",

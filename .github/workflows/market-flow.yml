@@ -62,6 +62,7 @@ jobs:
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
           TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
+          DART_API_KEY:        ${{ secrets.DART_API_KEY }}
         run: |
           {
             echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
@@ -77,6 +78,7 @@ jobs:
             echo "NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}"
             echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}"
             echo "TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}"
+            echo "DART_API_KEY=${DART_API_KEY}"
             echo "REPORT_SAVE_DIR=data/reports"
             echo "REPORT_LANGUAGE=ko"
           } > .env
