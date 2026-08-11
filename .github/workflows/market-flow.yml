@@ -93,6 +93,22 @@ jobs:
       - name: 데이터 디렉토리 생성
         run: mkdir -p data/reports data/history data/logs data/cache
 
+      # ── 5-1. KIS 접근토큰 캐시 복원/저장 (1일 1회 발급 원칙 준수) ───────────
+      # GitHub Actions는 실행마다 새 가상머신이라 로컬 파일 캐시가 지속되지
+      # 않음 — 캐시 없이는 아침/저녁 실행마다 토큰을 새로 발급받게 되어
+      # KIS의 "1일 1회 발급 원칙"을 위반하고 잦은 재발급으로 이용 제한을
+      # 받을 수 있음. 날짜별 캐시 키로 같은 날 여러 번 실행돼도(예약+수동)
+      # 토큰을 재사용하도록 함 (KIS 토큰 유효기간 24시간과 매치).
+      - name: 오늘 날짜 계산 (KIS 토큰 캐시 키)
+        id: kis_date
+        run: echo "date=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
+      - name: KIS 접근토큰 캐시
+        uses: actions/cache@v4
+        with:
+          path: data/cache/kis_token.json
+          key: kis-token-${{ steps.kis_date.outputs.date }}
+
       # ── 6. 리포트 유형 결정 ─────────────────────────────────────────────────
       - name: 리포트 유형 결정
         run: |
