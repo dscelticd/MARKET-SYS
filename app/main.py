@@ -51,6 +51,7 @@ from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
+from app.collectors.theme_scanner import scan_theme_strength
 from app.reports.report_builder import ReportBuilder, save_report
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
@@ -236,6 +237,19 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             for flag in portfolio_summary["risk_flags"]:
                 print(f"    ⚠️  {flag}")
 
+        # ── 시장 전체 테마 강약 스캔 (워치리스트 밖, 섹터/테마 ETF 기준) ──
+        # 개별 종목 심층분석과 무관한 가벼운 보조 정보라 실패해도 파이프라인을 막지 않음
+        try:
+            theme_scan = scan_theme_strength(use_mock=use_mock)
+        except Exception as e:
+            logger.warning("[THEME_SCAN_ERROR] 테마 스캔 실패 (무시하고 계속): %s", e)
+            theme_scan = []
+        if theme_scan:
+            top = theme_scan[0]
+            bottom = theme_scan[-1]
+            print(f"  테마 스캔: {len(theme_scan)}개 — 최강 {top['name']}({top['change_pct']:+.2f}%) "
+                  f"/ 최약 {bottom['name']}({bottom['change_pct']:+.2f}%)")
+
         # ── Step 2-1: 데이터 품질 검증 ──
         print_section("Step 2-1. 데이터 품질 검증")
         validator       = DataValidator()
@@ -391,6 +405,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     accuracy_report=accuracy_report,
                     portfolio_summary=portfolio_summary,
                     stocks=stocks,
+                    theme_scan=theme_scan,
                     max_tokens=cfg.report.morning.get("max_tokens", 10000),
                 )
             else:
@@ -407,6 +422,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     accuracy_report=accuracy_report,
                     portfolio_summary=portfolio_summary,
                     stocks=stocks,
+                    theme_scan=theme_scan,
                     max_tokens=cfg.report.evening.get("max_tokens", 10000),
                 )
             print("  리포트 생성 완료")
@@ -443,6 +459,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "disclosures": disclosure_data,
                     "accuracy_report": accuracy_report,
                     "portfolio_summary": portfolio_summary,
+                    "theme_scan": theme_scan,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,

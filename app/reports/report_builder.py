@@ -276,6 +276,27 @@ def _format_portfolio_block(portfolio_summary: dict | None) -> str:
     return "\n".join(lines)
 
 
+def _format_theme_scan_block(theme_scan: list[dict] | None) -> str:
+    """워치리스트 밖 시장 전체 섹터/테마 강약 스캔 블록 — 매수 후보 추천이 아닌
+    시장 흐름 참고 정보. 상위 5개(강세)·하위 5개(약세)만 노출해 프롬프트 비대화 방지.
+    """
+    if not theme_scan:
+        return "(테마 스캔 데이터 없음)"
+
+    strong = theme_scan[:5]
+    weak = theme_scan[-5:] if len(theme_scan) > 5 else []
+
+    lines = ["  강세 테마:"]
+    for t in strong:
+        lines.append(f"    {t['name']} ({t['ticker']}) {t['change_pct']:+.2f}%")
+    if weak:
+        lines.append("  약세 테마:")
+        for t in reversed(weak):
+            lines.append(f"    {t['name']} ({t['ticker']}) {t['change_pct']:+.2f}%")
+
+    return "\n".join(lines)
+
+
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     """외국인/기관/개인 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님).
     소스에 따라 개인 수치의 성격이 다름: KIS(한국투자증권 공식 API, _source="kis")는
@@ -413,6 +434,7 @@ class ReportBuilder:
         accuracy_report: dict[int, dict] | None = None,
         portfolio_summary: dict | None = None,
         stocks: list[dict] | None = None,
+        theme_scan: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -425,10 +447,14 @@ class ReportBuilder:
         accuracy_block = _format_accuracy_block(accuracy_report)
         portfolio_block = _format_portfolio_block(portfolio_summary)
         memo_block = _format_memo_block(stocks)
+        theme_scan_block = _format_theme_scan_block(theme_scan)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
+
+## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
+{theme_scan_block}
 
 ## 관심종목 가격 현황 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
@@ -502,6 +528,11 @@ class ReportBuilder:
 - 당일 동조화율은 통계적 상관계수가 아닙니다 — "오늘 하루" 종목들이 같은 방향으로 몰렸는지를 보여주는 단순 집계임을 처음 언급할 때 명시하세요.
 - 집중 리스크 경고가 있으면 "해당 테마/섹터가 흔들릴 경우 워치리스트 상당 부분이 동시에 영향받을 수 있다"는 사실을 전달하되, 이것이 좋다/나쁘다는 가치 판단은 하지 마세요.
 
+## 시장 전체 테마 동향 서술 규칙 (중요)
+- 이 섹션의 강세/약세 테마는 워치리스트 밖 섹터 ETF의 당일 등락률일 뿐이며, 새로운 매수 후보를 추천하는 것이 아닙니다. "이 테마를 사라"·"편입을 검토하라" 같은 문장을 쓰지 마세요.
+- "오늘 시장에서 이런 흐름이 있었다"는 사실 전달과, 이미 보유 중인 관심종목·테마와의 연관성(있다면)을 짚어주는 참고 정보로만 다루세요.
+- ETF 하나의 등락률로 테마 전체를 단정하지 말고, 참고 지표라는 점을 톤에 반영하세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -521,6 +552,7 @@ class ReportBuilder:
         accuracy_report: dict[int, dict] | None = None,
         portfolio_summary: dict | None = None,
         stocks: list[dict] | None = None,
+        theme_scan: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -533,10 +565,14 @@ class ReportBuilder:
         accuracy_block = _format_accuracy_block(accuracy_report)
         portfolio_block = _format_portfolio_block(portfolio_summary)
         memo_block = _format_memo_block(stocks)
+        theme_scan_block = _format_theme_scan_block(theme_scan)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
+
+## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
+{theme_scan_block}
 
 ## 관심종목 당일 가격 결산 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
@@ -609,6 +645,11 @@ class ReportBuilder:
 - 테마/섹터 집중도와 당일 동조화율은 워치리스트 구성에 대한 참고 진단이며, "리밸런싱하라"·"비중을 줄여라" 같은 구체적 매매 지시를 하지 마세요.
 - 당일 동조화율은 통계적 상관계수가 아닙니다 — "오늘 하루" 종목들이 같은 방향으로 몰렸는지를 보여주는 단순 집계임을 처음 언급할 때 명시하세요.
 - 집중 리스크 경고가 있으면 "해당 테마/섹터가 흔들릴 경우 워치리스트 상당 부분이 동시에 영향받을 수 있다"는 사실을 전달하되, 이것이 좋다/나쁘다는 가치 판단은 하지 마세요.
+
+## 시장 전체 테마 동향 서술 규칙 (중요)
+- 이 섹션의 강세/약세 테마는 워치리스트 밖 섹터 ETF의 당일 등락률일 뿐이며, 새로운 매수 후보를 추천하는 것이 아닙니다. "이 테마를 사라"·"편입을 검토하라" 같은 문장을 쓰지 마세요.
+- "오늘 시장에서 이런 흐름이 있었다"는 사실 전달과, 이미 보유 중인 관심종목·테마와의 연관성(있다면)을 짚어주는 참고 정보로만 다루세요.
+- ETF 하나의 등락률로 테마 전체를 단정하지 말고, 참고 지표라는 점을 톤에 반영하세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

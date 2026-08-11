@@ -1,0 +1,30 @@
+{
+  "version": "1.0",
+  "description": "워치리스트 밖 시장 전체 테마 강약 스캔용 — 섹터/테마 ETF를 프록시로 사용. 개별 종목 심층분석과 달리 가격·등락률만 가볍게 조회해 '오늘 어떤 테마가 강세/약세인가' 참고 정보를 제공.",
+  "themes": [
+    {"id": "tech_us",     "name": "기술(미국)",       "ticker": "XLK",       "market": "US"},
+    {"id": "energy_us",   "name": "에너지(미국)",      "ticker": "XLE",       "market": "US"},
+    {"id": "finance_us",  "name": "금융(미국)",       "ticker": "XLF",       "market": "US"},
+    {"id": "health_us",   "name": "헬스케어(미국)",     "ticker": "XLV",       "market": "US"},
+    {"id": "industry_us", "name": "산업재(미국)",      "ticker": "XLI",       "market": "US"},
+    {"id": "material_us", "name": "소재(미국)",       "ticker": "XLB",       "market": "US"},
+    {"id": "cyclical_us", "name": "임의소비재(미국)",    "ticker": "XLY",       "market": "US"},
+    {"id": "staples_us",  "name": "필수소비재(미국)",    "ticker": "XLP",       "market": "US"},
+    {"id": "utility_us",  "name": "유틸리티(미국)",     "ticker": "XLU",       "market": "US"},
+    {"id": "reit_us",     "name": "리츠(미국)",       "ticker": "XLRE",      "market": "US"},
+    {"id": "biotech_us",  "name": "바이오텍(미국)",     "ticker": "XBI",       "market": "US"},
+    {"id": "defense_us",  "name": "방산/항공우주(미국)", "ticker": "ITA",       "market": "US"},
+    {"id": "battery_us",  "name": "2차전지/리튬(미국)",  "ticker": "LIT",       "market": "US"},
+    {"id": "cleanenergy", "name": "클린에너지(미국)",    "ticker": "ICLN",      "market": "US"},
+    {"id": "cybersec",    "name": "사이버보안(미국)",    "ticker": "HACK",      "market": "US"},
+    {"id": "airline_us",  "name": "항공(미국)",       "ticker": "JETS",      "market": "US"},
+    {"id": "innovation",  "name": "혁신기술(미국)",     "ticker": "ARKK",      "market": "US"},
+    {"id": "robotics",    "name": "로봇/자동화(미국)",   "ticker": "ROBO",      "market": "US"},
+    {"id": "battery_kr",  "name": "2차전지(국내)",     "ticker": "305720.KS", "market": "KR"},
+    {"id": "biotech_kr",  "name": "바이오(국내)",      "ticker": "244580.KS", "market": "KR"},
+    {"id": "auto_kr",     "name": "자동차(국내)",      "ticker": "091180.KS", "market": "KR"},
+    {"id": "bank_kr",     "name": "은행(국내)",       "ticker": "091170.KS", "market": "KR"},
+    {"id": "construct_kr","name": "건설(국내)",       "ticker": "117700.KS", "market": "KR"},
+    {"id": "cosmetic_kr", "name": "화장품(국내)",      "ticker": "228790.KS", "market": "KR"}
+  ]
+}
