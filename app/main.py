@@ -111,7 +111,7 @@ def print_rating(r: dict) -> None:
 
 
 def check_kr_investor_flow_failure_rate(price_data: dict) -> tuple[int, int] | None:
-    """KR 종목의 네이버 수급 스크래핑 (실패 건수, 전체 건수) 반환.
+    """KR 종목의 수급 데이터(KIS 우선, 네이버 폴백) (실패 건수, 전체 건수) 반환.
     KR 종목 자체가 없거나 investor_flow 데이터가 하나도 없으면 None.
     """
     kr_flows = [
@@ -122,6 +122,22 @@ def check_kr_investor_flow_failure_rate(price_data: dict) -> tuple[int, int] | N
         return None
     fail_count = sum(1 for f in kr_flows if f.get("_mock"))
     return fail_count, len(kr_flows)
+
+
+def _summarize_investor_flow_sources(price_data: dict) -> str:
+    """수급 데이터가 실제로 어느 소스(KIS/네이버/Mock)에서 왔는지 개수 요약 (로그·콘솔용)"""
+    kr_flows = [
+        d["investor_flow"] for sid, d in price_data.items()
+        if sid.startswith("KR_") and d.get("investor_flow")
+    ]
+    kis   = sum(1 for f in kr_flows if f.get("_source") == "kis")
+    mock  = sum(1 for f in kr_flows if f.get("_mock"))
+    naver = len(kr_flows) - kis - mock
+    parts = []
+    if kis:   parts.append(f"KIS {kis}")
+    if naver: parts.append(f"네이버 {naver}")
+    if mock:  parts.append(f"Mock {mock}")
+    return " / ".join(parts) if parts else "0종목"
 
 
 # ── 파이프라인 ───────────────────────────────────────────────────────────────
@@ -198,7 +214,8 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         if flow_check is not None:
             flow_fail, flow_total = flow_check
             fail_rate = flow_fail / flow_total
-            print(f"  수급 데이터(네이버): {flow_total - flow_fail}/{flow_total}종목 실제 수집 성공")
+            print(f"  수급 데이터: {flow_total - flow_fail}/{flow_total}종목 실제 수집 성공 "
+                  f"({_summarize_investor_flow_sources(price_data)})")
             if fail_rate >= _SCRAPER_FAILURE_ALERT_THRESHOLD:
                 logger.error("[SCRAPER_ERROR] 네이버 수급 스크래핑 실패율 %.0f%% (%d/%d) — 페이지 구조 변경 가능성",
                              fail_rate * 100, flow_fail, flow_total)

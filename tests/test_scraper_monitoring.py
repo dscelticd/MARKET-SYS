@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
-from app.main import check_kr_investor_flow_failure_rate
+from app.main import check_kr_investor_flow_failure_rate, _summarize_investor_flow_sources
 from app.utils.telegram_notifier import TelegramNotifier
 
 
@@ -72,3 +72,20 @@ def test_notify_scraper_failure_noop_when_not_configured():
     notifier.token = ""
     notifier.chat_id = ""
     assert notifier.notify_scraper_failure("소스", 5, 6, "morning") is False
+
+
+def test_summarize_investor_flow_sources_breaks_down_by_origin():
+    """수급 데이터가 실제로 KIS/네이버/Mock 중 어디서 왔는지 로그에 정확히 표시되어야 함
+    (실제 발생한 버그: KIS 연동 후에도 로그가 항상 "네이버"로 하드코딩 표시되고 있었음)
+    """
+    price_data = {
+        "KR_005930": {"investor_flow": {"_mock": False, "_source": "kis"}},
+        "KR_000660": {"investor_flow": {"_mock": False, "_source": "kis"}},
+        "KR_069500": {"investor_flow": {"_mock": False}},  # 네이버 (source 필드 없음)
+        "KR_010120": {"investor_flow": {"_mock": True}},   # Mock 폴백
+        "US_NVDA": {"investor_flow": {}},                   # 해외 종목, 집계 제외
+    }
+    summary = _summarize_investor_flow_sources(price_data)
+    assert "KIS 2" in summary
+    assert "네이버 1" in summary
+    assert "Mock 1" in summary
