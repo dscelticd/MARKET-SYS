@@ -63,6 +63,9 @@ jobs:
           TELEGRAM_BOT_TOKEN:  ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID:    ${{ secrets.TELEGRAM_CHAT_ID }}
           DART_API_KEY:        ${{ secrets.DART_API_KEY }}
+          KIS_APP_KEY:         ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET:      ${{ secrets.KIS_APP_SECRET }}
+          KIS_ENV:             ${{ secrets.KIS_ENV }}
         run: |
           {
             echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}"
@@ -79,6 +82,9 @@ jobs:
             echo "TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}"
             echo "TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}"
             echo "DART_API_KEY=${DART_API_KEY}"
+            echo "KIS_APP_KEY=${KIS_APP_KEY}"
+            echo "KIS_APP_SECRET=${KIS_APP_SECRET}"
+            echo "KIS_ENV=${KIS_ENV:-demo}"
             echo "REPORT_SAVE_DIR=data/reports"
             echo "REPORT_LANGUAGE=ko"
           } > .env

@@ -15,10 +15,16 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 
+from app.collectors.kis_collector import KISCollector
+
 logger = logging.getLogger(__name__)
 
-# 수급(외국인/기관/개인 순매매) 데이터 소스 — 네이버 금융 (비공식, 구조 변경 시 실패 가능 → Mock 폴백)
+# 수급(외국인/기관/개인 순매매) 데이터 소스 우선순위:
+#   1순위 KIS(한국투자증권 공식 API, KIS_APP_KEY 설정 시) — 개인 순매수 실측값 제공
+#   2순위 네이버 금융 (비공식 스크래핑, 개인은 잔차 추정)
+#   3순위 Mock (둘 다 실패 시)
 _NAVER_FRGN_URL = "https://finance.naver.com/item/frgn.naver"
+_kis_collector = KISCollector()
 
 # ETF 및 한국 종목은 야후 애널리스트 데이터 제공이 불안정 → 건너뜀
 _SKIP_ANALYST_SYMBOLS  = {"QQQ", "VOO", "QTUM", "SCHD"}
@@ -487,13 +493,20 @@ class PriceCollector:
                 display_ticker = sym.replace(".KS", "").replace(".KQ", "")
 
                 # 수급(외국인/기관/개인 순매매) — KRX 시장 구조상 KR 종목에만 존재
+                # KIS(공식, 개인 실측값) → 네이버(비공식, 개인 추정값) → Mock 순으로 폴백
                 investor_flow: dict = {}
                 if sid.startswith("KR_"):
-                    try:
-                        investor_flow = _fetch_investor_flow(display_ticker)
-                    except Exception as e:
-                        logger.debug("수급 데이터 수집 실패 (%s): %s → Mock 폴백", sid, e)
-                        investor_flow = _mock_investor_flow()
+                    if _kis_collector.is_configured():
+                        try:
+                            investor_flow = _kis_collector.fetch_investor_flow(display_ticker)
+                        except Exception as e:
+                            logger.debug("KIS 수급 수집 실패 (%s): %s → 네이버 폴백", sid, e)
+                    if not investor_flow:
+                        try:
+                            investor_flow = _fetch_investor_flow(display_ticker)
+                        except Exception as e:
+                            logger.debug("수급 데이터 수집 실패 (%s): %s → Mock 폴백", sid, e)
+                            investor_flow = _mock_investor_flow()
 
                 result[sid] = {
                     "stock_id":      sid,

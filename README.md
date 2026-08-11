@@ -45,7 +45,8 @@ market_flow/
 │   │   ├── price_collector.py       # 주가·기술적지표·지지저항·캔들패턴·수급 수집
 │   │   ├── news_collector.py        # 뉴스 수집 (네이버 API / yfinance / Mock)
 │   │   ├── macro_collector.py       # 거시지표 수집 (yfinance / Mock)
-│   │   └── disclosure_collector.py  # DART 공시 수집 (선택, DART_API_KEY 필요)
+│   │   ├── disclosure_collector.py  # DART 공시 수집 (선택, DART_API_KEY 필요)
+│   │   └── kis_collector.py         # KIS(한국투자증권) 공식 수급 데이터 (선택)
 │   ├── engine/
 │   │   ├── signal_scorer.py       # 7차원 신호 점수 계산
 │   │   ├── rating_analyzer.py     # 등급 산정 (추천/안전/보통/주의/위험/판단보류)
@@ -109,6 +110,14 @@ NAVER_CLIENT_SECRET=...          # 미설정 시 국내 종목 뉴스는 테스�
 # ── DART 공시 연동 (선택) ───────────────────────────
 DART_API_KEY=...                 # opendart.fss.or.kr 무료 발급, 미설정 시 공시 데이터 미연동
 
+# ── KIS(한국투자증권) 공식 수급 데이터 (선택) ────────
+KIS_APP_KEY=...                  # 한국투자증권 계좌 개설 후 오픈API 서비스 신청으로 발급
+KIS_APP_SECRET=...
+KIS_ENV=demo                     # demo(모의투자, 시세조회만 하므로 충분) 또는 real(실전투자)
+# 미설정 시: 수급 데이터는 네이버 금융 스크래핑으로 자동 폴백 (파이프라인 영향 없음)
+# KIS는 개인 순매수를 실측값으로 제공(네이버는 잔차 추정) — 계좌는 실명 필요, 모의투자
+# 앱키도 실계좌 소유가 전제 조건
+
 # ── 텔레그램 알림 (선택) ────────────────────────────
 TELEGRAM_BOT_TOKEN=...           # @BotFather에서 /newbot으로 발급
 TELEGRAM_CHAT_ID=...             # 봇과 대화 후 getUpdates로 확인
@@ -120,9 +129,10 @@ REPORT_LANGUAGE=ko
 
 > **Gmail 앱 비밀번호 발급**: Gmail → 구글 계정 → 보안 → 2단계 인증 활성화 → 앱 비밀번호 생성
 >
-> 수급(외국인/기관 순매매) 데이터는 네이버 금융 페이지를 직접 파싱하는 방식이라 별도 키가
-> 필요 없으나, 비공식 소스라 페이지 구조가 바뀌면 실패율이 높아질 수 있습니다 — 실패율
-> 70% 이상 시 텔레그램으로 자동 경고됩니다(설정된 경우).
+> 수급(외국인/기관/개인 순매매) 데이터는 KIS(한국투자증권) 공식 API를 1순위로 사용하고,
+> 미설정 시 네이버 금융 페이지 파싱으로 폴백합니다. 네이버 방식은 비공식 소스라 페이지
+> 구조가 바뀌면 실패율이 높아질 수 있습니다 — 실패율 70% 이상 시 텔레그램으로 자동
+> 경고됩니다(설정된 경우).
 
 ---
 
@@ -198,7 +208,8 @@ streamlit run app/dashboard.py
       ↓
 [2] 데이터 수집
     - PriceCollector      → yfinance 실시간 주가/거래량/기술적지표/지지저항/
-                             캔들패턴/수급(외국인·기관, KR 종목만 네이버 스크래핑)
+                             캔들패턴/수급(외국인·기관·개인, KR 종목만 — KIS 공식 API
+                             1순위, 미설정 시 네이버 스크래핑 폴백)
     - NewsCollector       → 네이버 API(KR) / yfinance(해외) 뉴스, 파생상품 이슈 분리
     - MacroCollector      → S&P500 / KOSPI / VIX / 환율 / 금리 / 원자재
     - DisclosureCollector → DART 공시 (선택, DART_API_KEY 필요)

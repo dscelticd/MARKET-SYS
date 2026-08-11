@@ -106,6 +106,13 @@ if dart_key:
 else:
     check("WARN", "DART_API_KEY", "미설정 — 공시 데이터 미연동 (선택 사항, opendart.fss.or.kr에서 무료 발급)")
 
+kis_key    = os.getenv("KIS_APP_KEY", "")
+kis_secret = os.getenv("KIS_APP_SECRET", "")
+if kis_key and kis_secret:
+    check("OK", "KIS_APP_KEY/SECRET", f"설정됨 — 수급 데이터 공식 연동 ({os.getenv('KIS_ENV', 'demo')} 모드)")
+else:
+    check("WARN", "KIS_APP_KEY/SECRET", "미설정 — 수급 데이터는 네이버 스크래핑으로 폴백 (선택 사항)")
+
 # ── 3. 설정 파일 ─────────────────────────────────────────────────────────────
 print("\n[3] 설정 파일 확인")
 config_files = {
@@ -171,6 +178,15 @@ if use_mock == "false":
             check("WARN", "거시지표 수집 (yfinance)", "Mock 폴백됨")
     except Exception as e:
         check("FAIL", "거시지표 수집 (yfinance)", f"오류: {str(e)[:50]}")
+
+    if kis_key and kis_secret:
+        try:
+            from app.collectors.kis_collector import KISCollector
+            kis = KISCollector()
+            flow = kis.fetch_investor_flow("005930")
+            check("OK", "수급 수집 (KIS)", f"삼성전자 5일 외국인 {flow.get('foreign_net_5d', 0):+,}주")
+        except Exception as e:
+            check("WARN", "수급 수집 (KIS)", f"실패 — 네이버로 자동 폴백됨: {str(e)[:50]}")
 else:
     check("OK", "데이터 수집 모드", "Mock 모드 (USE_MOCK_DATA=true)")
 

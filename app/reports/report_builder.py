@@ -277,22 +277,32 @@ def _format_portfolio_block(portfolio_summary: dict | None) -> str:
 
 
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
-    """외국인/기관/개인(추정) 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님)"""
+    """외국인/기관/개인 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님).
+    소스에 따라 개인 수치의 성격이 다름: KIS(한국투자증권 공식 API, _source="kis")는
+    개인 순매수를 실측값으로 직접 제공하고, 네이버 금융(비공식 스크래핑) 폴백 시에는
+    KRX가 개인을 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값이다.
+    """
     lines = []
     for sid, p in price_data.items():
         flow = p.get("investor_flow") or {}
         if not flow:
             continue
 
+        is_kis = flow.get("_source") == "kis"
+        indiv_label = "개인(실측)" if is_kis else "개인(추정)"
+
         parts = [f"{p['name']}"]
         for days in (5, 20):
             frgn = flow.get(f"foreign_net_{days}d")
             inst = flow.get(f"institution_net_{days}d")
-            indiv = flow.get(f"individual_net_{days}d_est")
+            if is_kis:
+                indiv = flow.get(f"individual_net_{days}d")
+            else:
+                indiv = flow.get(f"individual_net_{days}d_est")
             if frgn is None or inst is None:
                 continue
             parts.append(
-                f"{days}일누적 외국인{frgn:+,}주·기관{inst:+,}주·개인(추정){indiv:+,}주"
+                f"{days}일누적 외국인{frgn:+,}주·기관{inst:+,}주·{indiv_label}{indiv:+,}주"
             )
         lines.append("  " + " | ".join(parts))
 
@@ -475,7 +485,7 @@ class ReportBuilder:
 
 ## 수급 서술 규칙 (중요)
 - 수급(외국인/기관/개인 순매매)은 매매 신호가 아닌 참고 정보로만 서술하세요.
-- "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
+- "개인(추정)"으로 표시된 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요. "개인(실측)"으로 표시된 수치는 한국투자증권 공식 API 실측값이므로 추정치라고 서술하지 마세요.
 - 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
 
 ## 공시 서술 규칙
@@ -583,7 +593,7 @@ class ReportBuilder:
 
 ## 수급 서술 규칙 (중요)
 - 수급(외국인/기관/개인 순매매)은 매매 신호가 아닌 참고 정보로만 서술하세요.
-- "개인" 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요.
+- "개인(추정)"으로 표시된 수치는 KRX가 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값입니다 — 처음 언급할 때 "추정치"임을 명시하세요. "개인(실측)"으로 표시된 수치는 한국투자증권 공식 API 실측값이므로 추정치라고 서술하지 마세요.
 - 해외 종목(미국·대만)은 이 데이터가 존재하지 않으므로 언급하지 마세요.
 
 ## 공시 서술 규칙
