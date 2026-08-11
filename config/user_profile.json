@@ -29,7 +29,7 @@
   "report_preferences": {
     "language": "ko",
     "morning_report_time": "07:00",
-    "evening_report_time": "18:30",
+    "evening_report_time": "20:30",
     "include_global_macro": true,
     "include_us_market": true,
     "include_kr_market": true,

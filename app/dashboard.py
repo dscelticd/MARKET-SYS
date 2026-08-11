@@ -2407,7 +2407,7 @@ def main():
         with sc2:
             _eh, _em = map(int, cfg.user.evening_time.split(":"))
             new_evening = st.time_input("🌙 저녁 결산", value=dtime(_eh, _em),
-                                        help="기본값: 18:30")
+                                        help="기본값: 20:30")
         if st.button("💾 발송 시간 저장", type="primary"):
             nm = new_morning.strftime("%H:%M")
             ne = new_evening.strftime("%H:%M")

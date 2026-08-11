@@ -1,6 +1,6 @@
 """
 Market Flow 자동 스케줄러
-매일 아침 07:00 브리핑, 저녁 18:30 결산 자동 실행
+매일 아침 07:00 브리핑, 저녁 20:30 결산 자동 실행
 
 실행: python app/scheduler.py
       또는  스케줄러 실행.bat  더블클릭
@@ -86,7 +86,7 @@ def evening_job() -> None:
 
 
 def _load_schedule_times() -> tuple[str, str]:
-    """user_profile.json에서 리포트 발송 시간을 읽어 반환 (기본: 07:00 / 18:30)"""
+    """user_profile.json에서 리포트 발송 시간을 읽어 반환 (기본: 07:00 / 20:30)"""
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
         from app.utils.config_loader import get_config
@@ -94,7 +94,7 @@ def _load_schedule_times() -> tuple[str, str]:
         return cfg.user.morning_time, cfg.user.evening_time
     except Exception as e:
         logger.warning(f"설정 로드 실패, 기본값 사용: {e}")
-        return "07:00", "18:30"
+        return "07:00", "20:30"
 
 
 def print_schedule_info(morning_time: str, evening_time: str) -> None:

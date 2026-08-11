@@ -35,11 +35,11 @@ streamlit run app/dashboard.py
 ```
 market_flow/
 ├── .github/workflows/
-│   └── market-flow.yml       # GitHub Actions 자동 실행 (매일 07:00 / 18:30 KST)
+│   └── market-flow.yml       # GitHub Actions 자동 실행 (매일 07:00 / 20:30 KST)
 ├── app/
 │   ├── main.py               # CLI 진입점 / 파이프라인 오케스트레이션
 │   ├── dashboard.py          # Streamlit 대시보드
-│   ├── scheduler.py          # 로컬 자동 스케줄러 (매일 07:00 / 18:30)
+│   ├── scheduler.py          # 로컬 자동 스케줄러 (매일 07:00 / 20:30)
 │   ├── healthcheck.py        # 시스템 상태 점검
 │   ├── collectors/
 │   │   ├── price_collector.py       # 주가·기술적지표·지지저항·캔들패턴·수급 수집
@@ -147,7 +147,7 @@ REPORT_LANGUAGE=ko
 | `저녁 리포트 실행.bat` | 저녁 결산 생성 |
 | `저녁 리포트+이메일.bat` | 저녁 결산 + 이메일 발송 |
 | `대시보드 실행.bat` | Streamlit 대시보드 실행 |
-| `스케줄러 실행.bat` | 자동 스케줄러 실행 (07:00 / 18:30) |
+| `스케줄러 실행.bat` | 자동 스케줄러 실행 (07:00 / 20:30) |
 
 ### 방법 2 — 명령어 (터미널)
 
@@ -184,7 +184,7 @@ streamlit run app/dashboard.py
 
 ### 방법 4 — GitHub Actions 자동 실행 (운영 권장)
 
-`.github/workflows/market-flow.yml`이 매일 **07:00 / 18:30 KST**에 자동으로 아침/저녁
+`.github/workflows/market-flow.yml`이 매일 **07:00 / 20:30 KST**에 자동으로 아침/저녁
 리포트를 생성해 이메일로 발송합니다. 로컬 PC를 켜둘 필요가 없습니다.
 
 **설정 방법**:
@@ -368,7 +368,7 @@ streamlit run app/dashboard.py
   작업 스케줄러 → 기본 작업 만들기
   → 트리거: 매일 07:00  → 동작: "스케줄러 실행.bat" 경로 입력
   ```
-- [ ] 또는 `스케줄러 실행.bat` 수동 실행 후 07:00 / 18:30 알림 대기
+- [ ] 또는 `스케줄러 실행.bat` 수동 실행 후 07:00 / 20:30 알림 대기
 - [ ] PC 절전모드를 사용하는 경우 "절전 모드 해제 후 실행" 옵션 활성화
 
 ### 7단계 — 로그 확인 위치

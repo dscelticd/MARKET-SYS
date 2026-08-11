@@ -72,7 +72,7 @@ class UserProfile:
 
     @property
     def evening_time(self) -> str:
-        return self.report_preferences.get("evening_report_time", "18:30")
+        return self.report_preferences.get("evening_report_time", "20:30")
 
 
 class ReportConfig:
