@@ -1,0 +1,11 @@
+{
+  "version": "1.0",
+  "description": "FRED API로 발표일을 조회할 미국 매크로 지표 목록. release_id는 하드코딩하지 않고 런타임에 release_name_match 문자열로 /fred/releases 목록에서 조회 후 캐시한다.",
+  "fred_indicators": [
+    {"id": "cpi", "name": "美 CPI(소비자물가지수)", "release_name_match": "Consumer Price Index"},
+    {"id": "ppi", "name": "美 PPI(생산자물가지수)", "release_name_match": "Producer Price Index"},
+    {"id": "employment", "name": "美 고용보고서(비농업고용)", "release_name_match": "Employment Situation"},
+    {"id": "retail_sales", "name": "美 소매판매", "release_name_match": "Advance Monthly Sales for Retail"},
+    {"id": "gdp", "name": "美 GDP(국내총생산)", "release_name_match": "Gross Domestic Product"}
+  ]
+}

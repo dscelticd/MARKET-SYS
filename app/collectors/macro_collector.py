@@ -48,6 +48,31 @@ def _next_meeting_date(dates: list[str]) -> str:
             return d
     return dates[-1]
 
+
+def get_upcoming_policy_meetings(days_ahead: int = 14) -> list[dict]:
+    """오늘부터 days_ahead일 이내의 FOMC/한국은행 금통위 일정을 반환.
+    calendar_collector.py가 이벤트 캘린더 구성 시 재사용한다."""
+    from datetime import timedelta
+    today = datetime.now().date()
+    end = today + timedelta(days=days_ahead)
+
+    events: list[dict] = []
+    for date_str in _FOMC_ALL:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if today <= d <= end:
+            events.append({
+                "date": date_str, "category": "policy", "country": "US",
+                "title": "FOMC 회의(미국 기준금리 결정)", "source": "static",
+            })
+    for date_str in _BOK_ALL:
+        d = datetime.strptime(date_str, "%Y-%m-%d").date()
+        if today <= d <= end:
+            events.append({
+                "date": date_str, "category": "policy", "country": "KR",
+                "title": "한국은행 금융통화위원회(기준금리 결정)", "source": "static",
+            })
+    return sorted(events, key=lambda e: e["date"])
+
 # yfinance 심볼 정의
 _MACRO_SYMBOLS = {
     "SP500":   "^GSPC",

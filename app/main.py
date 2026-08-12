@@ -52,6 +52,7 @@ from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.collectors.theme_scanner import scan_theme_strength
+from app.collectors.calendar_collector import build_event_calendar
 from app.reports.report_builder import ReportBuilder, save_report
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
@@ -197,6 +198,18 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         except Exception as e:
             logger.warning("[COLLECTOR_ERROR] 공시 데이터 수집 실패 (무시하고 계속): %s", e)
             disclosure_data = {}
+
+        # 예정 이벤트 캘린더(FRED 매크로 지표·FOMC/금통위·국내 법정기한·DART IR공시)는
+        # disclosure_data를 재사용하는 보조 진단이라 실패해도 파이프라인을 막지 않음
+        try:
+            event_calendar = build_event_calendar(disclosure_data, days_ahead=14)
+        except Exception as e:
+            logger.warning("[CALENDAR_ERROR] 이벤트 캘린더 수집 실패 (무시하고 계속): %s", e)
+            event_calendar = []
+        if event_calendar:
+            nearest = event_calendar[0]
+            print(f"  이벤트 캘린더: {len(event_calendar)}건(14일 이내) — 가장 가까운: "
+                  f"{nearest['date']} {nearest['title']}")
 
         real_count = sum(1 for d in price_data.values() if not d.get("_mock"))
         mock_count = len(price_data) - real_count
@@ -406,6 +419,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     portfolio_summary=portfolio_summary,
                     stocks=stocks,
                     theme_scan=theme_scan,
+                    event_calendar=event_calendar,
                     max_tokens=cfg.report.morning.get("max_tokens", 10000),
                 )
             else:
@@ -423,6 +437,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     portfolio_summary=portfolio_summary,
                     stocks=stocks,
                     theme_scan=theme_scan,
+                    event_calendar=event_calendar,
                     max_tokens=cfg.report.evening.get("max_tokens", 10000),
                 )
             print("  리포트 생성 완료")
@@ -460,6 +475,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "accuracy_report": accuracy_report,
                     "portfolio_summary": portfolio_summary,
                     "theme_scan": theme_scan,
+                    "event_calendar": event_calendar,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,

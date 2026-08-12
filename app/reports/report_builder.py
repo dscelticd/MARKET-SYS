@@ -297,6 +297,29 @@ def _format_theme_scan_block(theme_scan: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+_EVENT_CATEGORY_LABEL = {
+    "macro": "🇺🇸 매크로",
+    "policy": "🏛️ 통화정책",
+    "disclosure": "📄 공시",
+    "filing_deadline": "⚖️ 법정기한",
+}
+
+
+def _format_event_calendar_block(event_calendar: list[dict] | None) -> str:
+    """향후 N일 예정 이벤트 캘린더 블록 — FRED 매크로 지표 발표일, FOMC/금통위,
+    국내 법정 공시기한, DART IR 관련 공시(접수일 기준)를 날짜순으로 나열.
+    실측 데이터만 포함되며, 매칭/조회 실패한 항목은 애초에 리스트에 없음.
+    """
+    if not event_calendar:
+        return "(이벤트 캘린더 데이터 없음 — FRED_API_KEY 미설정이거나 조회 기간 내 예정 이벤트 없음)"
+
+    lines = []
+    for e in event_calendar:
+        label = _EVENT_CATEGORY_LABEL.get(e.get("category"), e.get("category", ""))
+        lines.append(f"  {e['date']} [{label}] {e['title']}")
+    return "\n".join(lines)
+
+
 def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     """외국인/기관/개인 순매매 수급 블록 (KR 종목만 — 참고용, 매매 신호 아님).
     소스에 따라 개인 수치의 성격이 다름: KIS(한국투자증권 공식 API, _source="kis")는
@@ -435,6 +458,7 @@ class ReportBuilder:
         portfolio_summary: dict | None = None,
         stocks: list[dict] | None = None,
         theme_scan: list[dict] | None = None,
+        event_calendar: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -448,10 +472,14 @@ class ReportBuilder:
         portfolio_block = _format_portfolio_block(portfolio_summary)
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
+        event_calendar_block = _format_event_calendar_block(event_calendar)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
+
+## 예정 이벤트 캘린더 (실측, 향후 14일)
+{event_calendar_block}
 
 ## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
 {theme_scan_block}
@@ -501,7 +529,7 @@ class ReportBuilder:
    - 🔴 비관 시나리오: 하락 리스크 요인이 현실화될 경우 대비 포인트
    - 기술적 신호(RSI 과매도/과매수·추세·MACD)와 애널리스트 목표주가 상승여력이 높은 종목을 구체적으로 언급하세요
    - 지지/저항 박스와 손익비가 있는 종목은 "◯◯원 위로 거래량 동반 마감 시 돌파로 볼 여지" 같은 조건부 문장으로 자연스럽게 녹여서 언급하세요 (아래 작성 규칙 참고)
-7. **오늘 주요 모니터링 포인트** — 확인이 필요한 이벤트·지표·공시
+7. **오늘 주요 모니터링 포인트** — 위 "예정 이벤트 캘린더"를 근거로 확인이 필요한 이벤트·지표·공시를 짚어주세요 (캘린더에 없는 내용을 추측해서 채우지 마세요)
 8. **투자 유의사항** — 면책 고지 포함
 
 ## 지지/저항·손익비 서술 규칙 (중요)
@@ -533,6 +561,13 @@ class ReportBuilder:
 - "오늘 시장에서 이런 흐름이 있었다"는 사실 전달과, 이미 보유 중인 관심종목·테마와의 연관성(있다면)을 짚어주는 참고 정보로만 다루세요.
 - ETF 하나의 등락률로 테마 전체를 단정하지 말고, 참고 지표라는 점을 톤에 반영하세요.
 
+## 이벤트 캘린더 서술 규칙 (중요)
+- 이 섹션은 FRED(미국 연준), FOMC/한국은행 공식 일정, 국내 법정 공시기한, DART 공시 접수 이력만 담은 실측 데이터입니다 — 목록에 없는 이벤트를 추측해서 추가하지 마세요.
+- "[📄 공시]" 항목의 날짜는 공시가 접수된 날짜이지 실제 행사(IR 등)가 열리는 날짜가 아닙니다 — "~일에 공시가 접수됐다"로만 서술하고 "~일에 행사가 열린다"처럼 단정하지 마세요.
+- "[⚖️ 법정기한]" 항목은 특정 종목의 실적 발표를 예고하는 것이 아니라, 법으로 정해진 제출 마감일일 뿐입니다 — 그 안에 실제 언제 발표할지는 회사마다 다르다는 점을 필요시 명시하세요.
+- 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
+- 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -553,6 +588,7 @@ class ReportBuilder:
         portfolio_summary: dict | None = None,
         stocks: list[dict] | None = None,
         theme_scan: list[dict] | None = None,
+        event_calendar: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -566,10 +602,14 @@ class ReportBuilder:
         portfolio_block = _format_portfolio_block(portfolio_summary)
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
+        event_calendar_block = _format_event_calendar_block(event_calendar)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
+
+## 예정 이벤트 캘린더 (실측, 향후 14일)
+{event_calendar_block}
 
 ## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
 {theme_scan_block}
@@ -619,7 +659,7 @@ class ReportBuilder:
    - 애널리스트 목표주가 대비 현재가 괴리가 큰 종목 (상승여력 Top 3)
    - 지지/저항 박스와 손익비가 있는 종목은 "◯◯원 아래로 종가 이탈 시 지지 붕괴로 볼 여지" 같은 조건부 문장으로 자연스럽게 녹여서 언급하세요 (아래 작성 규칙 참고)
    - 종합 의견: 내일 주목해야 할 종목과 그 이유
-6. **내일 주요 모니터링 포인트** — 예정 이벤트, 주목할 지표
+6. **내일 주요 모니터링 포인트** — 위 "예정 이벤트 캘린더"를 근거로 예정 이벤트·주목할 지표를 짚어주세요 (캘린더에 없는 내용을 추측해서 채우지 마세요)
 7. **투자 유의사항** — 면책 고지 포함
 
 ## 지지/저항·손익비 서술 규칙 (중요)
@@ -650,6 +690,13 @@ class ReportBuilder:
 - 이 섹션의 강세/약세 테마는 워치리스트 밖 섹터 ETF의 당일 등락률일 뿐이며, 새로운 매수 후보를 추천하는 것이 아닙니다. "이 테마를 사라"·"편입을 검토하라" 같은 문장을 쓰지 마세요.
 - "오늘 시장에서 이런 흐름이 있었다"는 사실 전달과, 이미 보유 중인 관심종목·테마와의 연관성(있다면)을 짚어주는 참고 정보로만 다루세요.
 - ETF 하나의 등락률로 테마 전체를 단정하지 말고, 참고 지표라는 점을 톤에 반영하세요.
+
+## 이벤트 캘린더 서술 규칙 (중요)
+- 이 섹션은 FRED(미국 연준), FOMC/한국은행 공식 일정, 국내 법정 공시기한, DART 공시 접수 이력만 담은 실측 데이터입니다 — 목록에 없는 이벤트를 추측해서 추가하지 마세요.
+- "[📄 공시]" 항목의 날짜는 공시가 접수된 날짜이지 실제 행사(IR 등)가 열리는 날짜가 아닙니다 — "~일에 공시가 접수됐다"로만 서술하고 "~일에 행사가 열린다"처럼 단정하지 마세요.
+- "[⚖️ 법정기한]" 항목은 특정 종목의 실적 발표를 예고하는 것이 아니라, 법으로 정해진 제출 마감일일 뿐입니다 — 그 안에 실제 언제 발표할지는 회사마다 다르다는 점을 필요시 명시하세요.
+- 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
+- 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

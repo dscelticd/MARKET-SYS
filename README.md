@@ -118,6 +118,11 @@ KIS_ENV=demo                     # demo(모의투자, 시세조회만 하므로 
 # KIS는 개인 순매수를 실측값으로 제공(네이버는 잔차 추정) — 계좌는 실명 필요, 모의투자
 # 앱키도 실계좌 소유가 전제 조건
 
+# ── FRED(St. Louis 연준) 이벤트 캘린더 (선택) ─────────
+FRED_API_KEY=...                 # fred.stlouisfed.org 무료·즉시 발급
+# 미설정 시: 이벤트 캘린더에서 미국 매크로 지표(CPI/PPI/고용/소매판매/GDP) 항목만 빠지고,
+# FOMC/한국은행 일정·국내 법정 공시기한·DART IR공시 항목은 계속 표시됨
+
 # ── 텔레그램 알림 (선택) ────────────────────────────
 TELEGRAM_BOT_TOKEN=...           # @BotFather에서 /newbot으로 발급
 TELEGRAM_CHAT_ID=...             # 봇과 대화 후 getUpdates로 확인
@@ -222,6 +227,10 @@ streamlit run app/dashboard.py
       ↓
     포트폴리오 관점 진단 (PortfolioAnalyzer) — 테마/섹터 집중도, 당일 동조화율
       ↓
+    예정 이벤트 캘린더 수집 (CalendarCollector, 향후 14일) — FRED 미국 매크로 지표
+    발표일(선택, FRED_API_KEY 필요) + FOMC/한국은행 일정 + 국내 법정 공시기한 +
+    DART IR공시(disclosure_data 재사용) 통합
+      ↓
 [3] 신호 점수 계산 (SignalScorer, 7차원)
     가격모멘텀 20% · 뉴스감성 15% · 거시정렬도 15% · 섹터강도 15% ·
     거래량신호 10% · 기술적신호 15% · 애널리스트신호 10%
@@ -233,9 +242,9 @@ streamlit run app/dashboard.py
 [4-1] 등급 이력 저장 & 전일 대비 변화 감지, N일 전 등급 적중률 자기검증 (HistoryTracker)
       ↓
 [5] Claude AI 리포트 생성 (ReportBuilder)
-    글로벌 시장 개요 → 거시 신호 분석 → 섹터/테마 흐름 → 밸류체인 영향도
+    글로벌 시장 개요 → 거시 신호 분석 → 예정 이벤트 캘린더 → 섹터/테마 흐름 → 밸류체인 영향도
     → 관심종목 등급(수급·공시·지지저항·손익비·사용자 관전 포인트 포함)
-    → 등급 적중률 자기검증 → 포트폴리오 관점 → 모니터링 포인트 → 투자 유의사항
+    → 등급 적중률 자기검증 → 포트폴리오 관점 → 모니터링 포인트(캘린더 근거) → 투자 유의사항
       ↓
 [6] 리포트 저장 (data/reports/YYYYMMDD_morning.md)
       ↓
@@ -256,6 +265,7 @@ streamlit run app/dashboard.py
 | 📊 등급 이력 | 등급 변화 요약, 종목별 점수 추이 차트, 데이터 품질 신뢰도 추이 |
 | ⚙️ 설정 | 관심종목, 가중치, 등급 임계값, 테마 목록 확인 |
 | 📋 종목 관리 | 관심종목·관심테마 추가/수정/삭제 (watchlist.json·themes.json 편집) |
+| 📅 이벤트 캘린더 | 향후 2주 예정 이벤트(미국 매크로 지표·FOMC/한국은행·국내 법정기한·DART IR공시)를 이번 주/다음 주로 그룹핑 |
 
 ---
 

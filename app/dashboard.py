@@ -1307,6 +1307,62 @@ def _df_to_wl(edited: pd.DataFrame, original: list[dict]) -> list[dict]:
     return result
 
 
+_EVENT_CATEGORY_LABEL = {
+    "macro": "🇺🇸 매크로",
+    "policy": "🏛️ 통화정책",
+    "disclosure": "📄 공시",
+    "filing_deadline": "⚖️ 법정기한",
+}
+
+
+def _render_event_calendar(event_calendar: list[dict]) -> None:
+    """향후 이벤트 캘린더 — 이번 주 / 다음 주로 그룹핑해 표시.
+    FRED_API_KEY 미설정 시 매크로 지표 항목은 비어 있을 수 있음(다른 3개 소스는 계속 표시됨)."""
+    if not event_calendar:
+        st.info(
+            "💡 표시할 예정 이벤트가 없습니다. `.env`에 `FRED_API_KEY`를 설정하면 "
+            "미국 CPI/PPI/고용/소매판매/GDP 발표일이 추가로 표시됩니다."
+        )
+        return
+
+    today = datetime.now().date()
+    week1_end = today + timedelta(days=7)
+    groups: dict[str, list[dict]] = {"이번 주": [], "다음 주": [], "그 이후": []}
+    for e in event_calendar:
+        try:
+            d = datetime.strptime(e["date"], "%Y-%m-%d").date()
+        except (ValueError, KeyError):
+            continue
+        if d <= week1_end:
+            groups["이번 주"].append(e)
+        elif d <= week1_end + timedelta(days=7):
+            groups["다음 주"].append(e)
+        else:
+            groups["그 이후"].append(e)
+
+    for label, events in groups.items():
+        if not events:
+            continue
+        st.markdown(f'<p class="sec-lbl">📅 &nbsp;{label}</p>', unsafe_allow_html=True)
+        for e in events:
+            cat_label = _EVENT_CATEGORY_LABEL.get(e.get("category"), e.get("category", ""))
+            st.markdown(
+                f'<div class="macro-sec">'
+                f'<span class="sys-val" style="font-size:0.82em;color:#6b7280;">{e["date"]}</span>'
+                f'<span class="macro-badge macro-closed" style="margin-left:0.5rem;">{cat_label}</span>'
+                f'<span style="margin-left:0.6rem;">{e["title"]}</span>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        st.divider()
+
+    st.caption(
+        "매크로 지표는 FRED(St. Louis 연준) 공식 API, 통화정책은 FOMC/한국은행 공식 일정, "
+        "법정기한은 자본시장법 제출기한 계산값, 공시는 DART 접수 이력(접수일 기준) — "
+        "모두 실측 데이터이며 특정 종목의 향후 등락을 예측하는 정보가 아닙니다."
+    )
+
+
 def _render_watchlist_manager() -> None:
     """📋 종목 관리 탭 전체 렌더링"""
     cfg = _load_config()
@@ -1772,16 +1828,17 @@ def main():
 """)
         return
 
-    ratings       = data.get("ratings", [])
-    macro         = data.get("macro", {})
-    collected_at  = data.get("collected_at", "—")
-    grade_changes = data.get("grade_changes", [])
-    changes_map   = {c["stock_id"]: c for c in grade_changes} if grade_changes else {}
+    ratings        = data.get("ratings", [])
+    macro          = data.get("macro", {})
+    event_calendar = data.get("event_calendar", [])
+    collected_at   = data.get("collected_at", "—")
+    grade_changes  = data.get("grade_changes", [])
+    changes_map    = {c["stock_id"]: c for c in grade_changes} if grade_changes else {}
 
     # ── 탭 ───────────────────────────────────────────────────────────────────
-    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
         "📈 등급 현황", "🌍 거시 지표", "📄 리포트 보기",
-        "🔍 종목 상세", "📊 등급 이력", "⚙️ 설정", "📋 종목 관리",
+        "🔍 종목 상세", "📊 등급 이력", "⚙️ 설정", "📋 종목 관리", "📅 이벤트 캘린더",
     ])
 
     # ── Tab 1: 등급 현황 ──────────────────────────────────────────────────────
@@ -2524,6 +2581,11 @@ def main():
     # ── Tab 7: 종목 관리 ──────────────────────────────────────────────────────
     with tab7:
         _render_watchlist_manager()
+
+    # ── Tab 8: 이벤트 캘린더 ──────────────────────────────────────────────────
+    with tab8:
+        st.subheader("📅 예정 이벤트 캘린더 (향후 2주)")
+        _render_event_calendar(event_calendar)
 
 
 if __name__ == "__main__":

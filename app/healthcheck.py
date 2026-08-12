@@ -113,6 +113,12 @@ if kis_key and kis_secret:
 else:
     check("WARN", "KIS_APP_KEY/SECRET", "미설정 — 수급 데이터는 네이버 스크래핑으로 폴백 (선택 사항)")
 
+fred_key = os.getenv("FRED_API_KEY", "")
+if fred_key:
+    check("OK", "FRED_API_KEY", "설정됨 — 이벤트 캘린더에 미국 매크로 지표 발표일 포함")
+else:
+    check("WARN", "FRED_API_KEY", "미설정 — 이벤트 캘린더에서 미국 매크로 지표 항목만 제외 (선택 사항, fred.stlouisfed.org에서 무료 발급)")
+
 # ── 3. 설정 파일 ─────────────────────────────────────────────────────────────
 print("\n[3] 설정 파일 확인")
 config_files = {
@@ -187,6 +193,14 @@ if use_mock == "false":
             check("OK", "수급 수집 (KIS)", f"삼성전자 5일 외국인 {flow.get('foreign_net_5d', 0):+,}주")
         except Exception as e:
             check("WARN", "수급 수집 (KIS)", f"실패 — 네이버로 자동 폴백됨: {str(e)[:50]}")
+
+    if fred_key:
+        try:
+            from app.collectors.calendar_collector import CalendarCollector
+            resolved = CalendarCollector()._resolve_release_ids()
+            check("OK", "이벤트 캘린더 수집 (FRED)", f"매크로 지표 {len(resolved)}개 release_id 확인됨")
+        except Exception as e:
+            check("WARN", "이벤트 캘린더 수집 (FRED)", f"실패 — FOMC/금통위·법정기한·DART 항목은 계속 표시됨: {str(e)[:50]}")
 else:
     check("OK", "데이터 수집 모드", "Mock 모드 (USE_MOCK_DATA=true)")
 
