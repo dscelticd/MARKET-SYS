@@ -131,6 +131,40 @@ class DataValidator:
         samsung_chg = _as_float(pd_.get("KR_005930", {}).get("change_pct"))
         skhynix_chg = _as_float(pd_.get("KR_000660", {}).get("change_pct"))
 
+        # ── 기준일 정합성 ──
+        # 교차검증은 "같은 날의 등락률"을 비교한다는 전제 위에서만 성립한다.
+        # yfinance는 심볼별 반영 시점이 달라 같은 실행에서도 KOSPI=8/27,
+        # KODEX200=8/28 같은 일이 실제로 발생하는데(2026-08-31 실측), 이때
+        # 서로 다른 날의 등락률을 비교해 "데이터 모순"으로 판정하면 전종목이
+        # 근거 없이 "판단보류"로 강등된다. 기준일이 다르면 교차검증을 건너뛰고
+        # 진짜 원인(반영 지연)을 경고로 남긴다.
+        kospi_date = ((macro_data or {}).get("data_dates") or {}).get("KOSPI")
+        def _same_date_as_kospi(sid: str) -> bool:
+            """기준일이 둘 다 확인되고 서로 다를 때만 False. 어느 한쪽이라도
+            기준일을 모르면 기존 동작(검증 수행)을 유지한다."""
+            other = pd_.get(sid, {}).get("data_date")
+            if not kospi_date or not other:
+                return True
+            return kospi_date == other
+
+        kodex_comparable   = _same_date_as_kospi("KR_069500")
+        samsung_comparable = _same_date_as_kospi("KR_005930")
+        skhynix_comparable = _same_date_as_kospi("KR_000660")
+
+        if not all((kodex_comparable, samsung_comparable, skhynix_comparable)):
+            mismatched = [
+                f"{label} {pd_.get(sid, {}).get('data_date')}"
+                for sid, label, ok in (
+                    ("KR_069500", "KODEX200", kodex_comparable),
+                    ("KR_005930", "삼성전자", samsung_comparable),
+                    ("KR_000660", "SK하이닉스", skhynix_comparable),
+                ) if not ok
+            ]
+            warning.append(
+                f"기준일 불일치로 지수 교차검증 일부 생략 — KOSPI {kospi_date} vs "
+                f"{', '.join(mismatched)} (데이터 제공처 반영 지연)"
+            )
+
         # Mock 데이터는 가격·거시지표가 각각 독립적으로 무작위 생성되어 상호
         # 연관성이 보장되지 않으므로, 교차검증(③④)은 실데이터일 때만 수행한다.
         # (단독 범위 체크 ①은 mock/real 무관하게 항상 적용 — 방어 심도 유지)
@@ -150,28 +184,29 @@ class DataValidator:
             warning.append(f"KOSPI 일일 변동률이 비정상적으로 큼: {kospi_chg:+.2f}%")
 
         if not is_cross_check_mock:
-            # ③ KOSPI ↔ KODEX200 교차 검증
-            if kospi_chg is not None and kodex_chg is not None:
+            # ③ KOSPI ↔ KODEX200 교차 검증 (같은 거래일 데이터일 때만)
+            if kospi_chg is not None and kodex_chg is not None and kodex_comparable:
                 if abs(kospi_chg - kodex_chg) > _KOSPI_KODEX200_MISMATCH_PCT:
                     critical.append(
                         f"KOSPI({kospi_chg:+.2f}%)와 KODEX200({kodex_chg:+.2f}%) 변동률 불일치"
                     )
-                if kospi_chg < -_KOSPI_CONFLICT_CRASH_PCT and kodex_chg > _KODEX200_CONFLICT_PCT:
+                if (kospi_chg < -_KOSPI_CONFLICT_CRASH_PCT
+                        and kodex_chg > _KODEX200_CONFLICT_PCT):
                     critical.append(
                         f"KOSPI 급락({kospi_chg:+.2f}%) 중 KODEX200 상승({kodex_chg:+.2f}%) — 방향성 충돌"
                     )
 
-            # ④ KOSPI 급락 vs 대형주·ETF 급등 모순
+            # ④ KOSPI 급락 vs 대형주·ETF 급등 모순 (같은 거래일 데이터일 때만)
             if kospi_chg is not None and kospi_chg < -_KOSPI_CRASH_PCT:
-                if samsung_chg is not None and samsung_chg > _LARGECAP_SURGE_PCT:
+                if samsung_chg is not None and samsung_chg > _LARGECAP_SURGE_PCT and samsung_comparable:
                     critical.append(
                         f"KOSPI 급락({kospi_chg:+.2f}%) 중 삼성전자 급등({samsung_chg:+.2f}%) — 지수 데이터 이상 감지"
                     )
-                if skhynix_chg is not None and skhynix_chg > _LARGECAP_SURGE_PCT:
+                if skhynix_chg is not None and skhynix_chg > _LARGECAP_SURGE_PCT and skhynix_comparable:
                     critical.append(
                         f"KOSPI 급락({kospi_chg:+.2f}%) 중 SK하이닉스 급등({skhynix_chg:+.2f}%) — 지수 데이터 이상 감지"
                     )
-                if kodex_chg is not None and kodex_chg > _KODEX200_SURGE_PCT:
+                if kodex_chg is not None and kodex_chg > _KODEX200_SURGE_PCT and kodex_comparable:
                     critical.append(
                         f"KOSPI 급락({kospi_chg:+.2f}%) 중 KODEX200 상승({kodex_chg:+.2f}%) — 지수 데이터 이상 감지"
                     )

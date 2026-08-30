@@ -297,6 +297,54 @@ def _format_theme_scan_block(theme_scan: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_market_session_block(
+    freshness: dict | None,
+    macro_data: dict | None = None,
+    prev_report_data_date: str | None = None,
+) -> str:
+    """데이터가 "실제로 언제 것인지"를 Claude에게 명시적으로 알려주는 블록.
+
+    기존에는 이 정보가 프롬프트에 전혀 없어서, 일요일 리포트가 금요일 종가를
+    "KOSDAQ -4.63% 급락"처럼 현재형으로 서술하는 문제가 있었다. Claude가 눈치껏
+    "(일요일 기준 전일 데이터)"라고 보정한 적도 있지만 매번 달라 신뢰할 수 없었다.
+    """
+    if not freshness:
+        return "(세션 정보 없음)"
+
+    run_date = freshness.get("run_date")
+    weekday = freshness.get("run_weekday")
+    latest = freshness.get("latest_data_date")
+    stale_days = freshness.get("stale_days")
+
+    lines = [f"  실행 시각: {run_date} ({weekday}요일)"]
+
+    if not freshness.get("run_is_trading_day"):
+        lines.append("  ⚠️ 오늘은 주말(휴장일)입니다 — 한국·미국 증시 모두 거래가 없었습니다.")
+    elif stale_days and stale_days > 0:
+        lines.append(f"  ⚠️ 아직 오늘 종가가 없습니다(장 시작 전이거나 반영 지연).")
+
+    if latest:
+        lines.append(f"  ▶ 아래 모든 가격·등락률은 {latest} 종가 기준입니다"
+                     f"{f' (실행일 기준 {stale_days}일 전)' if stale_days else ''}.")
+
+    if freshness.get("mixed_dates"):
+        counts = freshness.get("date_counts", {})
+        detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(counts.items(), reverse=True))
+        lines.append(f"  ⚠️ 종목별 데이터 기준일이 서로 다릅니다 — {detail}")
+        lines.append("     (데이터 제공처 반영 지연. 서로 다른 날짜의 등락률을 같은 날 것처럼 비교하지 마세요.)")
+
+    macro_dates = (macro_data or {}).get("data_dates") or {}
+    macro_distinct = {v for v in macro_dates.values() if v}
+    if len(macro_distinct) > 1:
+        detail = " / ".join(f"{k} {v}" for k, v in macro_dates.items() if v)
+        lines.append(f"  ⚠️ 지수별 기준일도 다릅니다 — {detail}")
+
+    if prev_report_data_date and latest and prev_report_data_date == latest:
+        lines.append(f"  ▶ 직전 리포트 이후 새로운 거래가 없습니다 — 가격 데이터가 직전과 완전히 동일합니다.")
+
+    return "\n".join(lines)
+
+
 _EVENT_CATEGORY_LABEL = {
     "macro": "🇺🇸 매크로",
     "policy": "🏛️ 통화정책",
@@ -459,6 +507,8 @@ class ReportBuilder:
         stocks: list[dict] | None = None,
         theme_scan: list[dict] | None = None,
         event_calendar: list[dict] | None = None,
+        data_freshness: dict | None = None,
+        prev_report_data_date: str | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -473,7 +523,13 @@ class ReportBuilder:
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
+        session_block = _format_market_session_block(
+            data_freshness, macro_data, prev_report_data_date
+        )
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
+
+## 데이터 기준 시점 (가장 먼저 확인할 것)
+{session_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
@@ -568,6 +624,13 @@ class ReportBuilder:
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
 
+## 데이터 기준 시점 서술 규칙 (최우선 — 다른 모든 규칙보다 먼저 적용)
+- 위 "데이터 기준 시점" 블록에 적힌 날짜가 이 리포트가 다루는 **실제 시장 날짜**입니다. 실행 날짜(오늘)와 다를 수 있습니다.
+- 휴장일(주말) 실행이라고 표시된 경우: "오늘 시장이 하락했다"처럼 오늘 거래가 있었던 것처럼 쓰지 마세요. 반드시 "8월 21일(금) 종가 기준"처럼 실제 거래일을 명시하고, "직전 거래일", "금요일 마감 기준" 같은 표현을 쓰세요.
+- "직전 리포트 이후 새로운 거래가 없습니다"라고 표시된 경우: 이 사실을 리포트 도입부에 명확히 알리고, 새 시장 움직임이 있었던 것처럼 서술하지 마세요. 이럴 때는 새로운 등락 해설 대신 다음 거래일 관전 포인트와 누적된 흐름 정리에 집중하세요.
+- "종목별 데이터 기준일이 서로 다릅니다"라고 표시된 경우: 기준일이 다른 종목의 등락률을 같은 날 움직임처럼 비교·연결하지 마세요(예: 8/28 기준 종목과 8/27 기준 종목의 등락을 "같은 날 엇갈렸다"고 해석하면 안 됩니다). 필요하면 기준일이 다르다는 점을 독자에게 알리세요.
+- 등급·점수는 위 기준일 데이터로 산출된 것입니다. 등급 변화를 언급할 때도 "오늘 바뀌었다"가 아니라 어느 거래일 기준인지 함께 밝히세요.
+
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."
 """
@@ -589,6 +652,8 @@ class ReportBuilder:
         stocks: list[dict] | None = None,
         theme_scan: list[dict] | None = None,
         event_calendar: list[dict] | None = None,
+        data_freshness: dict | None = None,
+        prev_report_data_date: str | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -603,7 +668,13 @@ class ReportBuilder:
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
+        session_block = _format_market_session_block(
+            data_freshness, macro_data, prev_report_data_date
+        )
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
+
+## 데이터 기준 시점 (가장 먼저 확인할 것)
+{session_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
@@ -697,6 +768,13 @@ class ReportBuilder:
 - "[⚖️ 법정기한]" 항목은 특정 종목의 실적 발표를 예고하는 것이 아니라, 법으로 정해진 제출 마감일일 뿐입니다 — 그 안에 실제 언제 발표할지는 회사마다 다르다는 점을 필요시 명시하세요.
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
+
+## 데이터 기준 시점 서술 규칙 (최우선 — 다른 모든 규칙보다 먼저 적용)
+- 위 "데이터 기준 시점" 블록에 적힌 날짜가 이 리포트가 다루는 **실제 시장 날짜**입니다. 실행 날짜(오늘)와 다를 수 있습니다.
+- 휴장일(주말) 실행이라고 표시된 경우: "오늘 시장이 하락했다"처럼 오늘 거래가 있었던 것처럼 쓰지 마세요. 반드시 "8월 21일(금) 종가 기준"처럼 실제 거래일을 명시하고, "직전 거래일", "금요일 마감 기준" 같은 표현을 쓰세요.
+- "직전 리포트 이후 새로운 거래가 없습니다"라고 표시된 경우: 이 사실을 리포트 도입부에 명확히 알리고, 새 시장 움직임이 있었던 것처럼 서술하지 마세요. 이럴 때는 새로운 등락 해설 대신 다음 거래일 관전 포인트와 누적된 흐름 정리에 집중하세요.
+- "종목별 데이터 기준일이 서로 다릅니다"라고 표시된 경우: 기준일이 다른 종목의 등락률을 같은 날 움직임처럼 비교·연결하지 마세요(예: 8/28 기준 종목과 8/27 기준 종목의 등락을 "같은 날 엇갈렸다"고 해석하면 안 됩니다). 필요하면 기준일이 다르다는 점을 독자에게 알리세요.
+- 등급·점수는 위 기준일 데이터로 산출된 것입니다. 등급 변화를 언급할 때도 "오늘 바뀌었다"가 아니라 어느 거래일 기준인지 함께 밝히세요.
 
 리포트 끝에 반드시 다음 면책문구를 포함하세요:
 "※ 본 리포트는 투자 권유가 아닌 시장 데이터 기반 판단 보조 참고 자료입니다. 실제 투자 결정은 개인의 판단과 책임 하에 이루어져야 합니다."

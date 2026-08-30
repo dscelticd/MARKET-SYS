@@ -21,10 +21,17 @@ def _make_tracker(entries: dict) -> HistoryTracker:
     return tracker
 
 
-def _entry(date: str, grades: dict, prices: dict, confidence: float = 100.0, report_type: str = "morning") -> dict:
+def _entry(date: str, grades: dict, prices: dict, confidence: float = 100.0,
+           report_type: str = "morning", is_trading_day: bool = True) -> dict:
+    # is_trading_day를 명시적으로 넣는 이유: 적중률 계산이 주말 엔트리를 기준점에서
+    # 제외하도록 바뀌었는데, 테스트가 datetime.now() 기준 상대 날짜를 쓰다 보니
+    # 실행 요일에 따라 5일/20일 전이 주말에 걸려(예: 목요일 실행 시 5일 전=토요일)
+    # 테스트가 요일에 따라 깨지는 문제가 있었다. 여기서는 거래일 필터가 아니라
+    # 적중률 산식 자체를 검증하므로 항상 거래일로 고정한다.
     return {
         "date": date,
         "report_type": report_type,
+        "is_trading_day": is_trading_day,
         "grades": grades,
         "closing_prices": prices,
         "data_quality": {"overall": {"confidence": confidence}},

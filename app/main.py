@@ -53,6 +53,7 @@ from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.collectors.theme_scanner import scan_theme_strength
 from app.collectors.calendar_collector import build_event_calendar
+from app.utils.market_calendar import summarize_data_freshness
 from app.reports.report_builder import ReportBuilder, save_report
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
@@ -211,6 +212,21 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             print(f"  이벤트 캘린더: {len(event_calendar)}건(14일 이내) — 가장 가까운: "
                   f"{nearest['date']} {nearest['title']}")
 
+        # ── 데이터 기준일 점검 (휴장일/반영지연 감지) ──
+        # 수집된 데이터에 박힌 실제 거래일을 집계 — 주말에 금요일 종가를 "오늘 등락"으로
+        # 보고하던 문제의 감시 지점. 요일 계산이 아니라 데이터 자체를 근거로 판단한다.
+        data_freshness = summarize_data_freshness(price_data)
+        _fresh_label = "당일" if data_freshness["has_fresh_data"] else (
+            f"{data_freshness['latest_data_date']} 기준"
+            f"({data_freshness['stale_days']}일 전)" if data_freshness["latest_data_date"] else "확인 불가"
+        )
+        print(f"  데이터 기준일: {_fresh_label}"
+              f"{'  ⚠️ 휴장일 실행' if not data_freshness['run_is_trading_day'] else ''}")
+        if data_freshness["mixed_dates"]:
+            print(f"  ⚠️ 종목별 기준일 혼재: {data_freshness['date_counts']}")
+            logger.warning("[DATA_DATE_MIXED] 종목별 데이터 기준일이 다름 — %s",
+                           data_freshness["date_counts"])
+
         real_count = sum(1 for d in price_data.values() if not d.get("_mock"))
         mock_count = len(price_data) - real_count
         disc_count = sum(len(v) for v in disclosure_data.values())
@@ -347,6 +363,9 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         # ── Step 4-2: 히스토리 저장 & 변화 감지 ──
         tracker = HistoryTracker()
         prev_quality = tracker.get_previous_quality(report_type)
+        # 직전 실행이 다룬 데이터 기준일 — 이번 실행과 같으면 새 거래가 없었다는 뜻
+        # (주말 중복 리포트 판별). save_today() 전에 읽어야 오늘 것과 안 섞인다.
+        prev_report_data_date = tracker.get_last_data_date()
         changes = tracker.get_changes(rating_dicts, report_type)
         changed = [c for c in changes if c["direction"] in ("상승", "하락")]
         if changed:
@@ -420,6 +439,8 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     stocks=stocks,
                     theme_scan=theme_scan,
                     event_calendar=event_calendar,
+                    data_freshness=data_freshness,
+                    prev_report_data_date=prev_report_data_date,
                     max_tokens=cfg.report.morning.get("max_tokens", 10000),
                 )
             else:
@@ -438,6 +459,8 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     stocks=stocks,
                     theme_scan=theme_scan,
                     event_calendar=event_calendar,
+                    data_freshness=data_freshness,
+                    prev_report_data_date=prev_report_data_date,
                     max_tokens=cfg.report.evening.get("max_tokens", 10000),
                 )
             print("  리포트 생성 완료")
@@ -476,6 +499,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "portfolio_summary": portfolio_summary,
                     "theme_scan": theme_scan,
                     "event_calendar": event_calendar,
+                    "data_freshness": data_freshness,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,

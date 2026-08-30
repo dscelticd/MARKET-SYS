@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -31,8 +32,12 @@ def _load_theme_universe() -> list[dict]:
 
 
 def _scan_mock(universe: list[dict]) -> list[dict]:
+    from app.utils.market_calendar import is_trading_day, previous_trading_day
+    today = datetime.now().date()
+    data_date = (today if is_trading_day(today) else previous_trading_day(today)).isoformat()
     return [
-        {**t, "change_pct": round(random.uniform(-4.0, 4.0), 2), "price": None, "_mock": True}
+        {**t, "change_pct": round(random.uniform(-4.0, 4.0), 2), "price": None,
+         "data_date": data_date, "_mock": True}
         for t in universe
     ]
 
@@ -66,7 +71,16 @@ def scan_theme_strength(use_mock: bool = False) -> list[dict]:
             price = float(close.iloc[-1])
             prev = float(close.iloc[-2])
             change_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
-            results.append({**theme, "change_pct": change_pct, "price": round(price, 2), "_mock": False})
+            # 이 등락률이 실제로 어느 거래일 것인지 — 주말에 금요일 등락을
+            # "당일 등락률"로 보고하던 문제를 막기 위해 기준일을 함께 남긴다
+            try:
+                data_date = close.index[-1].date().isoformat()
+            except AttributeError:
+                data_date = str(close.index[-1])[:10]
+            results.append({
+                **theme, "change_pct": change_pct, "price": round(price, 2),
+                "data_date": data_date, "_mock": False,
+            })
         except Exception as e:
             logger.debug("테마 ETF 수집 실패 (%s/%s): %s", theme.get("id"), theme.get("ticker"), e)
             continue

@@ -1855,6 +1855,31 @@ def main():
                 unsafe_allow_html=True,
             )
 
+        # 데이터 기준일 배너 — 주말·휴장일에 직전 거래일 종가를 "오늘 등락"으로
+        # 오해하지 않도록 실제 기준일을 명시 (리포트 프롬프트와 동일한 정보원)
+        _fresh = data.get("data_freshness") or {}
+        if _fresh.get("latest_data_date"):
+            _stale = _fresh.get("stale_days") or 0
+            if not _fresh.get("run_is_trading_day"):
+                st.warning(
+                    f"🗓️ **휴장일 기준 데이터** — 아래 모든 가격·등락률은 "
+                    f"**{_fresh['latest_data_date']} 종가** 기준입니다 "
+                    f"(주말에는 새로운 거래가 없습니다)."
+                )
+            elif _stale > 0:
+                st.info(
+                    f"🗓️ 아래 데이터는 **{_fresh['latest_data_date']} 종가** 기준입니다 "
+                    f"(장 시작 전이거나 데이터 반영 지연 — {_stale}일 전)."
+                )
+            if _fresh.get("mixed_dates"):
+                _detail = " · ".join(
+                    f"{d} {n}종목" for d, n in sorted(_fresh.get("date_counts", {}).items(), reverse=True)
+                )
+                st.caption(
+                    f"⚠️ 종목별 데이터 기준일이 다릅니다 ({_detail}). "
+                    f"기준일이 다른 종목끼리 등락률을 직접 비교하지 마세요."
+                )
+
         # data_quality 경고 배너 (치명적 오류 / 50~70 구간 / 캡 적용 시)
         _dq_now = data.get("data_quality", {}).get("overall", {})
         _dq_conf = _dq_now.get("confidence", 100)

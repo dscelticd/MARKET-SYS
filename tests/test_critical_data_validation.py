@@ -172,3 +172,56 @@ def test_signal_scorer_handles_nan_price_data_without_crash():
 
 def test_grade_meta_has_judgement_pending():
     assert "판단보류" in GRADE_META
+
+
+# ── 기준일(data_date) 불일치 시 교차검증 억제 ────────────────────────────────
+# 배경: yfinance는 심볼마다 데이터 반영 시점이 달라, 같은 실행에서도 KOSPI는
+# 8/27 바를, KODEX200은 8/28 바를 주는 일이 실제로 발생한다(2026-08-31 실측).
+# 서로 다른 날의 등락률을 비교하면 당연히 어긋나는데, 이를 "데이터 모순"으로
+# 판정해 전종목을 강제 "판단보류"로 강등시키는 허위 경보가 있었다.
+
+def _dated_price(kodex_chg, kodex_date, samsung_date, skhynix_date) -> dict:
+    return {
+        "KR_069500": {"change_pct": kodex_chg, "_mock": False, "data_date": kodex_date},
+        "KR_005930": {"change_pct": 0.0, "_mock": False, "data_date": samsung_date},
+        "KR_000660": {"change_pct": 0.0, "_mock": False, "data_date": skhynix_date},
+    }
+
+
+def _dated_macro(kospi_chg, kospi_date) -> dict:
+    return {
+        "kr_market": {"KOSPI": {"value": 6900.0, "change_pct": kospi_chg}},
+        "data_dates": {"KOSPI": kospi_date},
+        "_mock": False,
+    }
+
+
+def test_mismatched_data_dates_suppress_false_critical_error():
+    """기준일이 다르면 KOSPI↔KODEX200 불일치를 치명적 오류로 올리지 않는다."""
+    critical, reasons, warnings = DataValidator._validate_kospi_consistency(
+        _dated_price(-1.79, "2026-08-28", "2026-08-28", "2026-08-28"),
+        _dated_macro(1.53, "2026-08-27"),
+    )
+    assert critical is False
+    assert not reasons
+    assert any("기준일 불일치" in w for w in warnings)
+
+
+def test_same_data_date_still_detects_genuine_mismatch():
+    """기준일이 같으면 진짜 모순은 여전히 치명적 오류로 잡아야 한다 (방어력 유지)."""
+    critical, reasons, _ = DataValidator._validate_kospi_consistency(
+        _dated_price(-1.79, "2026-08-27", "2026-08-27", "2026-08-27"),
+        _dated_macro(1.53, "2026-08-27"),
+    )
+    assert critical is True
+    assert any("KODEX200" in r for r in reasons)
+
+
+def test_missing_data_date_falls_back_to_previous_behavior():
+    """기준일 정보가 없는 과거 데이터는 기존처럼 교차검증을 수행한다."""
+    critical, reasons, _ = DataValidator._validate_kospi_consistency(
+        {"KR_069500": {"change_pct": -1.79, "_mock": False}},
+        {"kr_market": {"KOSPI": {"value": 6900.0, "change_pct": 1.53}}, "_mock": False},
+    )
+    assert critical is True
+    assert any("KODEX200" in r for r in reasons)

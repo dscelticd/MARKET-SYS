@@ -9,6 +9,8 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from app.utils.market_calendar import is_trading_day
+
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _HISTORY_DIR  = _PROJECT_ROOT / "data" / "history"
 _HISTORY_FILE = _HISTORY_DIR / "ratings_history.json"
@@ -44,6 +46,41 @@ class HistoryTracker:
     def __init__(self) -> None:
         _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         self._data = self._load()
+        self._backfill_trading_day_flags()
+
+    # ── 거래일 판정 ──────────────────────────────────────────────────────────
+
+    @staticmethod
+    def _entry_is_trading_day(entry: dict) -> bool:
+        """엔트리가 실제 거래일 스냅샷인지. 필드가 없는 과거 엔트리는 날짜 요일로 유추.
+
+        주말 실행분은 직전 거래일(금요일) 종가를 그대로 복사한 중복 스냅샷이라,
+        적중률 집계나 전일 대비 비교의 기준으로 쓰면 통계가 왜곡된다.
+        (실측: 2026-08-08~09 주말 4개 엔트리가 전부 삼성전자 231,000원/+0.22%로 동일)
+        """
+        flag = entry.get("is_trading_day")
+        if isinstance(flag, bool):
+            return flag
+        try:
+            return is_trading_day(datetime.strptime(entry["date"], "%Y-%m-%d").date())
+        except (KeyError, ValueError, TypeError):
+            return True  # 판정 불가 시 기존 동작 유지 (배제하지 않음)
+
+    def _backfill_trading_day_flags(self) -> None:
+        """과거 엔트리에 is_trading_day 플래그를 소급 기록 (데이터는 보존).
+        이미 플래그가 있으면 건드리지 않으며, 변경이 없으면 파일도 쓰지 않는다."""
+        changed = False
+        for entry in self._data.values():
+            if isinstance(entry.get("is_trading_day"), bool):
+                continue
+            try:
+                d = datetime.strptime(entry["date"], "%Y-%m-%d").date()
+            except (KeyError, ValueError, TypeError):
+                continue
+            entry["is_trading_day"] = is_trading_day(d)
+            changed = True
+        if changed:
+            self._persist()
 
     # ── 저장 ────────────────────────────────────────────────────────────────
 
@@ -73,11 +110,21 @@ class HistoryTracker:
         today = datetime.now().strftime("%Y-%m-%d")
         key   = f"{today}_{report_type}"
 
+        # 이 스냅샷의 가격이 실제로 어느 거래일 것인지 — 주말 실행이면 실행일(today)과
+        # 다르다. 적중률 계산이 "일요일 가격"으로 라벨된 금요일 가격을 쓰지 않도록,
+        # 실행 날짜와 데이터 기준일을 분리해 저장한다.
+        data_dates = {
+            p.get("data_date") for p in (price_data or {}).values() if p.get("data_date")
+        }
+        data_date = max(data_dates) if data_dates else None
+
         entry: dict[str, Any] = {
-            "schema_version":   "1.1",
+            "schema_version":   "1.2",
             "date":             today,
             "report_type":      report_type,
             "generated_at":     datetime.now().isoformat(),
+            "is_trading_day":   is_trading_day(datetime.now().date()),
+            "data_date":        data_date,
             # ── 등급/점수 ──
             "grades":           {},   # final_grade (표시 등급)
             "raw_grades":       {},   # raw_grade  (원본 등급, 백테스팅용)
@@ -301,6 +348,12 @@ class HistoryTracker:
         target_date = datetime.now() - timedelta(days=lookback_days)
         dated: list[tuple[datetime, dict]] = []
         for entry in self._data.values():
+            # 주말 엔트리는 직전 거래일 종가를 복사한 중복본이라 기준점으로 쓰면
+            # "N일 전 가격"이 실제로는 N±2일 전 가격이 되어 수익률 구간이 어긋난다.
+            # 또 주말끼리 비교되면 수익률이 정확히 0%가 되는데, ±2%p 허용오차 때문에
+            # 강세·약세 등급이 **양쪽 다 무조건 적중**으로 집계되는 허점이 있었다.
+            if not self._entry_is_trading_day(entry):
+                continue
             try:
                 d = datetime.strptime(entry["date"], "%Y-%m-%d")
             except Exception:
@@ -340,15 +393,33 @@ class HistoryTracker:
         return prev.get("data_quality", {}).get("overall", {}).get("confidence")
 
     def _find_previous(self, report_type: str) -> dict | None:
-        """오늘 제외 가장 최근 같은 report_type 항목 반환"""
+        """오늘 제외 가장 최근 같은 report_type 항목 반환.
+        주말 엔트리는 새 거래가 없는 중복 스냅샷이므로 비교 대상에서 제외한다 —
+        그렇지 않으면 월요일 리포트가 "일요일 대비 변화 없음"이라는 무의미한 비교를
+        하게 되고, 실제로 필요한 금요일 대비 변화가 가려진다."""
         today = datetime.now().strftime("%Y-%m-%d")
         candidates = [
             v for k, v in self._data.items()
-            if v.get("report_type") == report_type and v.get("date") != today
+            if v.get("report_type") == report_type
+            and v.get("date") != today
+            and self._entry_is_trading_day(v)
         ]
         if not candidates:
             return None
         return max(candidates, key=lambda x: x["date"])
+
+    def get_last_data_date(self, report_type: str | None = None) -> str | None:
+        """직전 실행(오늘 제외)이 다룬 데이터 기준일. 리포트가 "직전 리포트 이후
+        새로운 거래가 없음"을 판별하는 데 쓰인다."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        candidates = [
+            v for v in self._data.values()
+            if v.get("date") != today and v.get("data_date")
+            and (report_type is None or v.get("report_type") == report_type)
+        ]
+        if not candidates:
+            return None
+        return max(candidates, key=lambda x: (x["date"], x.get("generated_at", ""))).get("data_date")
 
     @staticmethod
     def _direction(prev: str, curr: str) -> str:

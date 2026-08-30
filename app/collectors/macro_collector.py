@@ -148,6 +148,21 @@ class MacroCollector:
                 return round((c - p) / p * 100, 2)
             return 0.0
 
+        def bar_date(sym: str) -> str | None:
+            """이 지수 값이 실제로 언제 종가인지. 주말·휴장일에 직전 거래일 값을
+            '오늘'로 오인하는 문제를 막기 위해 기록한다 — 지수마다 yfinance 반영
+            시점이 달라(KOSPI=목, 삼성전자=금 관측) 심볼별로 따로 남긴다."""
+            hist = _get_hist(sym)
+            if hist is None or getattr(hist, "empty", True) or "Close" not in hist.columns:
+                return None
+            s = hist["Close"].dropna()
+            if s.empty:
+                return None
+            try:
+                return s.index[-1].date().isoformat()
+            except AttributeError:
+                return str(s.index[-1])[:10]
+
         # ── 미국 시장 ──
         sp  = last_close("^GSPC")
         ndq = last_close("^IXIC")
@@ -247,6 +262,15 @@ class MacroCollector:
             "commodities": commodities,
             "sentiment": sentiment,
             "timestamp": datetime.now().isoformat(),
+            # 주요 지수가 실제로 언제 종가인지 — 리포트가 휴장일 데이터를 "오늘"로
+            # 서술하지 않도록 프롬프트에 그대로 전달된다
+            "data_dates": {
+                "SP500":  bar_date("^GSPC"),
+                "NASDAQ": bar_date("^IXIC"),
+                "SOX":    bar_date("^SOX"),
+                "KOSPI":  bar_date("^KS11"),
+                "KOSDAQ": bar_date("^KQ11"),
+            },
             "_mock": False,
         }
 

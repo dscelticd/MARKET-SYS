@@ -16,6 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.collectors.kis_collector import KISCollector
+from app.utils.market_calendar import is_trading_day, previous_trading_day
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,19 @@ def _interpret_trend(price: float, ma5, ma20, ma60, macd_hist) -> str:
     if bear >= 4:   return "강한 하락 추세"
     if bear >= 3:   return "하락 추세"
     return "보합/중립"
+
+
+def _extract_bar_date(index_value) -> str | None:
+    """yfinance 히스토리 인덱스(Timestamp) → 'YYYY-MM-DD' 문자열.
+    인덱스 타입이 예상과 다르면 조용히 None을 반환해, 기준일을 모른다는 사실이
+    잘못된 날짜로 위장되지 않게 한다."""
+    try:
+        return index_value.date().isoformat()
+    except AttributeError:
+        try:
+            return str(index_value)[:10]
+        except Exception:
+            return None
 
 
 def _calc_technicals(closes, price: float) -> dict:
@@ -456,6 +470,14 @@ class PriceCollector:
                 change     = price - prev_close
                 change_pct = round((change / prev_close) * 100, 2) if prev_close else 0.0
 
+                # 이 가격이 "실제로 언제 종가인지" — 주말·휴장일에 금요일 종가를
+                # 당일 등락률로 오인해 보고하던 문제의 핵심 수정점. yfinance 인덱스가
+                # 진짜 거래일을 주는데 기존에는 버리고 datetime.now()만 남기고 있었다.
+                # 심볼마다 반영 시점이 달라(같은 실행에서 삼성전자=금, KOSPI=목 관측)
+                # 종목별로 개별 기록한다.
+                data_date = _extract_bar_date(close_s.index[-1])
+                prev_data_date = _extract_bar_date(close_s.index[-2])
+
                 volume  = int(vol_s.iloc[-1]) if (vol_s is not None and not vol_s.empty) else 0
                 # 5일 평균 거래량 (6d→90d로 바꿨으므로 최근 5거래일만 사용)
                 avg_vol = float(vol_s.iloc[-6:-1].mean()) if (vol_s is not None and len(vol_s) >= 6) else (float(vol_s.mean()) if (vol_s is not None and not vol_s.empty) else 1.0)
@@ -524,6 +546,8 @@ class PriceCollector:
                     "market_cap_b":  mktcap,
                     "currency":      currency,
                     "timestamp":     datetime.now().isoformat(),
+                    "data_date":      data_date,       # 종가의 실제 거래일
+                    "prev_data_date": prev_data_date,  # change_pct 비교 대상 거래일
                     "_mock":         False,
                     "technical":     technical,
                     "analyst":       analyst,
@@ -542,6 +566,12 @@ class PriceCollector:
     def _collect_mock(self, stock_ids: list[str]) -> dict[str, dict]:
         result: dict[str, dict] = {}
         timestamp = datetime.now().isoformat()
+        # Mock도 실제 데이터와 같은 기준일 규칙을 따르게 한다 — 주말에 Mock 모드로
+        # 돌려도 "금요일 종가" 상태가 재현돼야 휴장일 처리 경로를 테스트할 수 있음
+        _today = datetime.now().date()
+        _mock_data_date = (_today if is_trading_day(_today) else previous_trading_day(_today))
+        mock_data_date = _mock_data_date.isoformat()
+        mock_prev_date = previous_trading_day(_mock_data_date).isoformat()
         for sid in stock_ids:
             if sid not in _BASE_PRICES:
                 continue
@@ -596,6 +626,8 @@ class PriceCollector:
                 "market_cap_b": bi["market_cap_b"],
                 "currency": bi["currency"],
                 "timestamp": timestamp,
+                "data_date":      mock_data_date,
+                "prev_data_date": mock_prev_date,
                 "_mock": True,
                 "technical": technical,
                 "analyst":   analyst,
