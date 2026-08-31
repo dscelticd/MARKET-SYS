@@ -85,6 +85,80 @@ def _format_memo_block(stocks: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_watchlist_context_block(stocks: list[dict] | None) -> str:
+    """보유/관찰 구분과 관심도를 전달하는 블록.
+
+    watchlist.json에 status(보유/관찰)와 interest_level(1~5)이 이미 있는데도
+    리포트에 전혀 전달되지 않아, 이미 포지션이 있는 종목과 진입을 검토 중인 종목을
+    Claude가 동일하게 서술하고 있었다. 두 상황은 판단 논리가 다르다.
+    """
+    if not stocks:
+        return "(워치리스트 정보 없음)"
+
+    held, watching, other = [], [], []
+    for s in stocks:
+        name = s.get("name", s.get("id", "?"))
+        level = s.get("interest_level")
+        label = f"{name}(관심도{level})" if level else name
+        status = (s.get("status") or "").strip()
+        if status == "보유":
+            held.append(label)
+        elif status == "관찰":
+            watching.append(label)
+        else:
+            other.append(f"{label}[{status or '상태미지정'}]")
+
+    lines = []
+    if held:
+        lines.append(f"  [보유 중 — {len(held)}종목] {' · '.join(held)}")
+    if watching:
+        lines.append(f"  [관찰 중(미보유) — {len(watching)}종목] {' · '.join(watching)}")
+    if other:
+        lines.append(f"  [기타] {' · '.join(other)}")
+
+    return "\n".join(lines) if lines else "(워치리스트 정보 없음)"
+
+
+def _format_theme_knowledge_block(
+    themes: list[dict] | None,
+    stocks: list[dict] | None = None,
+) -> str:
+    """사용자가 themes.json에 직접 큐레이션한 테마별 촉진요인·리스크 블록.
+
+    key_drivers·key_risks·macro_sensitivity가 8개 테마에 걸쳐 정의돼 있는데도
+    코드 어디에서도 읽지 않아 전량 사장되고 있었다(signal_scorer는 theme_config를
+    인자로 받기만 하고 실제로는 하드코딩된 섹터 상수를 쓴다).
+    """
+    if not themes:
+        return "(테마 정의 없음)"
+
+    names = {s.get("id"): s.get("name", s.get("id")) for s in (stocks or [])}
+
+    lines = []
+    for t in sorted(themes, key=lambda x: -(x.get("interest_level") or 0)):
+        related = [names[sid] for sid in (t.get("related_stocks") or []) if sid in names]
+        head = f"  {t.get('name', t.get('id'))}"
+        meta = []
+        if t.get("interest_level"):
+            meta.append(f"관심도 {t['interest_level']}")
+        if t.get("macro_sensitivity"):
+            meta.append(f"거시민감도 {t['macro_sensitivity']}")
+        if meta:
+            head += f" [{', '.join(meta)}]"
+        if related:
+            head += f" — 워치리스트 연결: {', '.join(related[:6])}"
+        lines.append(head)
+
+        drivers = t.get("key_drivers") or []
+        risks = t.get("key_risks") or []
+        if drivers:
+            lines.append(f"    촉진 요인: {' / '.join(drivers[:4])}")
+        if risks:
+            lines.append(f"    리스크: {' / '.join(risks[:4])}")
+
+    return "\n".join(lines) if lines else "(테마 정의 없음)"
+
+
 def _format_technical_block(price_data: dict[str, dict]) -> str:
     """기술적 지표 + 애널리스트 컨센서스 상세 블록 (Claude 전망 분석용)"""
     lines = []
@@ -608,6 +682,7 @@ class ReportBuilder:
         event_calendar: list[dict] | None = None,
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
+        themes: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -623,6 +698,8 @@ class ReportBuilder:
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
         news_block = _format_news_block(news_data, price_data)
+        watchlist_block = _format_watchlist_context_block(stocks)
+        theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
@@ -645,6 +722,12 @@ class ReportBuilder:
 
 ## 관심종목 가격 현황 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
+
+## 보유/관찰 구분 및 관심도 (사용자가 직접 지정)
+{watchlist_block}
+
+## 사용자 큐레이션 테마 지식 (직접 정의한 촉진요인·리스크)
+{theme_knowledge_block}
 
 ## 사용자 관전 포인트 (종목별 직접 등록한 관심사 — 관련 있으면 자연스럽게 반영)
 {memo_block}
@@ -727,6 +810,16 @@ class ReportBuilder:
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
 
+## 보유/관찰 서술 규칙 (중요)
+- "보유 중"으로 표시된 종목과 "관찰 중(미보유)" 종목은 판단의 성격이 다릅니다. 보유 종목은 이미 포지션이 있다는 전제에서 "현재 상태를 어떻게 볼 것인가·무엇을 지켜볼 것인가" 관점으로, 관찰 종목은 "진입을 검토한다면 어떤 조건이 확인돼야 하는가" 관점으로 서술하세요.
+- 다만 어느 쪽이든 "팔아라·사라" 같은 지시는 하지 마세요. 보유 종목이라고 해서 매도·보유 지시를 하거나, 관찰 종목이라고 해서 매수를 권하지 마세요.
+- 관심도가 높은 종목(4~5)은 상대적으로 더 비중 있게 다루되, 관심도가 낮다는 이유로 중요한 리스크 신호를 생략하지는 마세요.
+
+## 큐레이션 테마 지식 서술 규칙
+- 위 "사용자 큐레이션 테마 지식"의 촉진요인·리스크는 **사용자가 직접 정의한 관점**입니다. 오늘의 데이터(가격·뉴스·거시지표)가 그 촉진요인이나 리스크 중 어떤 것을 지지하거나 반박하는지 연결해서 설명하면 가장 유용합니다.
+- 정의된 리스크가 실제로 관찰되고 있다면 짚어주고, 관찰되지 않는다면 억지로 연결하지 마세요.
+- 이 정의는 고정된 사실이 아니라 사용자의 현재 가설입니다 — 데이터가 명백히 어긋나면 그 사실을 알려주세요.
+
 ## 뉴스 서술 규칙 (중요)
 - 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
 - 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
@@ -764,6 +857,7 @@ class ReportBuilder:
         event_calendar: list[dict] | None = None,
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
+        themes: list[dict] | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -779,6 +873,8 @@ class ReportBuilder:
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
         news_block = _format_news_block(news_data, price_data)
+        watchlist_block = _format_watchlist_context_block(stocks)
+        theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
@@ -801,6 +897,12 @@ class ReportBuilder:
 
 ## 관심종목 당일 가격 결산 (추세·RSI·목표주가 포함)
 {_format_price_block(price_data)}
+
+## 보유/관찰 구분 및 관심도 (사용자가 직접 지정)
+{watchlist_block}
+
+## 사용자 큐레이션 테마 지식 (직접 정의한 촉진요인·리스크)
+{theme_knowledge_block}
 
 ## 사용자 관전 포인트 (종목별 직접 등록한 관심사 — 관련 있으면 자연스럽게 반영)
 {memo_block}
@@ -882,6 +984,16 @@ class ReportBuilder:
 - "[⚖️ 법정기한]" 항목은 특정 종목의 실적 발표를 예고하는 것이 아니라, 법으로 정해진 제출 마감일일 뿐입니다 — 그 안에 실제 언제 발표할지는 회사마다 다르다는 점을 필요시 명시하세요.
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
+
+## 보유/관찰 서술 규칙 (중요)
+- "보유 중"으로 표시된 종목과 "관찰 중(미보유)" 종목은 판단의 성격이 다릅니다. 보유 종목은 이미 포지션이 있다는 전제에서 "현재 상태를 어떻게 볼 것인가·무엇을 지켜볼 것인가" 관점으로, 관찰 종목은 "진입을 검토한다면 어떤 조건이 확인돼야 하는가" 관점으로 서술하세요.
+- 다만 어느 쪽이든 "팔아라·사라" 같은 지시는 하지 마세요. 보유 종목이라고 해서 매도·보유 지시를 하거나, 관찰 종목이라고 해서 매수를 권하지 마세요.
+- 관심도가 높은 종목(4~5)은 상대적으로 더 비중 있게 다루되, 관심도가 낮다는 이유로 중요한 리스크 신호를 생략하지는 마세요.
+
+## 큐레이션 테마 지식 서술 규칙
+- 위 "사용자 큐레이션 테마 지식"의 촉진요인·리스크는 **사용자가 직접 정의한 관점**입니다. 오늘의 데이터(가격·뉴스·거시지표)가 그 촉진요인이나 리스크 중 어떤 것을 지지하거나 반박하는지 연결해서 설명하면 가장 유용합니다.
+- 정의된 리스크가 실제로 관찰되고 있다면 짚어주고, 관찰되지 않는다면 억지로 연결하지 마세요.
+- 이 정의는 고정된 사실이 아니라 사용자의 현재 가설입니다 — 데이터가 명백히 어긋나면 그 사실을 알려주세요.
 
 ## 뉴스 서술 규칙 (중요)
 - 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
