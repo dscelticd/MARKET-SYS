@@ -164,21 +164,50 @@ class MacroCollector:
                 return str(s.index[-1])[:10]
 
         # ── 미국 시장 ──
-        sp  = last_close("^GSPC")
-        ndq = last_close("^IXIC")
-        sox = last_close("^SOX")
+        # yfinance의 "^" 지수 티커는 거래일을 통째로 누락하는 일이 있다.
+        # 실측: 2026-08-31 저녁 실행에서 ^GSPC·^IXIC·^SOX가 8/27에 멈춰 8/28(금)을
+        # 빠뜨린 채 응답했고, 같은 시점 개별 종목은 정상이었다. 그 결과 리포트가
+        # 나흘 전 등락률을 당일 시장 흐름으로 서술했다.
+        # 반면 ETF(SPY·QQQ·SOXX)는 일반 티커라 같은 문제가 관측되지 않았다.
+        # 따라서 ETF를 신선도 판정 기준으로 삼아, 지수가 더 과거면 ETF로 대체한다.
+        def index_or_proxy(index_sym: str, etf_sym: str, digits: int = 1) -> dict:
+            idx_date, etf_date = bar_date(index_sym), bar_date(etf_sym)
+            use_proxy = bool(idx_date and etf_date and etf_date > idx_date)
+            if use_proxy:
+                logger.warning(
+                    "%s 지수 피드 지연(%s) — ETF %s(%s)로 대체",
+                    index_sym, idx_date, etf_sym, etf_date,
+                )
+                val = last_close(etf_sym)
+                return {
+                    "value": round(val, 2) if val else "N/A",
+                    "change_pct": chg_pct(etf_sym),
+                    "_source": "etf_proxy",
+                    "_proxy_ticker": etf_sym,
+                    "_index_stale_date": idx_date,
+                }
+            val = last_close(index_sym)
+            return {"value": round(val, digits) if val else "N/A",
+                    "change_pct": chg_pct(index_sym)}
+
         dow = last_close("^DJI")
         vix = last_close("^VIX") or 18.0
 
         us_market = {
-            "SP500":  {"value": round(sp, 1) if sp else "N/A",  "change_pct": chg_pct("^GSPC")},
-            "NASDAQ": {"value": round(ndq, 1) if ndq else "N/A","change_pct": chg_pct("^IXIC")},
-            "SOX":    {"value": round(sox, 1) if sox else "N/A", "change_pct": chg_pct("^SOX")},
+            "SP500":  index_or_proxy("^GSPC", "SPY"),
+            "NASDAQ": index_or_proxy("^IXIC", "QQQ"),
+            "SOX":    index_or_proxy("^SOX",  "SOXX"),
             "DOW":    {"value": round(dow, 1) if dow else "N/A", "change_pct": chg_pct("^DJI")},
             "VIX":    {
                 "value": round(vix, 2),
                 "signal": "low" if vix < 16 else ("medium" if vix < 22 else "high"),
             },
+        }
+        # 실제로 사용한 소스의 기준일을 남긴다
+        us_index_dates = {
+            "SP500":  bar_date("SPY")  if us_market["SP500"].get("_source")  else bar_date("^GSPC"),
+            "NASDAQ": bar_date("QQQ")  if us_market["NASDAQ"].get("_source") else bar_date("^IXIC"),
+            "SOX":    bar_date("SOXX") if us_market["SOX"].get("_source")    else bar_date("^SOX"),
         }
 
         # ── 한국 시장 ──
@@ -278,7 +307,14 @@ class MacroCollector:
         }
 
         # ── 시장 심리 ──
-        sentiment = self._derive_sentiment(vix, sox, chg_pct("^SOX"), chg_pct("NVDA"))
+        # SOX 값·등락률은 위에서 ETF 대체가 적용됐을 수 있으므로 us_market의 최종값을 쓴다
+        # (지수 피드가 지연된 날 심리 지표만 옛 등락률로 산출되면 서로 어긋난다).
+        _sox_entry = us_market.get("SOX", {})
+        _sox_val = _sox_entry.get("value")
+        _sox_val = _sox_val if isinstance(_sox_val, (int, float)) else None
+        _sox_chg = _sox_entry.get("change_pct")
+        _sox_chg = _sox_chg if isinstance(_sox_chg, (int, float)) else 0.0
+        sentiment = self._derive_sentiment(vix, _sox_val, _sox_chg, chg_pct("NVDA"))
         # 공포탐욕지수: alternative.me 실시간 데이터로 덮어쓰기 (가능한 경우)
         fg_real = self._fetch_fear_greed_index()
         if fg_real:
@@ -295,9 +331,9 @@ class MacroCollector:
             # 주요 지수가 실제로 언제 종가인지 — 리포트가 휴장일 데이터를 "오늘"로
             # 서술하지 않도록 프롬프트에 그대로 전달된다
             "data_dates": {
-                "SP500":  bar_date("^GSPC"),
-                "NASDAQ": bar_date("^IXIC"),
-                "SOX":    bar_date("^SOX"),
+                "SP500":  us_index_dates["SP500"],
+                "NASDAQ": us_index_dates["NASDAQ"],
+                "SOX":    us_index_dates["SOX"],
                 # KIS로 받아온 경우 그 기준일을, 실패해 yfinance를 쓰는 경우 yfinance 기준일을 남긴다
                 "KOSPI":  kr_index_dates.get("KOSPI")  or bar_date("^KS11"),
                 "KOSDAQ": kr_index_dates.get("KOSDAQ") or bar_date("^KQ11"),

@@ -226,3 +226,104 @@ def test_aligned_index_dates_produce_no_staleness_warning():
              "data_dates": {"KOSPI": "2026-08-31", "SP500": "2026-08-31"}, "_mock": False}
     _, _, warnings = DataValidator._validate_kospi_consistency(price, macro)
     assert not any("지수가 종목 데이터보다 과거" in w for w in warnings)
+
+
+# ── 미국 지수 ETF 프록시 대체 ────────────────────────────────────────────────
+# 배경: yfinance "^" 지수 티커가 거래일을 누락하는 문제는 국내뿐 아니라 미국에서도
+# 발생했다. 실측(2026-08-31 저녁): ^GSPC·^IXIC·^SOX가 8/27에 멈춰 8/28(금)을 빠뜨린 채
+# 응답했고 개별 종목은 정상이었다. ETF(SPY·QQQ·SOXX)는 일반 티커라 같은 문제가
+# 관측되지 않아, ETF를 신선도 판정 기준으로 삼고 지수가 뒤처지면 대체한다.
+
+def test_index_note_marks_proxy_substitution():
+    from app.reports.report_builder import _index_note
+    proxied = {"value": 650.23, "change_pct": -0.58, "_source": "etf_proxy",
+               "_proxy_ticker": "SPY", "_index_stale_date": "2026-08-27"}
+    note = _index_note(proxied)
+    assert "SPY" in note and "2026-08-27" in note
+
+
+def test_index_note_empty_for_normal_index():
+    from app.reports.report_builder import _index_note
+    assert _index_note({"value": 7730.99, "change_pct": 0.5}) == ""
+    assert _index_note({}) == ""
+    assert _index_note(None) == ""
+
+
+def test_macro_block_labels_proxy_substituted_index():
+    """대체 사실을 알리지 않으면 Claude가 ETF 가격을 지수 레벨로 오인한다."""
+    from app.reports.report_builder import _format_macro_block
+    macro = {"us_market": {"SP500": {"value": 650.23, "change_pct": -0.58,
+                                     "_source": "etf_proxy", "_proxy_ticker": "SPY",
+                                     "_index_stale_date": "2026-08-27"}},
+             "kr_market": {}, "currencies": {}, "rates": {}, "commodities": {}, "sentiment": {}}
+    block = _format_macro_block(macro)
+    assert "SPY ETF 기준 대체" in block
+
+
+def test_proxy_substitution_rule_present_in_prompts():
+    """대체 표기만 있고 서술 규칙이 없으면 Claude가 ETF 가격을 지수로 서술한다."""
+    import app.reports.report_builder as rb
+    assert "지수 대체 표기 서술 규칙" in rb._SHARED_NARRATION_RULES
+
+
+def test_collect_real_executes_full_body_with_stub_yfinance(monkeypatch):
+    """_collect_real 본문 전체가 실행되는지 검증한다.
+
+    기존 테스트는 yfinance를 None으로 막아 ImportError 폴백 경로만 탔기 때문에
+    함수 본문의 이름 오류를 잡지 못했다. 실제로 미국 지수 ETF 대체 로직을 넣으며
+    지역변수 `sox`를 제거했는데, 아래쪽 _derive_sentiment 호출이 그대로 참조해
+    NameError로 파이프라인이 죽었고 테스트는 전부 통과했다.
+    """
+    import sys as _sys
+    import types
+    import pandas as pd
+
+    class _FakeTicker:
+        def __init__(self, symbol):
+            self.symbol = symbol
+        def history(self, period="10d", auto_adjust=True):
+            idx = pd.to_datetime(["2026-08-28", "2026-08-31"])
+            return pd.DataFrame({"Close": [100.0, 101.0]}, index=idx)
+
+    fake = types.ModuleType("yfinance")
+    fake.Ticker = _FakeTicker
+    monkeypatch.setitem(_sys.modules, "yfinance", fake)
+    monkeypatch.delenv("KIS_APP_KEY", raising=False)   # KIS 경로는 이 테스트 범위 밖
+    monkeypatch.delenv("KIS_APP_SECRET", raising=False)
+
+    out = MacroCollector()._collect_real()
+    assert out["_mock"] is False
+    for key in _SECTIONS:
+        assert key in out
+    assert out["sentiment"].get("semiconductor_cycle")   # 심리 산출까지 도달했는지
+    assert out["data_dates"]["SP500"] == "2026-08-31"
+
+
+def test_us_index_falls_back_to_etf_when_index_feed_lags(monkeypatch):
+    """지수 티커가 ETF보다 과거면 ETF 값으로 대체돼야 한다."""
+    import sys as _sys
+    import types
+    import pandas as pd
+
+    class _FakeTicker:
+        def __init__(self, symbol):
+            self.symbol = symbol
+        def history(self, period="10d", auto_adjust=True):
+            if self.symbol.startswith("^"):          # 지수 — 8/27에 멈춤
+                idx = pd.to_datetime(["2026-08-26", "2026-08-27"])
+                return pd.DataFrame({"Close": [7700.0, 7730.99]}, index=idx)
+            idx = pd.to_datetime(["2026-08-28", "2026-08-31"])   # ETF·종목 — 최신
+            return pd.DataFrame({"Close": [652.0, 650.23]}, index=idx)
+
+    fake = types.ModuleType("yfinance")
+    fake.Ticker = _FakeTicker
+    monkeypatch.setitem(_sys.modules, "yfinance", fake)
+    monkeypatch.delenv("KIS_APP_KEY", raising=False)
+    monkeypatch.delenv("KIS_APP_SECRET", raising=False)
+
+    out = MacroCollector()._collect_real()
+    sp = out["us_market"]["SP500"]
+    assert sp["_source"] == "etf_proxy"
+    assert sp["_proxy_ticker"] == "SPY"
+    assert sp["_index_stale_date"] == "2026-08-27"
+    assert out["data_dates"]["SP500"] == "2026-08-31"   # 대체 소스의 기준일

@@ -110,6 +110,11 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - "통계로 제시할 만큼 표본이 쌓인 축이 없습니다"라고 나오면, 아직 누적 중이라는 사실만 짧게 알리고 넘어가세요. 없는 통계를 만들어내지 마세요.
 - 적중률이 높다고 그 신호가 미래에도 맞는다는 뜻은 아닙니다 — 과거 관측일 뿐임을 톤에 반영하세요.
 
+## 지수 대체 표기 서술 규칙
+- "※SPY ETF 기준 대체" 같은 표기가 붙은 지수는 **데이터 제공처의 지수 피드가 거래일을 누락해 추종 ETF 값으로 대체**한 것입니다. 이때 표시된 수치는 지수 레벨이 아니라 ETF 가격이므로, "S&P500이 650이다"처럼 지수 레벨로 서술하지 마세요.
+- 이 경우 **등락률만 인용**하고, 레벨을 언급해야 한다면 "SPY ETF 기준"임을 함께 밝히세요.
+- 대체가 일어났다는 사실 자체는 데이터 이슈이므로, 시장 해석과 섞지 말고 필요할 때만 짧게 언급하세요.
+
 ## 뉴스 서술 규칙 (중요)
 - 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
 - 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
@@ -861,6 +866,19 @@ def _num_or_na(value, fmt: str = "+,.0f") -> str:
     return "N/A"
 
 
+def _index_note(entry: dict) -> str:
+    """지수가 ETF로 대체됐으면 그 사실을 표기.
+
+    yfinance의 "^" 지수 티커가 거래일을 누락할 때 ETF(SPY·QQQ·SOXX)로 자동
+    대체하는데, 대체 사실을 알리지 않으면 독자가 지수 레벨이 갑자기 바뀐 이유를
+    알 수 없고 Claude도 ETF 가격을 지수 레벨로 오인한다.
+    """
+    if not isinstance(entry, dict) or entry.get("_source") != "etf_proxy":
+        return ""
+    return (f" ※{entry.get('_proxy_ticker')} ETF 기준 대체"
+            f"(지수 피드가 {entry.get('_index_stale_date')}에 지연)")
+
+
 def _format_macro_block(macro: dict) -> str:
     macro = macro or {}
     us = macro.get("us_market") or {}
@@ -871,9 +889,9 @@ def _format_macro_block(macro: dict) -> str:
     comm = macro.get("commodities") or {}
 
     return f"""[미국 시장]
-- S&P500: {us.get('SP500', {}).get('value', 'N/A')} ({_num_or_na(us.get('SP500', {}).get('change_pct'), '+.2f')}%)
-- NASDAQ: {us.get('NASDAQ', {}).get('value', 'N/A')} ({_num_or_na(us.get('NASDAQ', {}).get('change_pct'), '+.2f')}%)
-- SOX: {us.get('SOX', {}).get('value', 'N/A')} ({_num_or_na(us.get('SOX', {}).get('change_pct'), '+.2f')}%)
+- S&P500: {us.get('SP500', {}).get('value', 'N/A')} ({_num_or_na(us.get('SP500', {}).get('change_pct'), '+.2f')}%){_index_note(us.get('SP500', {}))}
+- NASDAQ: {us.get('NASDAQ', {}).get('value', 'N/A')} ({_num_or_na(us.get('NASDAQ', {}).get('change_pct'), '+.2f')}%){_index_note(us.get('NASDAQ', {}))}
+- SOX: {us.get('SOX', {}).get('value', 'N/A')} ({_num_or_na(us.get('SOX', {}).get('change_pct'), '+.2f')}%){_index_note(us.get('SOX', {}))}
 - VIX: {us.get('VIX', {}).get('value', 'N/A')} ({us.get('VIX', {}).get('signal', 'N/A')})
 
 [한국 시장]
