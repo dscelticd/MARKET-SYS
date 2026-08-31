@@ -319,7 +319,6 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         # ── Step 3: 신호 점수 계산 ──
         print_section("Step 3. 신호 점수 계산")
         scorer = SignalScorer(weights=cfg.user.signal_weights)
-        theme_map = {t["id"]: t for t in cfg.themes.themes}
         score_results = []
 
         for stock in stocks:
@@ -329,7 +328,6 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                 price_data=price_data.get(sid, {}),
                 news_data=news_data.get(sid, []),
                 macro_data=macro_data,
-                theme_config=theme_map,
             )
             score_results.append(sr)
 

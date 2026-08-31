@@ -63,14 +63,13 @@ class SignalScorer:
         price_data: dict,
         news_data: list[dict],
         macro_data: dict,
-        theme_config: dict[str, dict] | None = None,
     ) -> dict[str, Any]:
         sid = stock_info["id"]
 
         pm = self._price_momentum(price_data)
         ns = self._news_sentiment(news_data)
         ma = self._macro_alignment(stock_info, macro_data)
-        ss = self._sector_strength(stock_info, macro_data, theme_config)
+        ss = self._sector_strength(stock_info, macro_data)
         vs = self._volume_signal(price_data)
         ts = self._technical_signal(price_data)
         an = self._analyst_signal(price_data)
@@ -188,8 +187,15 @@ class SignalScorer:
 
         return min(100, max(0, score))
 
-    def _sector_strength(self, stock: dict, macro: dict, theme_cfg: dict | None) -> float:
-        """섹터/테마 강도"""
+    def _sector_strength(self, stock: dict, macro: dict) -> float:
+        """섹터/테마 강도.
+
+        주의: 아래 가산점은 config가 아니라 코드에 하드코딩되어 있다. themes.json에
+        key_drivers·macro_sensitivity 같은 정의가 있지만 점수 산식은 이를 읽지 않는다
+        (예전에 theme_config 인자를 받았으나 본문에서 한 번도 쓰이지 않는 죽은
+        파라미터여서 제거했다). 테마 정의는 현재 리포트 프롬프트에서만 활용된다.
+        가중치를 설정으로 옮기려면 등급 적중률 이력과의 비교 가능성을 함께 검토해야 한다.
+        """
         score = 50.0
         sentiment = macro.get("sentiment", {})
         ai_cycle = sentiment.get("ai_capex_cycle", "보합")

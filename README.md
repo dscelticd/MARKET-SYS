@@ -65,7 +65,7 @@ market_flow/
 │   ├── watchlist.json        # 관심종목 목록 (18개)
 │   ├── themes.json           # 관심테마 정의
 │   ├── user_profile.json     # 투자성향 & 가중치
-│   └── report_config.json    # 리포트 설정 (max_tokens 등 일부 필드만 실제 반영)
+│   └── report_config.json    # 리포트 설정 (max_tokens·금지표현·이메일 제목·저장경로)
 ├── data/
 │   ├── reports/               # 생성된 리포트 (.md, .json)
 │   ├── history/                # 등급 이력 (ratings_history.json)

@@ -571,7 +571,18 @@ class EmailSender:
     ) -> bool:
         date = date_str or datetime.now().strftime("%Y-%m-%d")
         type_label = "아침 브리핑" if report_type == "morning" else "저녁 결산"
+        # 제목 형식은 config/report_config.json의 email.subject_* 에서 가져온다.
+        # 기존에는 여기서 하드코딩해 config 값이 정의만 되고 무시되고 있었다.
+        # 설정 로드나 템플릿 치환이 실패해도 메일 발송 자체는 막지 않는다.
         subject = f"[Market Flow] {date} {type_label}"
+        try:
+            from app.utils.config_loader import get_config
+            key = "subject_morning" if report_type == "morning" else "subject_evening"
+            template = get_config().report.email.get(key)
+            if template:
+                subject = template.format(date=date, type_label=type_label)
+        except Exception as e:
+            _logger_es.debug("이메일 제목 템플릿 적용 실패, 기본 형식 사용: %s", e)
         return self.send(
             subject, content, news_data=news_data, ratings=ratings, chart_images=chart_images
         )

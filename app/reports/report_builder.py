@@ -352,9 +352,29 @@ def _format_technical_block(price_data: dict[str, dict]) -> str:
     return "\n".join(lines)
 
 
+def _fmt_price(value: float, currency: str) -> str:
+    """통화에 맞는 자릿수로 가격 표기. 원화는 소수점 단위로 거래되지 않으므로
+    "267,000.00 KRW" 같은 표기는 불필요한 노이즈다."""
+    if currency == "KRW":
+        return f"{value:,.0f}"
+    return f"{value:,.2f}"
+
+
+def _fmt_zone(low: float, high: float, currency: str) -> str:
+    """지지/저항 구간 표기. 상단=하단이면 범위가 아니므로 값 하나만 쓴다
+    ("267,000~267,000"처럼 같은 수를 두 번 쓰던 퇴화 표기 제거)."""
+    lo, hi = _fmt_price(low, currency), _fmt_price(high, currency)
+    return lo if lo == hi else f"{lo}~{hi}"
+
+
 def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
-    """지지/저항 박스 + 손익비 + 조건부 시나리오 블록 (Claude 리포트 작성용)
+    """지지/저항 박스 + 손익비 블록 (Claude 리포트 작성용)
     예측이 아닌 "이 조건이 뜨면 검토 가능한 자리" 형태의 조건부 참고 정보 — 매수·매도 지시가 아님.
+
+    조건부 시나리오 줄("▲ X 위 거래량 동반 종가 마감 → 돌파로 볼 여지")은 제거했다.
+    종목마다 같은 템플릿에 숫자만 바꿔 넣은 기계적 반복이었고(18종목 36줄·1,641자로
+    데이터 블록의 9%), 그 숫자는 바로 윗줄에 이미 있으며 서술 방식은
+    "## 지지/저항·손익비 서술 규칙"에 이미 명시돼 있다.
     """
     lines = []
     for sid, p in price_data.items():
@@ -362,7 +382,6 @@ def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
         if not sr:
             continue
 
-        price    = p.get("price")
         currency = p.get("currency", "")
         r_zones  = sr.get("resistance_zones") or []
         s_zones  = sr.get("support_zones") or []
@@ -375,16 +394,18 @@ def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
 
         if r_zones:
             rz = r_zones[0]
+            zone = _fmt_zone(rz["low"], rz["high"], currency)
             parts.append(
-                f"저항 {rz['low']:,.2f}~{rz['high']:,.2f} {currency}(상승여력{up_pct:+.1f}%·강도{rz['strength']})"
+                f"저항 {zone} {currency}(상승여력{up_pct:+.1f}%·강도{rz['strength']})"
             )
         else:
             parts.append("저항 확인 안 됨(신고가 구간)")
 
         if s_zones:
             sz = s_zones[0]
+            zone = _fmt_zone(sz["low"], sz["high"], currency)
             parts.append(
-                f"지지 {sz['low']:,.2f}~{sz['high']:,.2f} {currency}(하락위험-{down_pct:.1f}%·강도{sz['strength']})"
+                f"지지 {zone} {currency}(하락위험-{down_pct:.1f}%·강도{sz['strength']})"
             )
         else:
             parts.append("지지 확인 안 됨")
@@ -394,12 +415,6 @@ def _format_support_resistance_block(price_data: dict[str, dict]) -> str:
             parts.append(f"손익비={rr:.2f}({rr_label})")
 
         lines.append("  " + " | ".join(parts))
-
-        # 조건부 시나리오 — 돌파/이탈 조건 (예측 아님)
-        if r_zones and price:
-            lines.append(f"    ▲ {r_zones[0]['low']:,.2f} {currency} 위 거래량 동반 종가 마감 → 돌파로 볼 여지")
-        if s_zones and price:
-            lines.append(f"    ▼ {s_zones[0]['high']:,.2f} {currency} 아래 거래량 동반 종가 이탈 → 지지 붕괴로 볼 여지")
 
     if not lines:
         return "(지지/저항 데이터 없음)"
@@ -759,24 +774,38 @@ def _format_changes_block(changes: list[dict]) -> str:
     return "\n".join(lines)
 
 
+def _num_or_na(value, fmt: str = "+,.0f") -> str:
+    """숫자면 지정 형식으로, 아니면 'N/A'로 표기.
+
+    거시지표 블록이 일부 값에 숫자 포맷을 직접 적용하고 있어, 외부 API가 부분 응답을
+    주면 'N/A' 문자열에 :+,.0f를 적용하며 ValueError로 리포트 생성 전체가 죽었다.
+    (현재 파이프라인은 macro 수집 실패 시 raise하므로 완전한 dict만 오지만,
+     일부 필드만 빠진 응답에는 무방비였다.)
+    """
+    if isinstance(value, (int, float)):
+        return format(value, fmt)
+    return "N/A"
+
+
 def _format_macro_block(macro: dict) -> str:
-    us = macro.get("us_market", {})
-    kr = macro.get("kr_market", {})
-    cur = macro.get("currencies", {})
-    rates = macro.get("rates", {})
-    sent = macro.get("sentiment", {})
-    comm = macro.get("commodities", {})
+    macro = macro or {}
+    us = macro.get("us_market") or {}
+    kr = macro.get("kr_market") or {}
+    cur = macro.get("currencies") or {}
+    rates = macro.get("rates") or {}
+    sent = macro.get("sentiment") or {}
+    comm = macro.get("commodities") or {}
 
     return f"""[미국 시장]
-- S&P500: {us.get('SP500', {}).get('value', 'N/A')} ({us.get('SP500', {}).get('change_pct', 0):+.2f}%)
-- NASDAQ: {us.get('NASDAQ', {}).get('value', 'N/A')} ({us.get('NASDAQ', {}).get('change_pct', 0):+.2f}%)
-- SOX: {us.get('SOX', {}).get('value', 'N/A')} ({us.get('SOX', {}).get('change_pct', 0):+.2f}%)
+- S&P500: {us.get('SP500', {}).get('value', 'N/A')} ({_num_or_na(us.get('SP500', {}).get('change_pct'), '+.2f')}%)
+- NASDAQ: {us.get('NASDAQ', {}).get('value', 'N/A')} ({_num_or_na(us.get('NASDAQ', {}).get('change_pct'), '+.2f')}%)
+- SOX: {us.get('SOX', {}).get('value', 'N/A')} ({_num_or_na(us.get('SOX', {}).get('change_pct'), '+.2f')}%)
 - VIX: {us.get('VIX', {}).get('value', 'N/A')} ({us.get('VIX', {}).get('signal', 'N/A')})
 
 [한국 시장]
-- KOSPI: {kr.get('KOSPI', {}).get('value', 'N/A')} ({kr.get('KOSPI', {}).get('change_pct', 0):+.2f}%)
-- KOSDAQ: {kr.get('KOSDAQ', {}).get('value', 'N/A')} ({kr.get('KOSDAQ', {}).get('change_pct', 0):+.2f}%)
-- 외국인 순매수: {kr.get('foreign_net_buy_bn', 'N/A'):+,.0f}억 원
+- KOSPI: {kr.get('KOSPI', {}).get('value', 'N/A')} ({_num_or_na(kr.get('KOSPI', {}).get('change_pct'), '+.2f')}%)
+- KOSDAQ: {kr.get('KOSDAQ', {}).get('value', 'N/A')} ({_num_or_na(kr.get('KOSDAQ', {}).get('change_pct'), '+.2f')}%)
+- 외국인 순매수: {_num_or_na(kr.get('foreign_net_buy_bn'))}억 원
 
 [환율/금리]
 - USD/KRW: {cur.get('USD_KRW', {}).get('value', 'N/A')}

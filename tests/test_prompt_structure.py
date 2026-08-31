@@ -37,10 +37,8 @@ def _render_prompts() -> dict[str, str]:
 
     stocks = _load("watchlist.json")["stocks"]
     themes = _load("themes.json")["themes"]
-    # macro는 실제와 같은 형태로 채워야 한다 — _format_macro_block이 일부 키에
-    # 숫자 포맷(:+,.0f)을 직접 적용해서, 빈 dict를 주면 'N/A' 문자열에 포맷을
-    # 적용하며 ValueError로 죽는다(실 파이프라인은 macro 수집 실패 시 raise하므로
-    # 항상 완전한 dict가 오지만, 테스트에서 빈 dict를 넘기면 드러난다).
+    # 프롬프트 렌더링을 실제와 비슷하게 하기 위해 macro도 정상 형태로 채운다.
+    # (빈 dict여도 이제는 죽지 않는다 — 아래 "거시지표 블록 견고성" 테스트 참고)
     macro = {
         "us_market": {"SP500": {"value": 7731.0, "change_pct": 0.7}},
         "kr_market": {"KOSPI": {"value": 6912.0, "change_pct": 1.5},
@@ -118,3 +116,29 @@ def test_forbidden_expressions_consistent_between_config_and_system_prompt():
     cfg_list = _load("report_config.json")["rating_system"]["forbidden_expressions"]
     for expr in cfg_list:
         assert expr in rb.SYSTEM_PROMPT, f"시스템 프롬프트에 '{expr}' 안내 누락"
+
+
+# ── 거시지표 블록 견고성 ─────────────────────────────────────────────────────
+# 배경: _format_macro_block이 일부 값에 숫자 포맷(:+,.0f)을 직접 적용해, 외부 API가
+# 부분 응답을 주면 'N/A' 문자열에 포맷을 적용하며 ValueError로 리포트 생성 전체가
+# 죽었다. 실제로 이 테스트 파일을 처음 작성할 때 빈 dict를 넘겨 크래시로 드러났다.
+
+def test_macro_block_survives_empty_and_none():
+    assert rb._format_macro_block({})
+    assert rb._format_macro_block(None)
+
+
+def test_macro_block_survives_partial_response():
+    """일부 지수만 담긴 응답에도 죽지 않고 나머지는 N/A로 표기한다."""
+    out = rb._format_macro_block({"kr_market": {"KOSPI": {"value": 6912.0, "change_pct": 1.5}}})
+    assert "6912.0" in out
+    assert "N/A" in out
+
+
+def test_macro_block_survives_non_numeric_values():
+    """수치 자리에 문자열이 와도 포맷 오류로 죽지 않아야 한다."""
+    out = rb._format_macro_block({
+        "kr_market": {"KOSPI": {"value": "N/A", "change_pct": "N/A"},
+                      "foreign_net_buy_bn": "N/A"},
+    })
+    assert "N/A" in out

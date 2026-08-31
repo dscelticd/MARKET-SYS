@@ -673,7 +673,6 @@ def run_pipeline(report_type: str, send_email: bool = False, save: bool = True) 
     cfg       = _load_config()
     stocks    = cfg.watchlist.stocks
     stock_ids = [s["id"] for s in stocks]
-    theme_map = {t["id"]: t for t in cfg.themes.themes}
 
     collected_at = _now_kst().strftime("%Y-%m-%d %H:%M KST")
 
@@ -701,7 +700,7 @@ def run_pipeline(report_type: str, send_email: bool = False, save: bool = True) 
     scorer  = SignalScorer(weights=cfg.user.signal_weights)
     analyzer = RatingAnalyzer()
     scores  = [scorer.score(s, price_data.get(s["id"], {}), news_data.get(s["id"], []),
-                            macro_data, theme_map) for s in stocks]
+                            macro_data) for s in stocks]
     ratings = analyzer.analyze_batch(scores, stocks)
     r_dicts = [r.to_dict() for r in ratings]
 

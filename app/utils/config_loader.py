@@ -85,10 +85,6 @@ class ReportConfig:
         self.storage: dict = data["storage"]
 
     @property
-    def disclaimer(self) -> str:
-        return self.rating_system["disclaimer"]
-
-    @property
     def forbidden_expressions(self) -> list[str]:
         return self.rating_system["forbidden_expressions"]
 

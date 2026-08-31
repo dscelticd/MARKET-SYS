@@ -92,8 +92,15 @@ def test_risk_reward_meets_bar_threshold_is_two():
     assert m_high["risk_reward_ratio"] >= 2.0
 
 
-def test_format_support_resistance_block_uses_conditional_language():
-    """매수·매도 지시가 아닌 조건부 문장(~볼 여지)으로만 서술되는지 확인"""
+def test_format_support_resistance_block_stays_non_prescriptive():
+    """매수·매도 지시 표현이 데이터 블록에 들어가지 않는지 확인.
+
+    이전에는 종목마다 "▲ X 위 거래량 동반 종가 마감 → 돌파로 볼 여지" 같은 조건부
+    시나리오 줄을 함께 출력했고 이 테스트가 "볼 여지" 문구를 검증했다. 그 줄들은
+    숫자만 바꾼 기계적 반복(18종목 36줄·1,641자)이었고 서술 방식은
+    "## 지지/저항·손익비 서술 규칙"에 이미 명시돼 있어 제거했다 —
+    조건부 서술의 책임은 이제 데이터가 아니라 프롬프트 규칙에 있다.
+    """
     price_data = {
         "KR_005930": {
             "name": "삼성전자", "price": 231000, "currency": "KRW",
@@ -110,9 +117,50 @@ def test_format_support_resistance_block_uses_conditional_language():
     block = _format_support_resistance_block(price_data)
     assert "삼성전자" in block
     assert "손익비=1.11(기준미달)" in block
-    assert "볼 여지" in block
+    # Claude가 조건부 서술을 만들 수 있도록 저항·지지 수치는 그대로 남아야 한다
+    assert "238,212" in block and "224,788" in block
     forbidden = ["무조건 매수", "반드시 매도", "지금 사야 한다", "지금 팔아야 한다"]
     assert not any(f in block for f in forbidden)
+
+
+def test_krw_prices_have_no_decimals_and_point_zones_collapse():
+    """원화는 소수점 단위로 거래되지 않고, 상단=하단인 구간은 값 하나로 표기한다."""
+    price_data = {
+        "KR_005930": {
+            "name": "삼성전자", "price": 231000, "currency": "KRW",
+            "support_resistance": {
+                "resistance_zones": [{"low": 267000.0, "high": 267000.0, "touches": 2, "strength": 40}],
+                "support_zones":    [{"low": 240000.0, "high": 242000.0, "touches": 1, "strength": 25}],
+                "nearest_resistance_pct": 6.2,
+                "nearest_support_pct": 4.6,
+                "risk_reward_ratio": 1.35,
+                "risk_reward_meets_bar": False,
+            },
+        },
+    }
+    block = _format_support_resistance_block(price_data)
+    assert "267,000.00" not in block          # 원화 소수점 없음
+    assert "267,000~267,000" not in block     # 동일값 범위 축약
+    assert "저항 267,000 KRW" in block
+    assert "지지 240,000~242,000 KRW" in block  # 진짜 범위는 그대로 유지
+
+
+def test_usd_prices_keep_two_decimals():
+    price_data = {
+        "US_NVDA": {
+            "name": "NVIDIA", "price": 190.0, "currency": "USD",
+            "support_resistance": {
+                "resistance_zones": [{"low": 227.98, "high": 227.98, "touches": 2, "strength": 40}],
+                "support_zones":    [],
+                "nearest_resistance_pct": 5.0,
+                "nearest_support_pct": None,
+                "risk_reward_ratio": None,
+                "risk_reward_meets_bar": None,
+            },
+        },
+    }
+    block = _format_support_resistance_block(price_data)
+    assert "227.98" in block
 
 
 def test_format_support_resistance_block_skips_empty_data():
