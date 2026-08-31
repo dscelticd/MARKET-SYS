@@ -195,6 +195,33 @@ class TelegramNotifier:
         ]
         return self._send("\n".join(lines))
 
+    def notify_forbidden_expression(
+        self, expressions: str, count: int, report_type: str = "morning"
+    ) -> bool:
+        """생성된 리포트에 사용 금지 표현이 감지됐을 때 발송.
+
+        금지 표현("무조건 매수", "확실한 수익" 등)은 투자 권유로 읽힐 수 있어
+        시스템 프롬프트에서 금지하고 있지만, 그건 요청일 뿐 강제가 아니다.
+        자동 실행 파이프라인에는 사람이 확인할 기회가 없으므로 즉시 알린다.
+
+        반환값: 발송됐으면 True
+        """
+        if not self.is_configured():
+            return False
+        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        label = "📅 아침" if report_type == "morning" else "🌙 저녁"
+        lines = [
+            f"🚨 *Market Flow {label} 리포트 금지 표현 감지*",
+            f"일시: {now}",
+            "",
+            f"감지: *{count}건*",
+            f"표현: {_escape(expressions)}",
+            "",
+            "_해당 문장은 투자 권유가 아니며 시스템 오류입니다\\. "
+            "리포트 상단에도 경고가 함께 표시됩니다\\._",
+        ]
+        return self._send("\n".join(lines))
+
     def notify_error(self, error_msg: str, report_type: str = "morning") -> None:
         """파이프라인 오류 알림"""
         if not self.is_configured():

@@ -54,7 +54,11 @@ from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.collectors.theme_scanner import scan_theme_strength
 from app.collectors.calendar_collector import build_event_calendar
 from app.utils.market_calendar import summarize_data_freshness
-from app.reports.report_builder import ReportBuilder, save_report
+from app.reports.report_builder import (
+    ReportBuilder,
+    save_report,
+    verify_forbidden_expressions,
+)
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
 
@@ -470,6 +474,41 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         except Exception as e:
             logger.error("[CLAUDE_API_ERROR] 리포트 생성 실패: %s", e)
             raise
+
+        # ── Step 5-1: 금지 표현 사후 검증 ──
+        # config의 forbidden_expressions가 정의만 되어 있고 아무도 호출하지 않아,
+        # 방어 수단이 "시스템 프롬프트로 Claude에게 부탁하기" 하나뿐이었다.
+        # 매일 자동 실행되는 파이프라인에는 사람이 확인할 기회가 없으므로 여기서 검증한다.
+        # 발송 자체를 막지는 않는다 — 키워드 검사라 오탐 여지가 있고, 리포트가 아예
+        # 안 나가는 편이 더 나쁘다. 대신 로그·텔레그램·리포트 본문에 모두 드러낸다.
+        try:
+            violations = verify_forbidden_expressions(
+                report_content, cfg.report.forbidden_expressions
+            )
+        except Exception as e:
+            logger.warning("[FORBIDDEN_CHECK_ERROR] 금지 표현 검증 실패 (무시하고 계속): %s", e)
+            violations = []
+
+        if violations:
+            exprs = ", ".join(sorted({v["expression"] for v in violations}))
+            print(f"  🚨 금지 표현 감지: {len(violations)}건 ({exprs})")
+            for v in violations[:5]:
+                print(f"     · \"{v['expression']}\" — …{v['context']}…")
+            logger.error("[FORBIDDEN_EXPRESSION] 금지 표현 %d건 감지 — %s",
+                         len(violations), exprs)
+            report_content = (
+                f"> 🚨 **자동 검증 경고**: 이 리포트에서 사용이 금지된 표현 "
+                f"{len(violations)}건({exprs})이 감지되었습니다. "
+                f"해당 문장은 투자 권유가 아니며, 시스템 오류로 간주하고 걸러 읽어주세요.\n\n"
+                + report_content
+            )
+            if notifier.is_configured():
+                try:
+                    notifier.notify_forbidden_expression(exprs, len(violations), report_type)
+                except Exception as e:
+                    logger.error("[TELEGRAM_NOTIFY_ERROR] 금지 표현 알림 실패: %s", e)
+        else:
+            print("  금지 표현 검증: 통과")
 
         # ── Step 6: 리포트 저장 ──
         print_section("Step 6. 리포트 저장")
