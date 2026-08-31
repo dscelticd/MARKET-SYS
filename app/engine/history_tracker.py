@@ -119,7 +119,10 @@ class HistoryTracker:
         data_date = max(data_dates) if data_dates else None
 
         entry: dict[str, Any] = {
-            "schema_version":   "1.2",
+            # 1.2: is_trading_day·data_date 추가(주말 중복 스냅샷 구분)
+            # 1.3: components 추가(요인별 적중률 산출용 — 총점만으로는 어떤 신호가
+            #      맞았는지 사후에 알 수 없었다)
+            "schema_version":   "1.3",
             "date":             today,
             "report_type":      report_type,
             "generated_at":     datetime.now().isoformat(),
@@ -131,6 +134,7 @@ class HistoryTracker:
             "grade_capped":     {},   # bool — 등급 제한 적용 여부
             "cap_reasons":      {},   # 제한 사유
             "scores":           {},
+            "components":       {},   # 요인별 점수 — 요인별 적중률 산출용(누적 시작)
             "risk_scores":      {},
             "data_confidence":  {},
             # ── 주가 (백테스팅용) ──
@@ -153,6 +157,13 @@ class HistoryTracker:
             entry["scores"][sid]          = r["total_score"]
             entry["risk_scores"][sid]     = r.get("risk_score", 0)
             entry["data_confidence"][sid] = r.get("data_confidence", 0)
+            # 요인별 점수(7개 축)를 함께 남긴다.
+            # 지금까지는 총점만 저장해서, "어떤 신호가 실제로 맞았는가"를
+            # 사후에 계산할 방법이 아예 없었다(적중률은 등급 단위 집계뿐).
+            # 축적되면 요인별 적중률을 산출해 "이 신호는 과거 N% 적중" 같은
+            # 실증 근거를 리포트에 쓸 수 있다 — 그래서 지금부터 쌓아둔다.
+            if r.get("components"):
+                entry["components"][sid] = r["components"]
 
         # 주가 저장 (price_data 있을 때만)
         if price_data:

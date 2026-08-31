@@ -96,6 +96,14 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - 정의된 리스크가 실제로 관찰되고 있다면 짚어주고, 관찰되지 않는다면 억지로 연결하지 마세요.
 - 이 정의는 고정된 사실이 아니라 사용자의 현재 가설입니다 — 데이터가 명백히 어긋나면 그 사실을 알려주세요.
 
+## 방향성 근거 서술 규칙 (중요)
+- 각 종목의 "신호 균형: 상승 N / 하락 M / 확인필요 K"는 **서로 다른 축(가격·기술적·수급·애널리스트·거시)에서 나온 독립 신호의 개수**입니다. 점수 하나만 인용하지 말고, 근거가 몇 대 몇으로 갈리는지를 함께 전달하세요.
+- 상승·하락 근거가 비슷하게 맞선 종목(예: 3 대 3)은 "방향성이 확인되지 않는 구간"으로 서술하세요. 점수가 높다는 이유만으로 상승 쪽으로 정리하지 마세요.
+- "확인 필요" 항목은 **신호 간 불일치(다이버전스)** 입니다 — 예: 가격은 올랐는데 거래량이 실리지 않음, 가격은 올랐는데 외국인은 순매도. 이건 애매해서 뺀 정보가 아니라, 그 자체로 중요한 경고 신호이니 반드시 언급하세요.
+- 근거를 인용할 때는 수치를 그대로 쓰세요("RSI 28 과매도", "5일 누적 외국인 -612만주"). "기술적으로 양호"처럼 뭉뚱그리지 마세요.
+- 수급 근거의 "(실측)"은 한국투자증권 공식 API 값, "(추정)"은 네이버 잔차 추정치입니다 — 처음 언급 시 구분하세요.
+- 근거가 하나도 없는 종목("없음")은 신호가 약한 것이지 안전하다는 뜻이 아닙니다.
+
 ## 뉴스 서술 규칙 (중요)
 - 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
 - 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
@@ -327,7 +335,11 @@ def _format_technical_block(price_data: dict[str, dict]) -> str:
                 pos = "MA60 위" if p["price"] > ma60 else "MA60 아래"
                 parts.append(pos)
             if hist is not None:
-                parts.append(f"MACD히스토그램={'↑' if hist > 0 else '↓'}({hist:+.2f})")
+                # 절대값은 주가 스케일에 비례하므로 종목 간 비교가 불가능하다.
+                # 실측 사례: 삼성전자 +1,411 / SK하이닉스 +29,518인데 이는 주가 차이일 뿐인데도
+                # Claude가 "+29518(↑강한 개선)"처럼 크기를 모멘텀 강도로 해석했다.
+                # 해석 가능한 정보는 부호뿐이므로 방향만 전달한다.
+                parts.append(f"MACD히스토그램={'양(개선방향)' if hist > 0 else '음(둔화방향)'}")
 
         candle = p.get("candle_pattern") or {}
         if candle.get("pattern"):
@@ -730,21 +742,35 @@ def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
 
 
 def _format_rating_block(ratings: list[dict]) -> str:
+    """등급 + 방향성 근거 블록.
+
+    이전에는 긍정·부정 근거를 2건씩만 보여줬고, 신호 간 불일치(다이버전스)가 담기는
+    check_required는 대시보드에만 쓰이고 프롬프트에는 아예 전달되지 않았다.
+    또 가중평균 점수 하나만으로는 "강한 상승 3 + 약한 하락 4"와 "전부 미지근한 중립"이
+    구분되지 않아, **신호가 엇갈린다는 사실 자체**가 근거에서 사라졌다.
+    여기서는 방향별 신호 개수를 함께 제시해 그 균형을 드러낸다.
+    """
     lines = []
     for r in ratings:
-        pos = r["positive_factors"][:2] if r["positive_factors"] else ["없음"]
-        neg = r["negative_factors"][:2] if r["negative_factors"] else ["없음"]
-        # 등급 캡이 적용된 경우 원본 등급도 함께 표시 (Claude 분석 품질 유지)
+        pos_all = r.get("positive_factors") or []
+        neg_all = r.get("negative_factors") or []
+        chk_all = r.get("check_required") or []
+
         grade_display = r["grade"]
         if r.get("grade_capped"):
             grade_display += f"(원본:{r['raw_grade']}·신뢰도제한)"
-        lines.append(
+
+        block = [
             f"- {r['emoji']} {r['name']} [{grade_display}] "
             f"점수:{r['total_score']:.0f} 리스크:{r['risk_score']:.0f} "
-            f"신뢰도:{r['data_confidence']:.0f}\n"
-            f"  긍정: {' / '.join(pos)}\n"
-            f"  부정: {' / '.join(neg)}"
-        )
+            f"신뢰도:{r['data_confidence']:.0f}",
+            f"  신호 균형: 상승 {len(pos_all)} / 하락 {len(neg_all)} / 확인필요 {len(chk_all)}",
+            f"  상승 근거: {' / '.join(pos_all[:4]) if pos_all else '없음'}",
+            f"  하락 근거: {' / '.join(neg_all[:4]) if neg_all else '없음'}",
+        ]
+        if chk_all:
+            block.append(f"  확인 필요: {' / '.join(chk_all[:3])}")
+        lines.append("\n".join(block))
     return "\n".join(lines)
 
 

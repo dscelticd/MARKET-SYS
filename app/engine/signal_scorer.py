@@ -450,6 +450,109 @@ class SignalScorer:
         if semi_cycle and "피크 논란" in semi_cycle:
             checks.append("반도체 사이클 피크 논란 — 사이클 전환 가능성 모니터링")
 
+        # ── 기술적 지표 ──
+        # 점수(technical_signal)에는 15% 반영되면서 근거 목록에는 한 줄도 없어,
+        # "점수는 올랐는데 왜인지 설명되지 않는" 상태였다.
+        tech = price_data.get("technical") or {}
+        # RSI는 값이 없을 때 0.0으로 떨어지면 "과매도"로 오판되므로 None을 명확히 구분한다
+        _rsi_raw = tech.get("rsi_14")
+        rsi = _sf(_rsi_raw, -1.0) if _rsi_raw is not None else None
+        if rsi is not None and rsi < 0:
+            rsi = None
+        if rsi is not None:
+            if rsi < 30:
+                positives.append(f"RSI {rsi:.0f} — 과매도 구간(기술적 반등 여지)")
+            elif rsi > 70:
+                negatives.append(f"RSI {rsi:.0f} — 과매수 구간(단기 과열)")
+
+        ma5, ma20, ma60 = tech.get("ma5"), tech.get("ma20"), tech.get("ma60")
+        if ma5 and ma20:
+            if ma5 > ma20:
+                positives.append("5일선이 20일선 위 — 단기 정배열")
+            else:
+                negatives.append("5일선이 20일선 아래 — 단기 역배열")
+        price_now = _sf(price_data.get("price"), 0.0)
+        if ma60 and price_now:
+            if price_now < ma60:
+                negatives.append("주가가 60일선 아래 — 중기 추세 약세")
+
+        hist = tech.get("macd_histogram")
+        if hist is not None:
+            h = _sf(hist, 0.0)
+            # 절대값은 주가 스케일에 비례해 종목 간 비교가 불가능하다
+            # (삼성전자 +1331.98 vs NVIDIA -0.47 — 같은 강도인지 알 수 없음).
+            # 해석 가능한 정보는 부호(방향)이므로 방향만 근거로 제시한다.
+            if h > 0:
+                positives.append("MACD 히스토그램 양(+) — 모멘텀 개선 방향")
+            elif h < 0:
+                negatives.append("MACD 히스토그램 음(-) — 모멘텀 둔화 방향")
+
+        # ── 수급 (KR 종목, KIS/네이버) ──
+        # 실측 데이터를 수집하면서도 점수·근거 어디에도 쓰지 않고 있었다.
+        # 하루가 아닌 5·20일 누적을 보는 이유: 단일 거래일 수급은 노이즈가 크다.
+        flow = price_data.get("investor_flow") or {}
+        if flow and not flow.get("_mock"):
+            is_kis = flow.get("_source") == "kis"
+            src_label = "실측" if is_kis else "추정"
+            for days in (5, 20):
+                frgn = flow.get(f"foreign_net_{days}d")
+                inst = flow.get(f"institution_net_{days}d")
+                if frgn is None or inst is None:
+                    continue
+                if frgn > 0 and inst > 0:
+                    positives.append(
+                        f"{days}일 누적 외국인·기관 동반 순매수({src_label}) "
+                        f"— 외국인 {frgn:+,}주·기관 {inst:+,}주"
+                    )
+                elif frgn < 0 and inst < 0:
+                    negatives.append(
+                        f"{days}일 누적 외국인·기관 동반 순매도({src_label}) "
+                        f"— 외국인 {frgn:+,}주·기관 {inst:+,}주"
+                    )
+                break  # 5일이 있으면 5일만, 없으면 20일만 — 중복 서술 방지
+
+        # ── 지지/저항·손익비 ──
+        sr = price_data.get("support_resistance") or {}
+        if sr:
+            rr = sr.get("risk_reward_ratio")
+            if rr is not None:
+                if sr.get("risk_reward_meets_bar"):
+                    positives.append(f"손익비 {_sf(rr, 0):.2f} — 기준 충족 구간")
+                else:
+                    checks.append(f"손익비 {_sf(rr, 0):.2f} — 기준 미달(진입 근거 약함)")
+            down_pct = sr.get("nearest_support_pct")
+            if down_pct is not None and _sf(down_pct, 99) < 3.0:
+                checks.append(f"지지선까지 -{_sf(down_pct, 0):.1f}% — 이탈 시 하방 확인 필요")
+
+        # ── 애널리스트 컨센서스 ──
+        analyst = price_data.get("analyst") or {}
+        upside = analyst.get("upside_pct")
+        if upside is not None and analyst.get("num_analysts"):
+            up = _sf(upside, 0.0)
+            n_an = analyst.get("num_analysts")
+            if up > 20:
+                positives.append(f"목표주가 대비 상승여력 {up:+.1f}% (애널리스트 {n_an}명)")
+            elif up < 0:
+                negatives.append(f"주가가 목표주가 상회 {up:+.1f}% (애널리스트 {n_an}명)")
+
+        # ── 다이버전스 (신호 간 불일치) ──
+        # 개별 신호는 정상이어도 서로 어긋나면 그 자체가 중요한 근거다.
+        # 가중평균 점수에서는 상쇄되어 사라지므로 별도로 드러낸다.
+        if chg > 2 and vol_ratio < 0.8:
+            checks.append(
+                f"상승(+{chg:.1f}%)에 거래량이 실리지 않음(평균 대비 {vol_ratio:.1f}배) "
+                "— 상승 지속력 확인 필요"
+            )
+        if flow and not flow.get("_mock"):
+            frgn5 = flow.get("foreign_net_5d")
+            if frgn5 is not None:
+                if chg > 2 and frgn5 < 0:
+                    checks.append("가격은 상승했으나 5일 누적 외국인 순매도 — 수급 미확인 상승")
+                elif chg < -2 and frgn5 > 0:
+                    checks.append("가격은 하락했으나 5일 누적 외국인 순매수 — 수급은 지지")
+        if rsi is not None and rsi > 70 and hist is not None and _sf(hist, 0.0) < 0:
+            checks.append("과매수 구간에서 MACD 모멘텀 둔화 — 단기 되돌림 가능성 점검")
+
         # VIX
         vix = macro.get("us_market", {}).get("VIX", {})
         if isinstance(vix, dict) and vix.get("signal") == "high":
