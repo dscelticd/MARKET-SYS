@@ -198,6 +198,34 @@ class MacroCollector:
             "KOSDAQ": {"value": round(kosdaq, 2) if kosdaq else "N/A", "change_pct": chg_pct("^KQ11")},
         }
 
+        # ── 국내 지수는 KIS 공식 API를 1순위로 사용 ──
+        # yfinance의 ^KS11·^KQ11 피드가 거래일을 통째로 누락하는 사고가 반복됐다.
+        # 실측(2026-09-01): ^KS11이 8/27에 멈춰 8/28·8/31을 빠뜨린 채 "6912.37(+1.53%)"로
+        # 응답했으나 실제 8/31 종가는 6820.02(-0.49~+0.46% 구간)였고, 같은 시점
+        # 삼성전자 등 개별 종목은 8/31까지 정상이었다. 지수만 어긋난 탓에 리포트가
+        # "미국 하락 + 한국 상승 디커플링"이라는 실재하지 않는 서사를 만들었다.
+        # KIS 실패 시에는 위에서 만든 yfinance 값을 그대로 유지한다(비치명적).
+        kr_index_dates: dict[str, str] = {}
+        try:
+            from app.collectors.kis_collector import KISCollector
+            kis = KISCollector()
+            if kis.is_configured():
+                for name in ("KOSPI", "KOSDAQ"):
+                    try:
+                        idx = kis.fetch_market_index(name)
+                        kr_market[name] = {
+                            "value": idx["value"],
+                            "change_pct": idx["change_pct"],
+                            "_source": "kis",
+                        }
+                        kr_index_dates[name] = idx["data_date"]
+                        if name == "KOSPI":
+                            kospi_chg = idx["change_pct"]
+                    except Exception as e:
+                        logger.warning("KIS %s 조회 실패 → yfinance 값 유지: %s", name, e)
+        except Exception as e:
+            logger.warning("KIS 지수 연동 불가 → yfinance 값 유지: %s", e)
+
         # ── 환율 ──
         usd_krw = last_close("KRW=X")
         usd_twd = last_close("TWD=X")
@@ -270,8 +298,9 @@ class MacroCollector:
                 "SP500":  bar_date("^GSPC"),
                 "NASDAQ": bar_date("^IXIC"),
                 "SOX":    bar_date("^SOX"),
-                "KOSPI":  bar_date("^KS11"),
-                "KOSDAQ": bar_date("^KQ11"),
+                # KIS로 받아온 경우 그 기준일을, 실패해 yfinance를 쓰는 경우 yfinance 기준일을 남긴다
+                "KOSPI":  kr_index_dates.get("KOSPI")  or bar_date("^KS11"),
+                "KOSDAQ": kr_index_dates.get("KOSDAQ") or bar_date("^KQ11"),
             },
             "_mock": False,
         }

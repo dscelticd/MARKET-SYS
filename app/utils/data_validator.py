@@ -151,6 +151,25 @@ class DataValidator:
         samsung_comparable = _same_date_as_kospi("KR_005930")
         skhynix_comparable = _same_date_as_kospi("KR_000660")
 
+        # ── 지수 데이터 신선도 ──
+        # 지수가 종목보다 며칠 뒤처져도 기존 검증은 "정상"으로 통과시켰다.
+        # 실측(2026-09-01): yfinance ^KS11이 8/27에 멈춰 8/28·8/31 두 거래일을
+        # 누락했는데 품질 점검은 "주요 지수 데이터 ✅ 정상"으로 표시했고, 리포트는
+        # 4일 지난 KOSPI +1.53%를 오늘 흐름처럼 서술했다(실제로는 하락 구간).
+        # 종목 데이터가 더 최신인데 지수만 뒤처지면 그 자체가 데이터 결함이다.
+        stock_dates = {
+            p.get("data_date") for p in pd_.values() if p.get("data_date")
+        }
+        newest_stock_date = max(stock_dates) if stock_dates else None
+        if newest_stock_date:
+            for label, idx_date in ((k, v) for k, v in
+                                    ((macro_data or {}).get("data_dates") or {}).items()):
+                if idx_date and idx_date < newest_stock_date:
+                    warning.append(
+                        f"{label} 지수가 종목 데이터보다 과거임 — 지수 {idx_date} vs 종목 {newest_stock_date}"
+                        " (해당 지수는 현재 시장 상황을 반영하지 않음)"
+                    )
+
         if not all((kodex_comparable, samsung_comparable, skhynix_comparable)):
             mismatched = [
                 f"{label} {pd_.get(sid, {}).get('data_date')}"

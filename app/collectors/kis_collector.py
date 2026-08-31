@@ -19,6 +19,7 @@ import json
 import logging
 import os
 import time
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -49,6 +50,31 @@ def _summarize_daily_flows(daily: list[dict]) -> dict:
         result[f"foreign_net_{days}d"] = sum(d["foreign_net"] for d in window)
         result[f"individual_net_{days}d"] = sum(d["individual_net"] for d in window)
     return result
+
+
+_TR_ID_MARKET_INDEX = "FHPTJ04040000"
+# 지수 코드 — FID_INPUT_ISCD가 실제 지수, FID_INPUT_ISCD_1은 시장 구분
+_INDEX_CODES = {
+    "KOSPI":  ("0001", "KSP"),
+    "KOSDAQ": ("1001", "KSQ"),
+}
+
+
+def _is_completed_session(row: dict) -> bool:
+    """장 마감이 끝난 실제 거래일 행인지 판별.
+
+    장 시작 전에는 당일 행이 미리 만들어지는데 시가=고가=저가=종가이고 등락률이
+    0.00이다(실측: 2026-09-01 08:23 조회 시 9/1 행이 전부 6820.02 = 8/31 종가).
+    이 행을 그대로 쓰면 "오늘 지수 0.00%"라는 허위 데이터가 리포트에 들어간다.
+    지수의 고가와 저가가 같은 날은 사실상 없으므로 이를 판별 기준으로 삼는다.
+    """
+    try:
+        high = float(row.get("bstp_nmix_hgpr", 0))
+        low = float(row.get("bstp_nmix_lwpr", 0))
+        price = float(row.get("bstp_nmix_prpr", 0))
+    except (TypeError, ValueError):
+        return False
+    return price > 0 and high != low
 
 
 class KISCollector:
@@ -158,3 +184,62 @@ class KISCollector:
         if len(daily) < 3:
             raise ValueError(f"KIS 투자자 데이터 부족 (rows={len(daily)})")
         return _summarize_daily_flows(daily)
+
+    # ── 국내 지수 (KOSPI/KOSDAQ) ─────────────────────────────────────────────
+
+    def fetch_market_index(self, name: str) -> dict:
+        """KOSPI/KOSDAQ의 최근 완료된 거래일 지수를 반환.
+
+        yfinance의 ^KS11·^KQ11 피드가 거래일을 통째로 누락하는 사고가 반복돼 도입했다.
+        실측(2026-09-01): yfinance ^KS11이 8/27에 멈춰 8/28·8/31 두 거래일을 빠뜨린
+        채 "현재 6912.37 (+1.53%)"로 응답했으나, 실제 8/31 종가는 6820.02(-1.34% 누적)였다.
+        같은 시점 삼성전자 등 개별 종목은 8/31까지 정상이라 지수만 어긋났고,
+        그 결과 리포트가 "미국 하락 + 한국 상승 디커플링"이라는 없는 서사를 만들었다.
+
+        실패 시 예외를 던져 호출부가 yfinance로 폴백하게 한다.
+        반환: {"value", "change_pct", "data_date"}
+        """
+        if name not in _INDEX_CODES:
+            raise ValueError(f"지원하지 않는 지수: {name}")
+        token = self.get_token()
+        if not token:
+            raise RuntimeError("KIS 토큰 발급 실패")
+
+        iscd, market = _INDEX_CODES[name]
+        today = datetime.now().strftime("%Y%m%d")
+        resp = requests.get(
+            f"{self.base_url}/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market",
+            headers={
+                "content-type": "application/json",
+                "authorization": f"Bearer {token}",
+                "appkey": self.app_key,
+                "appsecret": self.app_secret,
+                "tr_id": _TR_ID_MARKET_INDEX,
+            },
+            params={
+                "FID_COND_MRKT_DIV_CODE": "U",
+                "FID_INPUT_ISCD": iscd,
+                "FID_INPUT_DATE_1": today,
+                "FID_INPUT_ISCD_1": market,
+                "FID_INPUT_DATE_2": today,
+                "FID_INPUT_ISCD_2": market,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if data.get("rt_cd") != "0":
+            raise RuntimeError(f"KIS 지수 조회 오류: {data.get('msg1', '알 수 없는 오류')}")
+
+        for row in data.get("output") or []:
+            if not _is_completed_session(row):
+                continue  # 장 시작 전 자리표시자 행 건너뜀
+            raw_date = str(row.get("stck_bsop_date", ""))
+            if len(raw_date) != 8:
+                continue
+            return {
+                "value": round(float(row["bstp_nmix_prpr"]), 2),
+                "change_pct": round(float(row["bstp_nmix_prdy_ctrt"]), 2),
+                "data_date": f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}",
+            }
+        raise ValueError(f"{name}: 완료된 거래일 데이터를 찾지 못함")

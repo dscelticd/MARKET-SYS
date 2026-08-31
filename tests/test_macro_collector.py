@@ -149,3 +149,80 @@ def test_sentiment_derives_labels_from_vix():
     sent = m["sentiment"]
     assert "fear_greed_index" in sent
     assert "global_risk_appetite" in sent
+
+
+# ── 국내 지수 KIS 우선 사용 ──────────────────────────────────────────────────
+# 배경: yfinance의 ^KS11·^KQ11 피드가 거래일을 통째로 누락하는 사고가 발생했다.
+# 실측(2026-09-01): ^KS11이 8/27에 멈춰 8/28·8/31 두 거래일을 빠뜨린 채
+# "6912.37 (+1.53%)"로 응답했으나 실제 8/31 종가는 6820.02였다. 같은 시점
+# 삼성전자 등 개별 종목은 8/31까지 정상이라 지수만 어긋났고, 그 결과 리포트가
+# "미국 하락 + 한국 상승 디커플링"이라는 실재하지 않는 서사를 만들었다.
+
+def test_kis_index_skips_pre_market_placeholder_row():
+    """장 시작 전 당일 행은 시가=고가=저가=종가이고 등락률 0.00이다.
+    이 행을 쓰면 '오늘 지수 0.00%'라는 허위 데이터가 리포트에 들어간다."""
+    from app.collectors.kis_collector import _is_completed_session
+    placeholder = {"bstp_nmix_prpr": "6820.02", "bstp_nmix_hgpr": "6820.02",
+                   "bstp_nmix_lwpr": "6820.02"}
+    real = {"bstp_nmix_prpr": "6820.02", "bstp_nmix_hgpr": "6820.10",
+            "bstp_nmix_lwpr": "6547.76"}
+    assert _is_completed_session(placeholder) is False
+    assert _is_completed_session(real) is True
+
+
+def test_kis_index_parses_latest_completed_session():
+    from unittest.mock import MagicMock, patch
+    from app.collectors.kis_collector import KISCollector
+
+    resp = MagicMock()
+    resp.raise_for_status.return_value = None
+    resp.json.return_value = {"rt_cd": "0", "output": [
+        # 장전 자리표시자 — 건너뛰어야 함
+        {"stck_bsop_date": "20260901", "bstp_nmix_prpr": "6820.02",
+         "bstp_nmix_prdy_ctrt": "0.00", "bstp_nmix_hgpr": "6820.02", "bstp_nmix_lwpr": "6820.02"},
+        # 실제 마감된 거래일
+        {"stck_bsop_date": "20260831", "bstp_nmix_prpr": "6820.02",
+         "bstp_nmix_prdy_ctrt": "0.46", "bstp_nmix_hgpr": "6820.10", "bstp_nmix_lwpr": "6547.76"},
+    ]}
+    c = KISCollector()
+    with patch.object(KISCollector, "get_token", return_value="tok"), \
+         patch("app.collectors.kis_collector.requests.get", return_value=resp):
+        out = c.fetch_market_index("KOSPI")
+    assert out == {"value": 6820.02, "change_pct": 0.46, "data_date": "2026-08-31"}
+
+
+def test_kis_index_rejects_unknown_index_name():
+    import pytest as _pytest
+    from app.collectors.kis_collector import KISCollector
+    with _pytest.raises(ValueError):
+        KISCollector().fetch_market_index("NIKKEI")
+
+
+def test_macro_keeps_yfinance_values_when_kis_unavailable(monkeypatch):
+    """KIS 미설정·실패 시 기존 yfinance 값을 유지해야 한다(비치명적 폴백)."""
+    monkeypatch.delenv("KIS_APP_KEY", raising=False)
+    monkeypatch.delenv("KIS_APP_SECRET", raising=False)
+    with patch.dict("sys.modules", {"yfinance": None}):
+        m = MacroCollector()._collect_real()
+    assert "KOSPI" in m["kr_market"]   # 값이 사라지지 않음
+
+
+# ── 지수 신선도 검증 ─────────────────────────────────────────────────────────
+
+def test_stale_index_versus_stock_data_raises_warning():
+    """지수가 종목보다 과거면 경고해야 한다 — 기존에는 '✅ 정상'으로 통과했다."""
+    from app.utils.data_validator import DataValidator
+    price = {"KR_005930": {"change_pct": 1.17, "_mock": False, "data_date": "2026-08-31"}}
+    macro = {"kr_market": {"KOSPI": {"value": 6912.37, "change_pct": 1.53}},
+             "data_dates": {"KOSPI": "2026-08-27"}, "_mock": False}
+    _, _, warnings = DataValidator._validate_kospi_consistency(price, macro)
+    assert any("지수가 종목 데이터보다 과거" in w for w in warnings)
+
+
+def test_aligned_index_dates_produce_no_staleness_warning():
+    from app.utils.data_validator import DataValidator
+    price = {"KR_005930": {"change_pct": 0.5, "_mock": False, "data_date": "2026-08-31"}}
+    macro = {"kr_market": {"KOSPI": {"value": 6820.02, "change_pct": 0.46}},
+             "data_dates": {"KOSPI": "2026-08-31", "SP500": "2026-08-31"}, "_mock": False}
+    _, _, warnings = DataValidator._validate_kospi_consistency(price, macro)
+    assert not any("지수가 종목 데이터보다 과거" in w for w in warnings)
