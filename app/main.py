@@ -388,6 +388,13 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         # 매일 실행이 쌓일수록 채워지는 구조 — 순수 forward-looking 리포트에 자기
         # 검증 통계를 더해 신뢰도를 스스로 증명하기 위한 기능.
         accuracy_report = tracker.compute_accuracy_report(price_data)
+        # 요인별 적중률 — 요인별 점수(components) 누적을 막 시작해 초기에는 비어 있고,
+        # 거래일이 쌓일수록 자동으로 채워진다(표본 부족 축은 통계로 제시하지 않음).
+        try:
+            factor_accuracy = tracker.compute_factor_accuracy(price_data)
+        except Exception as e:
+            logger.warning("[FACTOR_ACCURACY_ERROR] 요인별 적중률 집계 실패 (무시하고 계속): %s", e)
+            factor_accuracy = {}
         for days, stats in accuracy_report.items():
             if stats["sample_count"] > 0:
                 print(f"  등급 적중률({days}일 전 기준): {stats['overall_hit_rate']}% "
@@ -444,6 +451,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     data_freshness=data_freshness,
                     prev_report_data_date=prev_report_data_date,
                     themes=cfg.themes.themes,
+                    factor_accuracy=factor_accuracy,
                     max_tokens=cfg.report.morning.get("max_tokens", 10000),
                 )
             else:
@@ -465,6 +473,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     data_freshness=data_freshness,
                     prev_report_data_date=prev_report_data_date,
                     themes=cfg.themes.themes,
+                    factor_accuracy=factor_accuracy,
                     max_tokens=cfg.report.evening.get("max_tokens", 10000),
                 )
             print("  리포트 생성 완료")
@@ -537,6 +546,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "accuracy_report": accuracy_report,
                     "portfolio_summary": portfolio_summary,
                     "theme_scan": theme_scan,
+                    "factor_accuracy": factor_accuracy,
                     "event_calendar": event_calendar,
                     "data_freshness": data_freshness,
                     "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),

@@ -1,0 +1,48 @@
+{
+  "version": "1.0",
+  "description": "섹터/테마 강도 가산점. 이전에는 signal_scorer.py에 상수로 박혀 있어 조정하려면 코드를 고쳐야 했다. 값은 코드에 있던 것과 동일하게 옮겼으며(점수 불변), 앞으로 조정할 때는 요인별 적중률(components 누적)로 근거를 확인한 뒤 바꿀 것. 기준 점수는 50이며 아래 값이 가감된다.",
+  "base_score": 50.0,
+
+  "sector_bonus": {
+    "전력 인프라": { "points": 12, "note": "데이터센터 전력 수요 지속 테마" },
+    "전력/에너지": { "points": 12, "note": "데이터센터 전력 수요 지속 테마" },
+    "방산/항공":   { "points": 8,  "note": "지정학 리스크 상시 가정 — 실제 사건과 무관하게 항상 적용됨(개선 대상)" },
+    "광통신":      { "points": 15, "note": "AI 데이터센터 광통신 수요 급증 테마" },
+    "가전/전장":   { "points": 5,  "note": "전장 수혜" }
+  },
+
+  "semiconductor_cycle_bonus": {
+    "sector": "반도체",
+    "rules": [
+      { "match": "업사이클 초반", "points": 18 },
+      { "match": "업사이클 중반", "points": 12 },
+      { "match": "피크 논란",     "points": -5 }
+    ]
+  },
+
+  "semiconductor_equipment_bonus": {
+    "sector": "반도체 장비",
+    "match": "업사이클",
+    "points": 10
+  },
+
+  "ai_cycle_bonus": {
+    "sector": "빅테크/클라우드",
+    "cycles": ["강한 상승", "완만한 상승"],
+    "points": 10
+  },
+
+  "etf_rules": {
+    "sector": "ETF",
+    "note": "ETF는 섹터 강도 중립 — 보유 테마 기반으로 가감",
+    "index_themes": ["나스닥", "S&P500", "미국주식 ETF"],
+    "index_cycles": ["강한 상승", "완만한 상승"],
+    "index_points": 8,
+    "dividend_theme": "배당",
+    "dividend_points": -3
+  },
+
+  "theme_bonus": {
+    "HBM": { "requires_ai_cycle": "강한 상승", "points": 10 }
+  }
+}

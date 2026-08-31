@@ -185,15 +185,17 @@ class MacroCollector:
         kospi  = last_close("^KS11")
         kosdaq = last_close("^KQ11")
         kospi_chg = chg_pct("^KS11")
-        # 외국인 순매수: 한국거래소 별도 API 미연결 → KOSPI 방향성 기반 추정
-        # 양수 = 순매수, 음수 = 순매도 (참고용 추정치)
-        foreign_est = round(kospi_chg * random.uniform(150, 400), 0)
+        # 시장 전체 외국인·기관 순매수 필드는 제거했다.
+        # 이전에는 `kospi_chg * random.uniform(150, 400)`으로 만든 난수를 담았고,
+        # 추정 플래그가 프롬프트에 전달되지 않아 리포트가 "외국인 순매도(-1,029억)"처럼
+        # 사실로 서술했다(같은 데이터로 3회 실행 시 -279억/-292억/-223억로 재현 불가).
+        # 부호가 항상 KOSPI 방향과 같아 등락률 이상의 정보도 없었다.
+        # KIS의 시장별 투자자매매동향(FHPTJ04040000)은 모의투자에서 전 필드가 0으로
+        # 내려와(300행×30필드 전수 확인) 실데이터 대체가 불가능하다.
+        # 종목별 수급은 KIS 실측값이 price_collector 경로로 이미 제공된다.
         kr_market = {
             "KOSPI":  {"value": round(kospi, 2)  if kospi  else "N/A", "change_pct": kospi_chg},
             "KOSDAQ": {"value": round(kosdaq, 2) if kosdaq else "N/A", "change_pct": chg_pct("^KQ11")},
-            "foreign_net_buy_bn": foreign_est,
-            "institution_net_buy_bn": round(-foreign_est * random.uniform(0.3, 0.7), 0),
-            "_foreign_estimated": True,  # 추정치 표시
         }
 
         # ── 환율 ──
@@ -355,8 +357,6 @@ class MacroCollector:
             "kr_market": {
                 "KOSPI":  {"value": round(2680 + random.uniform(-60, 60), 2), "change_pct": round(random.uniform(-1.5, 1.5), 2)},
                 "KOSDAQ": {"value": round(850  + random.uniform(-25, 25), 2), "change_pct": round(random.uniform(-2.0, 2.0), 2)},
-                "foreign_net_buy_bn": round(random.uniform(-3000, 3000), 0),
-                "institution_net_buy_bn": round(random.uniform(-2000, 2000), 0),
             },
             "currencies": {
                 "USD_KRW": {"value": round(1330 + random.uniform(-25, 25), 1), "change_pct": round(random.uniform(-0.8, 0.8), 2)},

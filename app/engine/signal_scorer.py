@@ -5,8 +5,34 @@ Signal Scoring Engine — 수집된 데이터를 0~100 점수로 변환
 """
 from __future__ import annotations
 
+import json
+import logging
 import math
+from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
+
+
+_SECTOR_SCORING_FILE = Path(__file__).resolve().parents[2] / "config" / "sector_scoring.json"
+
+# 코드 내 최종 방어값 — 설정 파일이 없거나 깨져도 점수 산정이 멈추지 않게 한다.
+_SECTOR_SCORING_FALLBACK: dict = {"base_score": 50.0}
+_sector_scoring_cache: dict | None = None
+
+
+def _load_sector_scoring() -> dict:
+    """섹터 가산점 설정을 읽어 캐시. 실패 시 기본값으로 동작(점수 산정 중단 방지)."""
+    global _sector_scoring_cache
+    if _sector_scoring_cache is None:
+        try:
+            _sector_scoring_cache = json.loads(
+                _SECTOR_SCORING_FILE.read_text(encoding="utf-8")
+            )
+        except Exception as e:
+            logger.warning("섹터 가산점 설정 로드 실패, 기본값 사용: %s", e)
+            _sector_scoring_cache = dict(_SECTOR_SCORING_FALLBACK)
+    return _sector_scoring_cache
 
 
 def _sf(val, default: float = 0.0) -> float:
@@ -190,13 +216,17 @@ class SignalScorer:
     def _sector_strength(self, stock: dict, macro: dict) -> float:
         """섹터/테마 강도.
 
-        주의: 아래 가산점은 config가 아니라 코드에 하드코딩되어 있다. themes.json에
-        key_drivers·macro_sensitivity 같은 정의가 있지만 점수 산식은 이를 읽지 않는다
-        (예전에 theme_config 인자를 받았으나 본문에서 한 번도 쓰이지 않는 죽은
-        파라미터여서 제거했다). 테마 정의는 현재 리포트 프롬프트에서만 활용된다.
-        가중치를 설정으로 옮기려면 등급 적중률 이력과의 비교 가능성을 함께 검토해야 한다.
+        가산점은 config/sector_scoring.json에서 읽는다. 이전에는 이 함수에 상수로
+        박혀 있어 조정하려면 코드를 고쳐야 했다(구조 검토에서 하드코딩 15건으로 지목).
+        이관 시 값은 그대로 유지해 점수가 변하지 않게 했다 — 값을 함께 바꾸면
+        지금까지 쌓은 등급 적중률 이력과 비교가 불가능해지기 때문이다.
+        앞으로 조정할 때는 요인별 적중률(components 누적)로 근거를 확인한 뒤 바꿀 것.
+
+        설정 로드에 실패하면 코드 내 기본값으로 동작한다 — 설정 파일 문제로
+        점수 산정 전체가 멈추지 않도록.
         """
-        score = 50.0
+        cfg = _load_sector_scoring()
+        score = float(cfg.get("base_score", 50.0))
         sentiment = macro.get("sentiment", {})
         ai_cycle = sentiment.get("ai_capex_cycle", "보합")
         semi_cycle = sentiment.get("semiconductor_cycle", "업사이클 중반")
@@ -204,43 +234,41 @@ class SignalScorer:
         sector = stock.get("sector", "")
         themes = stock.get("themes", [])
 
-        if sector == "반도체":
-            if "업사이클 초반" in semi_cycle:
-                score += 18
-            elif "업사이클 중반" in semi_cycle:
-                score += 12
-            elif "피크 논란" in semi_cycle:
-                score -= 5
+        # 섹터별 고정 가산점
+        bonus = (cfg.get("sector_bonus") or {}).get(sector)
+        if bonus:
+            score += _sf(bonus.get("points"), 0.0)
 
-        if sector == "반도체 장비" and "업사이클" in semi_cycle:
-            score += 10
+        # 반도체 사이클 연동
+        semi = cfg.get("semiconductor_cycle_bonus") or {}
+        if sector == semi.get("sector"):
+            for rule in semi.get("rules") or []:
+                if rule.get("match") and rule["match"] in semi_cycle:
+                    score += _sf(rule.get("points"), 0.0)
+                    break
 
-        if sector in ("전력 인프라", "전력/에너지"):
-            score += 12  # 데이터센터 전력 수요 지속 테마
+        equip = cfg.get("semiconductor_equipment_bonus") or {}
+        if sector == equip.get("sector") and equip.get("match", "") in semi_cycle:
+            score += _sf(equip.get("points"), 0.0)
 
-        if sector == "방산/항공":
-            score += 8  # 지정학 리스크 지속
+        # AI CapEx 사이클 연동
+        ai = cfg.get("ai_cycle_bonus") or {}
+        if sector == ai.get("sector") and ai_cycle in (ai.get("cycles") or []):
+            score += _sf(ai.get("points"), 0.0)
 
-        if sector == "빅테크/클라우드":
-            if ai_cycle in ("강한 상승", "완만한 상승"):
-                score += 10
+        # ETF — 섹터 중립, 보유 테마로 가감
+        etf = cfg.get("etf_rules") or {}
+        if sector == etf.get("sector"):
+            if any(t in themes for t in (etf.get("index_themes") or [])):
+                if ai_cycle in (etf.get("index_cycles") or []):
+                    score += _sf(etf.get("index_points"), 0.0)
+            elif etf.get("dividend_theme") in themes:
+                score += _sf(etf.get("dividend_points"), 0.0)
 
-        if sector == "광통신":
-            score += 15  # AI 데이터센터 광통신 수요 급증 테마
-
-        if sector == "가전/전장":
-            score += 5   # 전장 수혜 중
-
-        if sector == "ETF":
-            # ETF는 섹터 강도 중립 — 보유 테마 기반으로 가산
-            if "나스닥" in themes or "S&P500" in themes or "미국주식 ETF" in themes:
-                if ai_cycle in ("강한 상승", "완만한 상승"):
-                    score += 8
-            elif "배당" in themes:
-                score -= 3  # 금리 환경에 따라 배당주 약세 가능
-
-        if "HBM" in themes and ai_cycle == "강한 상승":
-            score += 10
+        # 테마별 가산 (사이클 조건부)
+        for theme_name, rule in (cfg.get("theme_bonus") or {}).items():
+            if theme_name in themes and ai_cycle == rule.get("requires_ai_cycle"):
+                score += _sf(rule.get("points"), 0.0)
 
         return min(100, max(0, score))
 

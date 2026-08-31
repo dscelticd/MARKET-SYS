@@ -28,6 +28,15 @@ _ACCURACY_TOLERANCE_PCT = 2.0
 _ACCURACY_MIN_CONFIDENCE = 50.0  # 이 미만이면 그 날짜의 등급·주가 스냅샷 자체를 신뢰할 수 없어 제외
 _ACCURACY_LOOKBACK_DAYS = (5, 20)  # 몇 일 전 등급을 오늘 가격과 비교할지
 
+# ── 요인별 적중률 판정 기준 ──────────────────────────────────────────────────
+# 각 신호 축(0~100)에서 55↑는 강세, 45↓는 약세 신호로 본다. 그 사이는 중립이라
+# 방향 판정에서 제외 — 애매한 값을 억지로 한쪽으로 몰면 통계가 의미를 잃는다.
+_FACTOR_NEUTRAL_LOW  = 45.0
+_FACTOR_NEUTRAL_HIGH = 55.0
+# 표본이 이보다 적으면 통계로 제시하지 않는다. 적은 표본의 "80% 적중"은
+# 근거가 아니라 착시이며, 리포트가 그걸 인용하면 오히려 신뢰를 떨어뜨린다.
+_FACTOR_MIN_SAMPLES = 20
+
 CHANGE_EMOJI = {
     "상승": "📈",
     "하락": "📉",
@@ -294,6 +303,80 @@ class HistoryTracker:
         return {
             days: self._compute_accuracy_for_lookback(current_price_data, days)
             for days in _ACCURACY_LOOKBACK_DAYS
+        }
+
+    def compute_factor_accuracy(
+        self,
+        current_price_data: dict,
+        lookback_days: int = 20,
+        min_samples: int = _FACTOR_MIN_SAMPLES,
+    ) -> dict:
+        """요인별(7개 축) 신호가 실제로 방향성을 맞혔는지 집계.
+
+        기존 적중률은 **등급 단위**(추천/안전 ↔ 주의/위험)라 "어떤 신호가 맞았는가"는
+        알 수 없었다. 요인별 점수(components)를 저장하기 시작하면서 가능해진 집계다.
+
+        판정 방식: 각 축의 점수가 55 이상이면 강세 신호, 45 이하면 약세 신호로 보고
+        (그 사이는 중립이라 판정 제외) 이후 수익률 방향과 대조한다.
+        등급 적중률과 같은 ±2%p 허용오차를 적용해 보합을 오분류하지 않는다.
+
+        표본이 min_samples 미만인 축은 통계로 제시하면 오해를 부르므로
+        sufficient=False로 표시해 리포트가 "데이터 부족"임을 밝히도록 한다.
+
+        반환: {"lookback_days", "reference_date", "factors": {축: {...}}, "ready": bool}
+        """
+        empty = {"lookback_days": lookback_days, "reference_date": None,
+                 "factors": {}, "ready": False}
+
+        target = self._find_closest_entry_before(lookback_days)
+        if target is None or not target.get("components"):
+            return empty
+
+        confidence = target.get("data_quality", {}).get("overall", {}).get("confidence")
+        if confidence is not None and confidence < _ACCURACY_MIN_CONFIDENCE:
+            return empty
+
+        raw: dict[str, dict] = {}
+        for sid, comps in (target.get("components") or {}).items():
+            past_price = target.get("closing_prices", {}).get(sid)
+            curr_price = current_price_data.get(sid, {}).get("price")
+            if not past_price or not curr_price or past_price <= 0:
+                continue
+            return_pct = (curr_price - past_price) / past_price * 100
+
+            for factor, score in (comps or {}).items():
+                try:
+                    s = float(score)
+                except (TypeError, ValueError):
+                    continue
+                if _FACTOR_NEUTRAL_LOW < s < _FACTOR_NEUTRAL_HIGH:
+                    continue  # 중립 구간 — 방향 신호로 보지 않음
+                bullish = s >= _FACTOR_NEUTRAL_HIGH
+                hit = (return_pct >= -_ACCURACY_TOLERANCE_PCT) if bullish \
+                    else (return_pct <= _ACCURACY_TOLERANCE_PCT)
+                f = raw.setdefault(factor, {"count": 0, "hit": 0, "returns": []})
+                f["count"] += 1
+                f["hit"] += int(hit)
+                f["returns"].append(return_pct)
+
+        if not raw:
+            return empty
+
+        factors = {
+            name: {
+                "count": v["count"],
+                "hit": v["hit"],
+                "hit_rate": round(v["hit"] / v["count"] * 100, 1),
+                "avg_return_pct": round(sum(v["returns"]) / len(v["returns"]), 2),
+                "sufficient": v["count"] >= min_samples,
+            }
+            for name, v in raw.items()
+        }
+        return {
+            "lookback_days": lookback_days,
+            "reference_date": target["date"],
+            "factors": factors,
+            "ready": any(f["sufficient"] for f in factors.values()),
         }
 
     def _compute_accuracy_for_lookback(self, current_price_data: dict, lookback_days: int) -> dict:

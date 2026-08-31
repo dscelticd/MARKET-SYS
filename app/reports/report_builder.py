@@ -104,6 +104,12 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - 수급 근거의 "(실측)"은 한국투자증권 공식 API 값, "(추정)"은 네이버 잔차 추정치입니다 — 처음 언급 시 구분하세요.
 - 근거가 하나도 없는 종목("없음")은 신호가 약한 것이지 안전하다는 뜻이 아닙니다.
 
+## 요인별 적중률 서술 규칙
+- 적중률이 제시된 축은 "이 신호는 과거 N일 기준 X% 적중"처럼 근거의 신뢰도를 함께 밝히는 데 쓰세요. 방향성 근거를 인용할 때 이 수치가 있으면 훨씬 강한 서술이 됩니다.
+- **"표본 부족(누적 중)"으로 표시된 축의 적중률은 언급하지 마세요.** 표본이 적은 적중률은 근거가 아니라 착시입니다.
+- "통계로 제시할 만큼 표본이 쌓인 축이 없습니다"라고 나오면, 아직 누적 중이라는 사실만 짧게 알리고 넘어가세요. 없는 통계를 만들어내지 마세요.
+- 적중률이 높다고 그 신호가 미래에도 맞는다는 뜻은 아닙니다 — 과거 관측일 뿐임을 톤에 반영하세요.
+
 ## 뉴스 서술 규칙 (중요)
 - 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
 - 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
@@ -635,6 +641,48 @@ def _format_news_block(
     return "\n".join(lines)
 
 
+_FACTOR_LABEL_KR = {
+    "price_momentum": "가격 모멘텀",
+    "news_sentiment": "뉴스 감성",
+    "macro_alignment": "거시 정렬도",
+    "sector_strength": "섹터 강도",
+    "volume_signal": "거래량 신호",
+    "technical_signal": "기술적 신호",
+    "analyst_signal": "애널리스트 신호",
+}
+
+
+def _format_factor_accuracy_block(factor_accuracy: dict | None) -> str:
+    """요인별 신호가 과거에 실제로 방향성을 맞혔는지 보여주는 블록.
+
+    "수급이 하락을 가리킨다"보다 "수급이 하락을 가리키는데, 이 신호는 과거 68%
+    적중했다"가 훨씬 강한 근거다. 다만 표본이 얇을 때 수치를 제시하면 착시가 되므로,
+    충분한 축만 통계로 보여주고 나머지는 누적 중임을 명시한다.
+    """
+    if not factor_accuracy or not factor_accuracy.get("factors"):
+        return "(요인별 적중률 데이터 없음 — 요인별 점수 누적을 막 시작해 통계 산출 전)"
+
+    days = factor_accuracy.get("lookback_days")
+    ref = factor_accuracy.get("reference_date")
+    ready = [(k, v) for k, v in factor_accuracy["factors"].items() if v.get("sufficient")]
+    pending = [k for k, v in factor_accuracy["factors"].items() if not v.get("sufficient")]
+
+    lines = [f"  기준: {days}일 전({ref}) 신호 vs 현재 가격"]
+    if ready:
+        for name, v in sorted(ready, key=lambda x: -x[1]["hit_rate"]):
+            label = _FACTOR_LABEL_KR.get(name, name)
+            lines.append(
+                f"    {label}: 적중률 {v['hit_rate']}% ({v['hit']}/{v['count']}건, "
+                f"평균수익률 {v['avg_return_pct']:+.2f}%)"
+            )
+    else:
+        lines.append("    아직 통계로 제시할 만큼 표본이 쌓인 축이 없습니다.")
+    if pending:
+        labels = ", ".join(_FACTOR_LABEL_KR.get(k, k) for k in pending)
+        lines.append(f"    표본 부족(누적 중): {labels}")
+    return "\n".join(lines)
+
+
 def _format_market_session_block(
     freshness: dict | None,
     macro_data: dict | None = None,
@@ -831,7 +879,6 @@ def _format_macro_block(macro: dict) -> str:
 [한국 시장]
 - KOSPI: {kr.get('KOSPI', {}).get('value', 'N/A')} ({_num_or_na(kr.get('KOSPI', {}).get('change_pct'), '+.2f')}%)
 - KOSDAQ: {kr.get('KOSDAQ', {}).get('value', 'N/A')} ({_num_or_na(kr.get('KOSDAQ', {}).get('change_pct'), '+.2f')}%)
-- 외국인 순매수: {_num_or_na(kr.get('foreign_net_buy_bn'))}억 원
 
 [환율/금리]
 - USD/KRW: {cur.get('USD_KRW', {}).get('value', 'N/A')}
@@ -876,6 +923,7 @@ class ReportBuilder:
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
         themes: list[dict] | None = None,
+        factor_accuracy: dict | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -892,6 +940,7 @@ class ReportBuilder:
         event_calendar_block = _format_event_calendar_block(event_calendar)
         news_block = _format_news_block(news_data, price_data)
         watchlist_block = _format_watchlist_context_block(stocks)
+        factor_accuracy_block = _format_factor_accuracy_block(factor_accuracy)
         theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
@@ -943,6 +992,9 @@ class ReportBuilder:
 ## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
 {accuracy_block}
 
+## 요인별 신호 적중률 (어떤 신호가 실제로 맞았는가 — 참고용)
+{factor_accuracy_block}
+
 ## 투자 판단 보조 등급 요약
 {_format_rating_block(ratings)}
 
@@ -993,6 +1045,7 @@ class ReportBuilder:
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
         themes: list[dict] | None = None,
+        factor_accuracy: dict | None = None,
         max_tokens: int = 10000,
     ) -> str:
         date_str = report_date or datetime.now().strftime("%Y-%m-%d")
@@ -1009,6 +1062,7 @@ class ReportBuilder:
         event_calendar_block = _format_event_calendar_block(event_calendar)
         news_block = _format_news_block(news_data, price_data)
         watchlist_block = _format_watchlist_context_block(stocks)
+        factor_accuracy_block = _format_factor_accuracy_block(factor_accuracy)
         theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
@@ -1056,6 +1110,9 @@ class ReportBuilder:
 
 ## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
 {accuracy_block}
+
+## 요인별 신호 적중률 (어떤 신호가 실제로 맞았는가 — 참고용)
+{factor_accuracy_block}
 
 ## 포트폴리오 관점 (테마/섹터 집중도·당일 동조화 — 통계적 상관계수 아닌 근사 지표)
 {portfolio_block}

@@ -186,3 +186,55 @@ def test_technical_block_omits_scale_dependent_macd_magnitude():
     assert "MACD히스토그램" in block
     assert "29518" not in block and "29,518" not in block
     assert "양(개선방향)" in block
+
+
+# ── 섹터 가산점 config 이관 ──────────────────────────────────────────────────
+# 배경: 반도체 +18 / 광통신 +15 / 방산 +8 같은 값이 signal_scorer.py에 상수로
+# 박혀 있어(하드코딩 15건) 조정하려면 코드를 고쳐야 했다. config/sector_scoring.json으로
+# 옮기되 **값은 그대로 유지**했다 — 값을 함께 바꾸면 지금까지 쌓인 등급 적중률
+# 이력과 비교가 불가능해지기 때문. 실측으로 18종목 점수가 완전히 동일함을 확인했다.
+
+def _sector_score(sector: str, themes=None, semi="업사이클 중반", ai="보합") -> float:
+    stock = {"id": "X", "name": "X", "sector": sector, "themes": themes or [], "country": "KR"}
+    macro = {"sentiment": {"semiconductor_cycle": semi, "ai_capex_cycle": ai},
+             "us_market": {}, "currencies": {}}
+    return SignalScorer().score(stock, {"change_pct": 0.0}, [], macro)["components"]["sector_strength"]
+
+
+def test_sector_bonuses_match_migrated_config_values():
+    """이관 전 코드에 있던 값과 동일해야 한다(기준 50 + 가산점)."""
+    assert _sector_score("광통신") == 65.0        # +15
+    assert _sector_score("전력 인프라") == 62.0    # +12
+    assert _sector_score("전력/에너지") == 62.0    # +12
+    assert _sector_score("방산/항공") == 58.0      # +8
+    assert _sector_score("가전/전장") == 55.0      # +5
+    assert _sector_score("알수없는섹터") == 50.0    # 가산 없음
+
+
+def test_semiconductor_cycle_bonus_matches_config():
+    assert _sector_score("반도체", semi="업사이클 초반") == 68.0   # +18
+    assert _sector_score("반도체", semi="업사이클 중반") == 62.0   # +12
+    assert _sector_score("반도체", semi="피크 논란") == 45.0       # -5
+
+
+def test_etf_rules_match_config():
+    assert _sector_score("ETF", themes=["나스닥"], ai="강한 상승") == 58.0   # +8
+    assert _sector_score("ETF", themes=["나스닥"], ai="보합") == 50.0        # 사이클 미충족
+    assert _sector_score("ETF", themes=["배당"]) == 47.0                     # -3
+
+
+def test_hbm_theme_bonus_requires_strong_ai_cycle():
+    assert _sector_score("반도체", themes=["HBM"], semi="업사이클 초반", ai="강한 상승") == 78.0
+    assert _sector_score("반도체", themes=["HBM"], semi="업사이클 초반", ai="보합") == 68.0
+
+
+def test_scoring_survives_missing_config_file(monkeypatch, tmp_path):
+    """설정 파일 문제로 점수 산정 전체가 멈추면 안 된다 — 기본값으로 동작."""
+    import app.engine.signal_scorer as mod
+    monkeypatch.setattr(mod, "_SECTOR_SCORING_FILE", tmp_path / "없는파일.json")
+    monkeypatch.setattr(mod, "_sector_scoring_cache", None)
+    stock = {"id": "X", "name": "X", "sector": "광통신", "themes": [], "country": "KR"}
+    macro = {"sentiment": {}, "us_market": {}, "currencies": {}}
+    score = SignalScorer().score(stock, {"change_pct": 0.0}, [], macro)
+    assert score["components"]["sector_strength"] == 50.0   # 기준값만 적용
+    assert 0 <= score["total_score"] <= 100

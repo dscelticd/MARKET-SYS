@@ -41,8 +41,7 @@ def _render_prompts() -> dict[str, str]:
     # (빈 dict여도 이제는 죽지 않는다 — 아래 "거시지표 블록 견고성" 테스트 참고)
     macro = {
         "us_market": {"SP500": {"value": 7731.0, "change_pct": 0.7}},
-        "kr_market": {"KOSPI": {"value": 6912.0, "change_pct": 1.5},
-                      "foreign_net_buy_bn": 578.0},
+        "kr_market": {"KOSPI": {"value": 6912.0, "change_pct": 1.5}},
         "currencies": {}, "rates": {}, "commodities": {}, "sentiment": {},
     }
     price = {"KR_005930": {
@@ -138,7 +137,6 @@ def test_macro_block_survives_partial_response():
 def test_macro_block_survives_non_numeric_values():
     """수치 자리에 문자열이 와도 포맷 오류로 죽지 않아야 한다."""
     out = rb._format_macro_block({
-        "kr_market": {"KOSPI": {"value": "N/A", "change_pct": "N/A"},
-                      "foreign_net_buy_bn": "N/A"},
+        "kr_market": {"KOSPI": {"value": "N/A", "change_pct": "N/A"}},
     })
     assert "N/A" in out

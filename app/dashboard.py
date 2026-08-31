@@ -1201,9 +1201,11 @@ def _render_macro_panel(macro: dict, collected_at: str = "") -> None:
     c2.metric("KOSDAQ",   _fmt_num(kr.get("KOSDAQ",{}).get("value","N/A"), ",.2f"),
               f'{kr.get("KOSDAQ",{}).get("change_pct",0):+.2f}%')
     c3.metric("USD/KRW",  _fmt_num(cur.get("USD_KRW",{}).get("value","N/A"), ",.1f"))
-    fnet = kr.get("foreign_net_buy_bn", "N/A")
-    c4.metric("외국인 순매수",
-              f"{fnet:+,.0f}억" if isinstance(fnet, (int, float)) else "N/A")
+    # 시장 전체 "외국인 순매수" 지표는 제거됐다 — 난수로 생성된 값이었고,
+    # 실데이터는 모의투자 KIS에서 제공되지 않는다. 종목별 실측 수급은
+    # "종목 상세" 탭에서 확인할 수 있다.
+    c4.metric("VIX", _fmt_num(macro.get("us_market",{}).get("VIX",{}).get("value","N/A"), ".2f"),
+              macro.get("us_market",{}).get("VIX",{}).get("signal",""))
     st.divider()
 
     # ── 환율·금리·원자재 ────────────────────────────────────────────────────────
