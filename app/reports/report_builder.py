@@ -297,6 +297,105 @@ def _format_theme_scan_block(theme_scan: list[dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_news_block(
+    news_data: dict[str, list[dict]] | None,
+    price_data: dict[str, dict] | None = None,
+    max_macro: int = 8,
+    max_per_stock: int = 2,
+) -> str:
+    """수집된 뉴스 헤드라인 블록.
+
+    기존에는 news_data가 build_*_report()의 파라미터로만 존재하고 프롬프트에는
+    전혀 삽입되지 않는 죽은 인자였다. 뉴스는 감성 점수 계산에만 쓰이고 헤드라인은
+    Claude에게 도달하지 않아, Claude가 학습 지식으로 시장 서사를 채우는 문제가
+    있었다(실측: NVIDIA +8.74% 급등의 원인인 실적 발표 헤드라인과 "U.S. Strikes
+    Iran" 지정학 이벤트를 수집해놓고도 리포트에 반영하지 못함).
+
+    거시 이벤트(전쟁·관세·금리·정치·재해)는 여러 종목에 동시 영향을 주므로
+    종목별 뉴스와 분리해 상단에 모아 보여준다.
+    """
+    if not news_data:
+        return "(뉴스 데이터 없음)"
+
+    from app.collectors.news_collector import detect_macro_event
+
+    def _event_of(item: dict) -> str | None:
+        """이벤트 태그를 읽되, 태깅 기능 추가 이전에 수집·저장된 항목에는
+        필드가 없으므로 헤드라인에서 즉석 판별한다(과거 데이터 호환)."""
+        if "macro_event" in item:
+            return item.get("macro_event")
+        return detect_macro_event(item.get("headline") or "")
+
+    names = {sid: p.get("name", sid) for sid, p in (price_data or {}).items()}
+
+    def _label(sentiment) -> str:
+        try:
+            s = float(sentiment)
+        except (TypeError, ValueError):
+            return "중립"
+        return "긍정" if s > 0.15 else ("부정" if s < -0.15 else "중립")
+
+    # ── 거시 이벤트 (종목 경계를 넘는 사건) ──
+    macro_seen: dict[str, dict] = {}
+    for sid, items in news_data.items():
+        for it in items or []:
+            event = _event_of(it)
+            headline = (it.get("headline") or "").strip()
+            if not event or not headline or headline in macro_seen:
+                continue
+            macro_seen[headline] = {
+                "event": event,
+                "sentiment": it.get("sentiment"),
+                "source": it.get("source", ""),
+                "stocks": set(),
+            }
+        for it in items or []:
+            h = (it.get("headline") or "").strip()
+            if h in macro_seen:
+                macro_seen[h]["stocks"].add(names.get(sid, sid))
+
+    lines: list[str] = []
+    shown_macro: set[str] = set()
+    if macro_seen:
+        lines.append("  [거시 이벤트 — 전쟁·관세·금리·정치·재해 등 시장 전반 변수]")
+        for headline, meta in list(macro_seen.items())[:max_macro]:
+            related = ", ".join(sorted(meta["stocks"])[:3])
+            lines.append(
+                f"    <{meta['event']}·{_label(meta['sentiment'])}> {headline}"
+                f"{f'  (관련: {related})' if related else ''}"
+            )
+            shown_macro.add(headline)
+    else:
+        lines.append("  [거시 이벤트] 해당 유형으로 분류된 뉴스 없음")
+
+    # ── 종목별 뉴스 ──
+    stock_lines: list[str] = []
+    for sid, items in news_data.items():
+        if not items:
+            continue
+        picked = sorted(
+            items,
+            key=lambda x: abs(float(x.get("sentiment") or 0)),
+            reverse=True,
+        )[:max_per_stock]
+        for it in picked:
+            headline = (it.get("headline") or "").strip()
+            # 거시 이벤트 섹션에 이미 나온 헤드라인은 중복이라 생략
+            if not headline or headline in shown_macro:
+                continue
+            event = _event_of(it)
+            tag = f"·{event}" if event else ""
+            stock_lines.append(
+                f"    {names.get(sid, sid)}: <{_label(it.get('sentiment'))}{tag}> {headline}"
+            )
+
+    if stock_lines:
+        lines.append("  [종목별 주요 뉴스]")
+        lines.extend(stock_lines)
+
+    return "\n".join(lines)
+
+
 def _format_market_session_block(
     freshness: dict | None,
     macro_data: dict | None = None,
@@ -523,6 +622,7 @@ class ReportBuilder:
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
+        news_block = _format_news_block(news_data, price_data)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
@@ -536,6 +636,9 @@ class ReportBuilder:
 
 ## 예정 이벤트 캘린더 (실측, 향후 14일)
 {event_calendar_block}
+
+## 수집된 뉴스 헤드라인 (실제 수집분 — 이 목록이 뉴스 서술의 유일한 근거)
+{news_block}
 
 ## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
 {theme_scan_block}
@@ -624,6 +727,13 @@ class ReportBuilder:
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
 
+## 뉴스 서술 규칙 (중요)
+- 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
+- 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
+- <지정학/전쟁>, <관세/무역>, <재해/공급망> 등으로 태깅된 거시 이벤트는 여러 종목·섹터에 동시에 파급될 수 있으므로, 해당 이벤트가 워치리스트의 어느 부분과 연결되는지 짚어주세요. 다만 영향의 크기를 단정하지 말고 "~에 영향을 줄 수 있는 변수"로 서술하세요.
+- 태그는 키워드 기반 자동 분류라 완벽하지 않습니다. 헤드라인 내용과 태그가 어긋나 보이면 헤드라인 쪽을 따르세요.
+- 뉴스가 없으면("뉴스 데이터 없음") 뉴스 기반 해설을 시도하지 말고 가격·지표 데이터로만 서술하세요.
+
 ## 데이터 기준 시점 서술 규칙 (최우선 — 다른 모든 규칙보다 먼저 적용)
 - 위 "데이터 기준 시점" 블록에 적힌 날짜가 이 리포트가 다루는 **실제 시장 날짜**입니다. 실행 날짜(오늘)와 다를 수 있습니다.
 - 휴장일(주말) 실행이라고 표시된 경우: "오늘 시장이 하락했다"처럼 오늘 거래가 있었던 것처럼 쓰지 마세요. 반드시 "8월 21일(금) 종가 기준"처럼 실제 거래일을 명시하고, "직전 거래일", "금요일 마감 기준" 같은 표현을 쓰세요.
@@ -668,6 +778,7 @@ class ReportBuilder:
         memo_block = _format_memo_block(stocks)
         theme_scan_block = _format_theme_scan_block(theme_scan)
         event_calendar_block = _format_event_calendar_block(event_calendar)
+        news_block = _format_news_block(news_data, price_data)
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
@@ -681,6 +792,9 @@ class ReportBuilder:
 
 ## 예정 이벤트 캘린더 (실측, 향후 14일)
 {event_calendar_block}
+
+## 수집된 뉴스 헤드라인 (실제 수집분 — 이 목록이 뉴스 서술의 유일한 근거)
+{news_block}
 
 ## 시장 전체 테마 동향 (워치리스트 밖, 섹터/테마 ETF 기준 — 참고용)
 {theme_scan_block}
@@ -768,6 +882,13 @@ class ReportBuilder:
 - "[⚖️ 법정기한]" 항목은 특정 종목의 실적 발표를 예고하는 것이 아니라, 법으로 정해진 제출 마감일일 뿐입니다 — 그 안에 실제 언제 발표할지는 회사마다 다르다는 점을 필요시 명시하세요.
 - 이벤트 발생이 주가에 어떤 영향을 줄지 예측하지 말고, "이 날짜를 전후로 변동성이 커질 수 있는 시점"이라는 정도의 중립적 참고 정보로만 다루세요.
 - 데이터가 없으면("이벤트 캘린더 데이터 없음") 이 항목은 언급하지 마세요.
+
+## 뉴스 서술 규칙 (중요)
+- 위 "수집된 뉴스 헤드라인"에 있는 내용만 뉴스로 서술하세요. **목록에 없는 뉴스·실적·사건을 배경지식으로 지어내지 마세요** — 당신의 학습 데이터에 있는 과거 이슈(예: 특정 제품 출시, 규제 동향)는 오늘 시점에 사실이 아닐 수 있습니다.
+- 종목의 가격 변동을 설명할 때, 수집된 헤드라인에 근거가 있으면 연결하고, 없으면 "구체적 원인은 수집된 뉴스에서 확인되지 않음"이라고 솔직히 쓰세요. 그럴듯한 원인을 추측해서 붙이지 마세요.
+- <지정학/전쟁>, <관세/무역>, <재해/공급망> 등으로 태깅된 거시 이벤트는 여러 종목·섹터에 동시에 파급될 수 있으므로, 해당 이벤트가 워치리스트의 어느 부분과 연결되는지 짚어주세요. 다만 영향의 크기를 단정하지 말고 "~에 영향을 줄 수 있는 변수"로 서술하세요.
+- 태그는 키워드 기반 자동 분류라 완벽하지 않습니다. 헤드라인 내용과 태그가 어긋나 보이면 헤드라인 쪽을 따르세요.
+- 뉴스가 없으면("뉴스 데이터 없음") 뉴스 기반 해설을 시도하지 말고 가격·지표 데이터로만 서술하세요.
 
 ## 데이터 기준 시점 서술 규칙 (최우선 — 다른 모든 규칙보다 먼저 적용)
 - 위 "데이터 기준 시점" 블록에 적힌 날짜가 이 리포트가 다루는 **실제 시장 날짜**입니다. 실행 날짜(오늘)와 다를 수 있습니다.

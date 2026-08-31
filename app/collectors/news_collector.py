@@ -47,18 +47,104 @@ DERIVATIVE_KEYWORDS = [
 ]
 
 
+# ── 거시 이벤트 유형 분류 ────────────────────────────────────────────────────
+# 배경: 기존에는 뉴스를 감성 점수(-1~+1) 한 축으로만 압축해, "무슨 종류의 사건인가"가
+# 완전히 소실됐다. 실측 사례 — "Dow Jones Futures Fall, Oil Prices Jump As U.S.
+# Strikes Iran"이 단지 'Fall'이라는 단어 때문에 감성 -1.0인 일반 악재로만 기록되고,
+# "전쟁 발발 → 유가·방산·위험선호에 파급"이라는 성격은 사라졌다.
+#
+# 여기서는 감성과 **별개 축**으로 사건 유형만 태깅한다. 점수 산식은 건드리지 않는다 —
+# 이벤트별 가중치를 검증 없이 정하면 근거 없는 숫자가 되고, 기존 등급 적중률 이력과
+# 비교 불가능해지기 때문. 우선 리포트에 드러내고, 유용성이 확인되면 그때 논의한다.
+#
+# 순서가 곧 우선순위 — 한 헤드라인이 여러 유형에 걸리면 **더 구체적인 쪽**을 택한다.
+# 관세/무역을 지정학/전쟁보다 먼저 두는 이유: "trade war"는 군사 충돌이 아니라
+# 통상 이슈인데, 지정학 쪽의 단일어 "war"가 먼저 걸려 오분류됐다.
+# 반대로 "War in Ukraine disrupts trade"는 관세 키워드에 걸리지 않고 지정학으로
+# 정확히 떨어진다("trade war"는 구(phrase) 단위 매칭이므로).
+MACRO_EVENT_PATTERNS: list[tuple[str, list[str]]] = [
+    ("관세/무역", [
+        "관세", "무역분쟁", "무역전쟁", "수출규제", "수입규제", "무역협정", "쿼터",
+        "tariff", "tariffs", "trade war", "trade deal", "export control",
+        "export curb", "import duty", "quota", "embargo",
+    ]),
+    ("지정학/전쟁", [
+        "전쟁", "공습", "미사일", "침공", "교전", "휴전", "분쟁", "테러", "군사",
+        # 영문은 단어 경계로 매칭한다 — 부분 문자열 매칭 시 "war"가 "Hardware"·"Award"
+        # 안에서 걸리는 오탐이 실제로 발생했다(2026-08-31 실측 2건).
+        # 노동 파업·옵션 행사가와 겹치는 단수형 "strike"는 제외하고, 군사 용례가
+        # 뚜렷한 형태만 남긴다.
+        "war", "wars", "strikes", "airstrike", "air strike", "missile",
+        "invasion", "ceasefire", "conflict", "military", "troops",
+    ]),
+    ("제재/수출통제", [
+        "제재", "블랙리스트", "금수", "수출통제",
+        "sanction", "sanctions", "blacklist", "entity list", "ban on",
+    ]),
+    ("통화정책/금리", [
+        "금리", "기준금리", "연준", "한국은행", "금통위", "인상", "인하", "긴축", "완화",
+        "물가", "인플레", "테이퍼링",
+        "fed", "fomc", "rate hike", "rate cut", "interest rate", "inflation",
+        "cpi", "ppi", "tapering", "hawkish", "dovish", "central bank",
+    ]),
+    ("정치/선거/규제", [
+        "선거", "대선", "총선", "탄핵", "정부", "국회", "법안", "규제안", "반독점",
+        "셧다운", "예산안",
+        "election", "senate", "congress", "shutdown", "antitrust", "regulation",
+        "lawsuit", "probe", "impeach", "policy",
+    ]),
+    ("재해/공급망", [
+        "지진", "태풍", "홍수", "화재", "가뭄", "정전", "파업", "공급망", "물류대란",
+        "감산", "생산차질",
+        "earthquake", "typhoon", "hurricane", "flood", "wildfire", "blackout",
+        "strike action", "supply chain", "shortage", "outage", "disruption",
+    ]),
+    ("실적/가이던스", [
+        "실적", "어닝", "가이던스", "잠정실적", "컨센서스", "영업이익", "매출",
+        "earnings", "guidance", "revenue", "outlook", "forecast", "quarterly results",
+    ]),
+]
+
+
+def _keyword_matches(keyword: str, lowered_headline: str) -> bool:
+    """키워드 매칭. 영문(ASCII)은 단어 경계를 요구하고, 한글은 부분 문자열로 매칭한다.
+
+    한글에 단어 경계를 쓰면 조사가 붙은 형태("관세를", "전쟁이")를 놓치므로 구분한다.
+    반대로 영문에 부분 문자열을 쓰면 "war"가 "Hardware"·"Award" 안에서 걸린다.
+    """
+    kw = keyword.lower()
+    if kw.isascii():
+        return re.search(rf"\b{re.escape(kw)}\b", lowered_headline) is not None
+    return kw in lowered_headline
+
+
+def detect_macro_event(headline: str) -> str | None:
+    """헤드라인에서 거시 이벤트 유형을 판별. 해당 없으면 None.
+    대소문자 무시 — 영문 헤드라인이 그대로 들어오기 때문."""
+    lowered = headline.lower()
+    for event_type, keywords in MACRO_EVENT_PATTERNS:
+        if any(_keyword_matches(kw, lowered) for kw in keywords):
+            return event_type
+    return None
+
+
 def classify_news_item(headline: str) -> dict:
-    """레버리지/인버스/ETN 등 파생상품 이슈는 기초자산 직접 악재로 분류하지 않음"""
+    """레버리지/인버스/ETN 등 파생상품 이슈는 기초자산 직접 악재로 분류하지 않음.
+    추가로 거시 이벤트 유형(전쟁·관세·금리·정치·재해 등)을 별도 축으로 태깅한다."""
+    macro_event = detect_macro_event(headline)
+
     if any(kw in headline for kw in DERIVATIVE_KEYWORDS):
         return {
             "category":              "파생상품 이슈",
             "impact_to_underlying":  "낮음",
             "exclude_from_direct_negative_news": True,
+            "macro_event":           macro_event,
         }
     return {
         "category":              "일반",
         "impact_to_underlying":  "보통",
         "exclude_from_direct_negative_news": False,
+        "macro_event":           macro_event,
     }
 
 # ── yfinance 티커 매핑 ────────────────────────────────────────────────────────
