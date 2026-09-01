@@ -108,6 +108,96 @@ def market_session_state(market: str, now: datetime | None = None) -> str:
     return "마감"
 
 
+# ── 대상 거래일 (target session) ─────────────────────────────────────────────
+# 계약 C1: 파이프라인은 시작 시점에 "이 리포트가 분석하는 거래일"을 확정하고,
+# 모든 수집기가 그 날짜를 받는다. 실행 시각은 대상일을 고르는 데만 쓰이고
+# 그 뒤로는 등장하지 않는다.
+#
+# 왜 필요한가 — 기존에는 수집기가 심볼별로 "가장 최근 봉"을 독립적으로 가져왔다
+# (price_collector: close_s.iloc[-1]). 그래서 한 리포트 안에 기준일이 뒤섞였고
+# (실측 2026-09-02 저녁분: 12종목 9/1 · 6종목 8/31 · 미국 9/1 장중), 장이 열려
+# 있으면 미완성 봉이 "종가"로 서술됐다. 리포트 날짜는 또 따로 now_kst()에서
+# 만들어져, 무엇을 분석한 리포트인지가 실행 시각에 좌우됐다.
+#
+# 결정적으로 GitHub Actions 예약 실행이 실측 4시간가량 밀린다
+# (2026-09-01 아침 4:38 지연, 2026-09-02 저녁 3:56 지연). 기준이 실행 시각에
+# 끌려다니면 지연이 곧 데이터 오염이 된다. 아래 규칙은 밀려도 같은 답을 낸다.
+
+
+def session_close_kst(market: str, d: date) -> datetime | None:
+    """market의 거래일 d 정규장이 끝나는 순간을 KST로 환산.
+
+    미국장 현지 16:00은 KST로 **다음날 05:00**이다. 이 환산을 빼먹으면
+    "미국 8월 31일 종가"와 "한국시간 9월 1일 새벽 마감"을 서로 다른 것으로
+    오해하게 된다 — 실제로는 같은 세션이다.
+    """
+    hours = _SESSION_HOURS.get(market)
+    if hours is None:
+        return None
+    _, (close_h, close_m), offset = hours
+    return datetime(d.year, d.month, d.day, close_h, close_m) - timedelta(hours=offset)
+
+
+def last_completed_session(market: str, moment: datetime) -> date:
+    """moment(KST) 시점에 이미 **끝나 있는** 가장 최근 정규장의 거래일.
+
+    진행 중인 세션은 절대 반환하지 않는다(계약 C2). 저녁 결산이 미국 장중
+    수치를 "마감"이라 서술하던 문제를 막는 지점이 여기다.
+
+    미국장은 KST 기준 다음날 새벽에 끝나므로 탐색을 하루 앞에서 시작한다.
+    """
+    d = moment.date() + timedelta(days=1)
+    for _ in range(20):
+        if is_trading_day(d):
+            close = session_close_kst(market, d)
+            if close is not None and close <= moment:
+                return d
+        d -= timedelta(days=1)
+    return d
+
+
+def resolve_target_session(report_type: str, now: datetime | None = None) -> dict:
+    """리포트 유형에 따라 분석 대상 거래일을 확정한다 (계약 C1·C4).
+
+    아침 브리핑 — 개장 전 브리핑이다. 기준선을 **오늘 한국장 개장(09:00)**으로
+      잡아, 그 전까지 끝난 세션만 대상으로 한다. 실행이 밀려 이미 장이 열린
+      뒤에 돌더라도 기준이 움직이지 않는다. 한국·미국이 같은 거래일로 통일된다
+      (미국 D일 세션은 KST D+1 05:00에 끝나므로 아침 브리핑에 이미 담긴다).
+
+    저녁 결산 — 당일 한국장 마감 결산이다. 기준선은 현재 시각. 한국은 당일,
+      미국은 직전 완료 세션(당일 미국장은 22:30에야 열린다)이라 두 날짜가
+      하루 차이 나는 것이 정상이며, 이는 숨길 것이 아니라 명시할 사실이다.
+
+    반환: report_type / boundary / kr_date / us_date / unified
+    """
+    now = now or now_kst()
+    if report_type == "morning":
+        open_h, open_m = _SESSION_HOURS["KR"][0]
+        boundary = datetime(now.year, now.month, now.day, open_h, open_m)
+    elif report_type == "evening":
+        boundary = now
+    else:
+        raise ValueError(f"알 수 없는 리포트 유형: {report_type!r}")
+
+    kr = last_completed_session("KR", boundary)
+    us = last_completed_session("US", boundary)
+
+    # 발행일 — 리포트의 이름표. 이것도 실행 시각에서 떼어낸다.
+    #   아침: 브리핑이 대비하는 날(= 기준선의 날짜). 4시간 밀려도 그대로다.
+    #   저녁: 마감을 결산하는 바로 그 거래일.
+    # 실측 사고: 9월 1일 저녁 결산이 3시간 56분 밀려 00:36에 발송되면서
+    # now_kst().date() 기준으로 "2026-09-02 저녁 결산"이라는 이름을 달고 나갔다.
+    report_date = boundary.date() if report_type == "morning" else kr
+    return {
+        "report_type": report_type,
+        "boundary":    boundary,
+        "report_date": report_date.isoformat(),
+        "kr_date":     kr.isoformat(),
+        "us_date":     us.isoformat(),
+        "unified":     kr == us,
+    }
+
+
 def _parse_date(value: str | None) -> date | None:
     if not value:
         return None

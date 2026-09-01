@@ -61,7 +61,7 @@ from app.reports.report_builder import (
 )
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
-from app.utils.market_calendar import now_kst
+from app.utils.market_calendar import now_kst, resolve_target_session
 
 
 # ── 로깅 설정 ────────────────────────────────────────────────────────────────
@@ -152,12 +152,19 @@ def _summarize_investor_flow_sources(price_data: dict) -> str:
 
 def run_pipeline(report_type: str, send_email: bool) -> None:
     _setup_logging()
-    date_str = now_kst().strftime("%Y-%m-%d")
+    # 계약 C1 — 대상 거래일을 먼저 확정한다. 실행 시각은 여기서 역할이 끝난다.
+    # 이 한 줄이 "예약이 4시간 밀리면 기준이 장중으로 미끄러지던" 구조를 끊는다.
+    target   = resolve_target_session(report_type)
+    date_str = target["report_date"]
     time_str = now_kst().strftime("%H:%M")
 
-    logger.info("파이프라인 시작 — type=%s  date=%s %s", report_type, date_str, time_str)
+    logger.info(
+        "파이프라인 시작 — type=%s  발행일=%s  대상세션 KR=%s US=%s  실행=%s",
+        report_type, date_str, target["kr_date"], target["us_date"], time_str,
+    )
     print(f"\n{BOLD}🚀 Market Flow Intelligence System{RESET}")
-    print(f"   리포트 유형: {report_type.upper()}  |  일시: {date_str} {time_str}")
+    print(f"   리포트 유형: {report_type.upper()}  |  발행일: {date_str}  (실행 {time_str})")
+    print(f"   대상 거래일: 한국 {target['kr_date']}  |  미국 {target['us_date']}")
 
     notifier = TelegramNotifier()
 
@@ -529,7 +536,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             raise
 
         # 등급 JSON도 함께 저장 (대시보드 참조용)
-        date_prefix = now_kst().strftime("%Y%m%d")
+        date_prefix = date_str.replace("-", "")   # 발행일 기준 — 실행일이 아니다
         json_path = save_dir / f"{date_prefix}_{report_type}_ratings.json"
         # 뉴스 요약: 파일 크기 제한을 위해 종목당 최대 3건만 저장
         news_summary = {k: v[:3] for k, v in news_data.items() if v}
