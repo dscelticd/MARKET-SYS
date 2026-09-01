@@ -453,7 +453,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     prev_report_data_date=prev_report_data_date,
                     themes=cfg.themes.themes,
                     factor_accuracy=factor_accuracy,
-                    max_tokens=cfg.report.morning.get("max_tokens", 10000),
+                    max_tokens=cfg.report.morning.get("max_tokens", 20000),
                 )
             else:
                 print("  저녁 결산 리포트 생성 중...")
@@ -475,7 +475,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     prev_report_data_date=prev_report_data_date,
                     themes=cfg.themes.themes,
                     factor_accuracy=factor_accuracy,
-                    max_tokens=cfg.report.evening.get("max_tokens", 10000),
+                    max_tokens=cfg.report.evening.get("max_tokens", 20000),
                 )
             print("  리포트 생성 완료")
             logger.info("리포트 생성 완료")

@@ -960,7 +960,7 @@ class ReportBuilder:
         prev_report_data_date: str | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
-        max_tokens: int = 10000,
+        max_tokens: int = 20000,
     ) -> str:
         date_str = report_date or now_kst().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
@@ -1082,7 +1082,7 @@ class ReportBuilder:
         prev_report_data_date: str | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
-        max_tokens: int = 10000,
+        max_tokens: int = 20000,
     ) -> str:
         date_str = report_date or now_kst().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
