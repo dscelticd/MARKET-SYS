@@ -1,11 +1,11 @@
 {
   "version": "1.0",
-  "description": "리포트 생성 설정. 실제로 코드가 읽는 값만 유지한다 — max_tokens, rating_system.forbidden_expressions, email.subject_*, storage.base_dir. 등급 정의/임계값은 app/engine/rating_analyzer.py의 GRADE_META가 단일 기준이다.",
+  "description": "리포트 생성 설정. 실제로 코드가 읽는 값만 유지한다 — max_tokens, rating_system.forbidden_expressions, email.subject_*, storage.base_dir. 등급 정의/임계값은 app/engine/rating_analyzer.py의 GRADE_META가 단일 기준이다. max_tokens 주의: 10000에서는 18종목 중 13종목까지만 생성되고 잘렸다(2026-09-01 실측, out_tokens=10000 도달). 종목이나 근거 항목을 늘리면 함께 올릴 것.",
   "morning_report": {
-    "max_tokens": 10000
+    "max_tokens": 20000
   },
   "evening_report": {
-    "max_tokens": 10000
+    "max_tokens": 20000
   },
   "rating_system": {
     "forbidden_expressions": [

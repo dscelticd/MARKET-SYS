@@ -1209,7 +1209,24 @@ class ReportBuilder:
                         "[CLAUDE_USAGE] model=%s in_tokens=%d out_tokens=%d total=%d",
                         self.model, in_tok, out_tok, in_tok + out_tok,
                     )
-                return message.content[0].text
+
+                text = message.content[0].text
+                # 출력 한도에 걸려 잘렸는지 확인한다. 기존에는 stop_reason을 보지 않아
+                # 잘린 리포트가 조용히 발송됐다 — 실측(2026-09-01 아침): out_tokens가
+                # 정확히 10000에 닿아 18종목 중 5종목(점수 1위 SanDisk 포함)이 통째로
+                # 빠지고, 전망·모니터링 포인트 섹션과 **면책 문구까지 사라진 채** 나갔다.
+                if getattr(message, "stop_reason", None) == "max_tokens":
+                    _logger.error(
+                        "[CLAUDE_TRUNCATED] 출력이 max_tokens(%d)에 걸려 잘렸습니다 — "
+                        "리포트 일부 섹션이 누락됩니다. config/report_config.json의 "
+                        "max_tokens를 올리세요.", max_tokens,
+                    )
+                    text = (
+                        "> 🚨 **자동 검증 경고**: 이 리포트는 출력 한도에 걸려 "
+                        "**중간에 잘렸습니다.** 일부 종목·섹션과 투자 유의사항이 누락됐을 "
+                        "수 있으니 완전한 분석으로 신뢰하지 마세요.\n\n"
+                    ) + text
+                return text
             except Exception as exc:
                 last_exc = exc
                 _logger.warning(
