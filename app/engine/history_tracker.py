@@ -5,12 +5,15 @@ data/history/ratings_history.json 에 누적 저장
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 from app.utils.market_calendar import is_trading_day
 from app.utils.market_calendar import now_kst
+
+_logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _HISTORY_DIR  = _PROJECT_ROOT / "data" / "history"
@@ -57,6 +60,7 @@ class HistoryTracker:
         _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         self._data = self._load()
         self._backfill_trading_day_flags()
+        self._migrate_keys_to_session_date()
 
     # ── 거래일 판정 ──────────────────────────────────────────────────────────
 
@@ -92,6 +96,36 @@ class HistoryTracker:
         if changed:
             self._persist()
 
+    def _migrate_keys_to_session_date(self) -> None:
+        """실행일로 잡혀 있던 과거 키를 대상 거래일 기준으로 옮긴다 (계약 C5).
+
+        예약 실행이 4시간가량 밀리는 환경(실측: 9/1 아침 4:38, 9/2 저녁 3:56)에서
+        실행일 키는 분석 대상과 어긋난다. 9월 1일 저녁 결산이 00:36에 발송되면서
+        "2026-09-02" 키로 저장된 것이 그 예다. 적중률은 D일 등급을 D+5일 가격과
+        대조하는 계산이라, 키가 하루 밀리면 비교 대상이 통째로 어긋난다.
+
+        데이터는 지우지 않는다. data_date가 있는 엔트리만 옮기고, 목적지 키가
+        이미 있으면(같은 거래일을 두 번 실행) 건드리지 않는다.
+        """
+        moved: dict[str, str] = {}
+        for key, entry in list(self._data.items()):
+            data_date = entry.get("data_date")
+            if not data_date or entry.get("date") == data_date:
+                continue
+            report_type = entry.get("report_type", "morning")
+            new_key = f"{data_date}_{report_type}"
+            if new_key in self._data:
+                continue
+            entry["run_date"] = entry.get("date")   # 실행일은 감사용으로 보존
+            entry["date"] = data_date
+            entry["is_trading_day"] = True          # 대상 거래일은 정의상 거래일
+            self._data[new_key] = self._data.pop(key)
+            moved[key] = new_key
+        if moved:
+            _logger.info("[HISTORY_MIGRATE] 실행일 키 → 대상 거래일 키 %d건: %s",
+                         len(moved), moved)
+            self._persist()
+
     # ── 저장 ────────────────────────────────────────────────────────────────
 
     def save_today(
@@ -101,6 +135,7 @@ class HistoryTracker:
         price_data: dict | None = None,
         news_data: dict | None = None,
         data_quality: dict | None = None,
+        session_date: str | None = None,
     ) -> None:
         """
         등급 이력 저장 (확장 스키마).
@@ -117,8 +152,12 @@ class HistoryTracker:
           data_quality                                    — 전체 신뢰도 요약
           generated_at                                    — 리포트 생성 시각
         """
-        today = now_kst().strftime("%Y-%m-%d")
-        key   = f"{today}_{report_type}"
+        # 계약 C5 — 이력의 키는 실행일이 아니라 분석 대상 거래일이다.
+        # 예약 실행이 밀려도 같은 거래일은 같은 칸에 들어가고, 거래가 없던
+        # 날에는 칸이 생기지 않는다.
+        run_date = now_kst().strftime("%Y-%m-%d")
+        today    = session_date or run_date
+        key      = f"{today}_{report_type}"
 
         # 이 스냅샷의 가격이 실제로 어느 거래일 것인지 — 주말 실행이면 실행일(today)과
         # 다르다. 적중률 계산이 "일요일 가격"으로 라벨된 금요일 가격을 쓰지 않도록,
@@ -132,11 +171,12 @@ class HistoryTracker:
             # 1.2: is_trading_day·data_date 추가(주말 중복 스냅샷 구분)
             # 1.3: components 추가(요인별 적중률 산출용 — 총점만으로는 어떤 신호가
             #      맞았는지 사후에 알 수 없었다)
-            "schema_version":   "1.3",
-            "date":             today,
+            "schema_version":   "1.4",
+            "date":             today,        # 대상 거래일
+            "run_date":         run_date,     # 실제 실행일 (감사용)
             "report_type":      report_type,
             "generated_at":     now_kst().isoformat(),
-            "is_trading_day":   is_trading_day(now_kst().date()),
+            "is_trading_day":   is_trading_day(datetime.strptime(today, "%Y-%m-%d").date()),
             "data_date":        data_date,
             # ── 등급/점수 ──
             "grades":           {},   # final_grade (표시 등급)

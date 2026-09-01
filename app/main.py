@@ -411,6 +411,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             price_data=price_data,
             news_data=news_data,
             data_quality=data_quality,
+            session_date=target["kr_date"],   # 계약 C5 — 실행일이 아닌 대상 거래일
         )
         logger.info("이력 저장 완료")
 
