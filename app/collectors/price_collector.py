@@ -112,6 +112,36 @@ def _truncate_to_target(hist, target_date: str):
     return hist.iloc[keep]
 
 
+def _missing_record(
+    stock_id: str, ticker: str, name: str, currency: str,
+    target_date: str | None, reason: str,
+) -> dict:
+    """대상 거래일 데이터가 없을 때의 자리. 값을 지어내지 않는다 (계약 C3).
+
+    조용한 대체가 만든 사고 — 2026-09-02 저녁 결산이 LG전자 +7.44%를 9월 1일
+    대표 호재로 서술하고 18종목 중 유일한 '안전' 등급을 부여했다. 그 +7.44%는
+    8월 31일 수치였고, 실제 9월 1일 LG전자는 하락했다. 전날 급등으로 최고
+    등급이 매겨진 것이다.
+
+    이전 거래일 값으로 메우는 것도, Mock으로 메우는 것도 같은 사고를 만든다.
+    비어 있다는 사실 자체가 리포트에 실려야 한다.
+    """
+    return {
+        "stock_id":   stock_id,
+        "ticker":     ticker,
+        "name":       name,
+        "currency":   currency,
+        "missing":        True,
+        "missing_reason": reason,
+        "target_date":    target_date,
+        "price":       None,
+        "change_pct":  None,
+        "data_date":   None,
+        "_mock":       False,
+        "timestamp":   now_kst().isoformat(),
+    }
+
+
 def _calc_technicals(closes, price: float) -> dict:
     """RSI / 이동평균(5·20·60일) / MACD 계산"""
     n = len(closes)
@@ -485,7 +515,11 @@ class PriceCollector:
 
         for sid in stock_ids:
             if sid not in YFINANCE_MAP:
-                result.update(self._collect_mock([sid]))
+                # Mock으로 메우면 지어낸 값이 실제 리포트에 섞인다 (계약 C3)
+                logger.warning("%s: YFINANCE_MAP 미등록 → 결측 처리", sid)
+                result[sid] = _missing_record(
+                    sid, sid, sid, "KRW", None, "심볼 매핑 없음"
+                )
                 continue
 
             sym, name, currency = YFINANCE_MAP[sid]
@@ -498,6 +532,22 @@ class PriceCollector:
                 # 계약 C2 — 대상 거래일 이후의 봉을 잘라낸다.
                 if target_date:
                     hist = _truncate_to_target(hist, target_date)
+
+                    # 계약 C3 — 대상일 봉이 없으면 직전 거래일 값으로 메우지
+                    # 않는다. 여기서 continue 하지 않으면 iloc[-1]이 하루 전
+                    # 종가를 집어 "당일 등락"으로 둔갑시킨다.
+                    latest_bar = _extract_bar_date(hist.index[-1]) if len(hist) else None
+                    if latest_bar != target_date:
+                        logger.warning(
+                            "%s(%s): 대상 거래일 %s 데이터 없음 (최신 봉 %s) → 결측 처리",
+                            sid, sym, target_date, latest_bar or "없음",
+                        )
+                        result[sid] = _missing_record(
+                            sid, sym.replace(".KS", "").replace(".KQ", ""),
+                            name, currency, target_date,
+                            f"대상 거래일 데이터 미도착 (최신 봉 {latest_bar or '없음'})",
+                        )
+                        continue
 
                 close_s = hist["Close"].dropna() if "Close" in hist.columns else None
                 vol_s   = hist["Volume"].dropna() if "Volume" in hist.columns else None
@@ -596,8 +646,13 @@ class PriceCollector:
                     "candle_pattern": candle_pattern,
                 }
             except Exception as e:
-                logger.warning(f"{sid}({sym}) 실제 데이터 실패: {e} → Mock 폴백")
-                result.update(self._collect_mock([sid]))
+                # Mock 폴백은 지어낸 값을 실제 리포트에 넣는다 (계약 C3).
+                # 수집 실패는 실패로 보고하고, 등급 산정에서 빠지게 한다.
+                logger.warning("%s(%s) 실제 데이터 실패: %s → 결측 처리", sid, sym, e)
+                result[sid] = _missing_record(
+                    sid, sym.replace(".KS", "").replace(".KQ", ""),
+                    name, currency, target_date, f"수집 실패: {e}",
+                )
 
         return result
 

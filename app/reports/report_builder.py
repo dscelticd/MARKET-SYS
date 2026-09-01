@@ -691,6 +691,33 @@ def _format_factor_accuracy_block(factor_accuracy: dict | None) -> str:
     return "\n".join(lines)
 
 
+def _format_missing_block(missing_stocks: dict[str, dict] | None) -> str:
+    """대상 거래일 데이터가 없어 분석에서 빠진 종목을 명시한다 (계약 C3).
+
+    빠진 사실을 리포트에 싣지 않으면, 독자는 그 종목이 관심종목에서 사라진
+    이유를 알 수 없다. 더 나쁜 것은 값을 채워 넣는 쪽이다 —
+    2026-09-02 저녁 결산이 LG전자 +7.44%(8월 31일 수치)를 9월 1일 대표
+    호재로 서술하고 유일한 '안전' 등급을 준 사고가 그렇게 나왔다.
+    """
+    if not missing_stocks:
+        return ""
+    lines = [
+        "## 데이터 미도착 종목 (분석 제외)",
+        "",
+        "아래 종목은 대상 거래일 데이터가 도착하지 않아 등급 산정에서 제외했습니다.",
+        "**추정하지 말고, 직전 거래일 수치로 대신 설명하지도 마세요.**",
+        "리포트에 이 목록을 그대로 알리고, 해당 종목의 가격·등락·전망은 언급하지 마세요.",
+        "",
+    ]
+    for m in missing_stocks.values():
+        lines.append(
+            f"- {m.get('name', m.get('stock_id'))}"
+            f"({m.get('ticker', '')}) — 대상일 {m.get('target_date') or '미지정'}"
+            f" / 사유: {m.get('missing_reason', '알 수 없음')}"
+        )
+    return "\n".join(lines)
+
+
 def _format_market_session_block(
     freshness: dict | None,
     macro_data: dict | None = None,
@@ -958,6 +985,7 @@ class ReportBuilder:
         event_calendar: list[dict] | None = None,
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
+        missing_stocks: dict[str, dict] | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
         max_tokens: int = 20000,
@@ -981,10 +1009,13 @@ class ReportBuilder:
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
+        missing_block = _format_missing_block(missing_stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 데이터 기준 시점 (가장 먼저 확인할 것)
 {session_block}
+
+{missing_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
@@ -1080,6 +1111,7 @@ class ReportBuilder:
         event_calendar: list[dict] | None = None,
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
+        missing_stocks: dict[str, dict] | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
         max_tokens: int = 20000,
@@ -1103,10 +1135,13 @@ class ReportBuilder:
         session_block = _format_market_session_block(
             data_freshness, macro_data, prev_report_data_date
         )
+        missing_block = _format_missing_block(missing_stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 데이터 기준 시점 (가장 먼저 확인할 것)
 {session_block}
+
+{missing_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}

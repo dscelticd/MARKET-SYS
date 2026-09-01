@@ -196,6 +196,27 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         except Exception as e:
             logger.error("[COLLECTOR_ERROR] 가격 데이터 수집 실패: %s", e)
             raise
+
+        # 계약 C3 — 대상 거래일 데이터가 없는 종목을 여기서 떼어낸다.
+        # 이 분리를 하지 않으면 값이 빈 종목이 등급 산정·주목 종목·차트까지
+        # 흘러들어가 "데이터가 있는 척"하게 된다. 리포트에는 빠진 사실을
+        # 명시하고, 분석에서는 제외한다.
+        missing_stocks = {
+            sid: p for sid, p in price_data.items() if p.get("missing")
+        }
+        if missing_stocks:
+            price_data = {
+                sid: p for sid, p in price_data.items() if not p.get("missing")
+            }
+            stocks     = [s for s in stocks if s["id"] not in missing_stocks]
+            stock_ids  = [i for i in stock_ids if i not in missing_stocks]
+            for sid, m in missing_stocks.items():
+                logger.warning(
+                    "[DATA_MISSING] %s(%s) 대상일 %s — %s",
+                    m.get("name", sid), sid, m.get("target_date"), m.get("missing_reason"),
+                )
+            print(f"  ⚠️ 대상 거래일 데이터 없음 {len(missing_stocks)}종목 — 분석에서 제외: "
+                  + ", ".join(m.get("name", sid) for sid, m in missing_stocks.items()))
         try:
             news_data  = news_col.collect(stock_ids)
         except Exception as e:
@@ -450,6 +471,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     macro_data=macro_data,
                     ratings=rating_dicts,
                     report_date=date_str,
+                    missing_stocks=missing_stocks,
                     grade_changes=changes,
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
@@ -472,6 +494,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     macro_data=macro_data,
                     ratings=rating_dicts,
                     report_date=date_str,
+                    missing_stocks=missing_stocks,
                     grade_changes=changes,
                     data_quality=data_quality,
                     disclosure_data=disclosure_data,
