@@ -35,11 +35,11 @@ streamlit run app/dashboard.py
 ```
 market_flow/
 ├── .github/workflows/
-│   └── market-flow.yml       # GitHub Actions 자동 실행 (매일 07:00 / 20:30 KST)
+│   └── market-flow.yml       # GitHub Actions 자동 실행 (매일 07:10 / 20:40 KST)
 ├── app/
 │   ├── main.py               # CLI 진입점 / 파이프라인 오케스트레이션
 │   ├── dashboard.py          # Streamlit 대시보드
-│   ├── scheduler.py          # 로컬 자동 스케줄러 (매일 07:00 / 20:30)
+│   ├── scheduler.py          # 로컬 자동 스케줄러 (선택 — Actions와 동시 사용 금지)
 │   ├── healthcheck.py        # 시스템 상태 점검
 │   ├── collectors/
 │   │   ├── price_collector.py       # 주가·기술적지표·지지저항·캔들패턴·수급 수집
@@ -152,7 +152,7 @@ REPORT_LANGUAGE=ko
 | `저녁 리포트 실행.bat` | 저녁 결산 생성 |
 | `저녁 리포트+이메일.bat` | 저녁 결산 + 이메일 발송 |
 | `대시보드 실행.bat` | Streamlit 대시보드 실행 |
-| `스케줄러 실행.bat` | 자동 스케줄러 실행 (07:00 / 20:30) |
+| `스케줄러 실행.bat` | 로컬 자동 스케줄러 (선택 — Actions와 동시 사용 금지) |
 
 ### 방법 2 — 명령어 (터미널)
 
@@ -189,8 +189,24 @@ streamlit run app/dashboard.py
 
 ### 방법 4 — GitHub Actions 자동 실행 (운영 권장)
 
-`.github/workflows/market-flow.yml`이 매일 **07:00 / 20:30 KST**에 자동으로 아침/저녁
+`.github/workflows/market-flow.yml`이 매일 **07:10 / 20:40 KST**에 자동으로 아침/저녁
 리포트를 생성해 이메일로 발송합니다. 로컬 PC를 켜둘 필요가 없습니다.
+
+> ⚠️ **발송 주체는 반드시 하나만 켜세요.**
+> GitHub Actions, `스케줄러 실행.bat`(app/scheduler.py), Windows 작업 스케줄러는
+> 서로를 모르는 독립 실행 경로입니다. 둘 이상 켜두면 같은 리포트가 서로 다른 시각에
+> 중복 발송되고, 한쪽 시간만 바꾸면 나머지는 옛 시각으로 계속 돕니다.
+> (실제 사고: Windows 작업 스케줄러 07:00/18:30 + GitHub Actions 07:00/20:30이
+> 동시에 돌아 하루 4통이 발송됐고, 설정 파일의 시각을 고쳐도 작업 스케줄러는
+> 자기 설정을 따로 갖고 있어 반영되지 않았습니다.)
+>
+> Windows 작업 스케줄러 확인: `작업 스케줄러` 앱 → 작업 스케줄러 라이브러리 →
+> `MarketFlow` 폴더
+
+**분 단위를 정각에서 비켜둔 이유**: `:00`·`:30`은 GitHub Actions에서 가장 혼잡한
+슬롯이라 예약 실행이 크게 밀립니다. 밀린 저녁 작업이 KST 새벽에 발송되는 사고가
+있어 `:10`·`:40`으로 옮겼습니다. 리포트 유형도 실행 시각이 아니라 발동한 크론
+(`github.event.schedule`)으로 판정해, 지연되어도 아침/저녁이 뒤바뀌지 않습니다.
 
 **설정 방법**:
 1. 저장소를 GitHub에 push (`.env`는 `.gitignore`에 포함되어 있어 올라가지 않습니다)
@@ -378,7 +394,7 @@ streamlit run app/dashboard.py
   작업 스케줄러 → 기본 작업 만들기
   → 트리거: 매일 07:00  → 동작: "스케줄러 실행.bat" 경로 입력
   ```
-- [ ] 또는 `스케줄러 실행.bat` 수동 실행 후 07:00 / 20:30 알림 대기
+- [ ] 또는 `스케줄러 실행.bat` 수동 실행 (단, Actions를 끈 경우에만)
 - [ ] PC 절전모드를 사용하는 경우 "절전 모드 해제 후 실행" 옵션 활성화
 
 ### 7단계 — 로그 확인 위치

@@ -3,8 +3,8 @@ name: Market Flow Auto Report
 # (워크플로 재인식 트리거용 메타 변경 — 2026-08-08)
 # ──────────────────────────────────────────────────────────────────────────────
 # 실행 트리거 (요일은 UTC 기준 — KST는 UTC+9)
-#   - 아침 브리핑 07:00 KST : 월~토 (일요일 제외)
-#   - 저녁 결산   20:30 KST : 월~금 (주말 제외)
+#   - 아침 브리핑 07:10 KST : 월~토 (일요일 제외)
+#   - 저녁 결산   20:40 KST : 월~금 (주말 제외)
 #   - 수동 실행 (workflow_dispatch) → 테스트용
 #
 # 왜 주말 실행을 줄였나:
@@ -19,10 +19,12 @@ name: Market Flow Auto Report
 # ──────────────────────────────────────────────────────────────────────────────
 on:
   schedule:
-    # UTC 일~금 22:00 = KST 월~토 07:00 (KST 일요일 아침만 제외)
-    - cron: '0 22 * * 0-5'
-    # UTC 월~금 11:30 = KST 월~금 20:30 (KST 주말 저녁 제외)
-    - cron: '30 11 * * 1-5'
+    # 정각(:00)·반정각(:30)은 GitHub Actions에서 가장 혼잡한 슬롯이라 예약 실행이
+    # 크게 밀린다. 밀린 저녁 작업이 KST 새벽에 발송되는 사고가 있어 분 단위를 비켰다.
+    # UTC 일~금 22:10 = KST 월~토 07:10 (KST 일요일 아침만 제외)
+    - cron: '10 22 * * 0-5'
+    # UTC 월~금 11:40 = KST 월~금 20:40 (KST 주말 저녁 제외)
+    - cron: '40 11 * * 1-5'
   workflow_dispatch:
     inputs:
       report_type:
@@ -124,17 +126,24 @@ jobs:
           key: kis-token-${{ steps.kis_date.outputs.date }}
 
       # ── 6. 리포트 유형 결정 ─────────────────────────────────────────────────
+      # 어느 크론이 발동했는지로 판정한다. 이전에는 "실행된 시각"(date -u +%H)으로
+      # 추론했는데, GitHub Actions 예약 실행이 밀리면 유형이 뒤바뀌었다 —
+      # 아침 작업(22:10 UTC)이 자정을 넘겨 밀리면 HOUR_UTC=0이 되어
+      # "아침에 저녁 결산이 도착"하는 상황이 발생했다.
+      # github.event.schedule은 실제 발동한 크론 문자열이라 지연과 무관하게 정확하다.
       - name: 리포트 유형 결정
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "REPORT_TYPE=${{ inputs.report_type }}" >> "$GITHUB_ENV"
+          elif [ "${{ github.event.schedule }}" = "10 22 * * 0-5" ]; then
+            echo "REPORT_TYPE=morning" >> "$GITHUB_ENV"
+          elif [ "${{ github.event.schedule }}" = "40 11 * * 1-5" ]; then
+            echo "REPORT_TYPE=evening" >> "$GITHUB_ENV"
           else
-            HOUR_UTC=$(date -u +%H)
-            if [ "$HOUR_UTC" -eq 22 ] || [ "$HOUR_UTC" -eq 23 ]; then
-              echo "REPORT_TYPE=morning" >> "$GITHUB_ENV"
-            else
-              echo "REPORT_TYPE=evening" >> "$GITHUB_ENV"
-            fi
+            # 크론을 수정하고 이 분기를 갱신하지 않으면 여기로 온다 — 조용히
+            # 잘못된 유형을 보내는 대신 실패시켜 즉시 드러나게 한다.
+            echo "::error::알 수 없는 스케줄 '${{ github.event.schedule }}' — 크론과 유형 판정이 어긋났습니다"
+            exit 1
           fi
 
       # ── 7. 리포트 생성 + 이메일 발송 ────────────────────────────────────────
