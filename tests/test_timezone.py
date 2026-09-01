@@ -178,3 +178,19 @@ def test_index_staleness_still_detects_real_lag_within_market():
              "data_dates": {"KOSPI": "2026-08-27"}, "_mock": False}
     _, _, warnings = DataValidator._validate_kospi_consistency(price, macro)
     assert any("KOSPI 지수가 같은 시장" in w for w in warnings)
+
+
+def test_workflow_actions_run_on_node24():
+    """Node 20은 2026-09-23에 러너에서 제거된다. node20 액션을 쓰면 그때 워크플로가 깨진다.
+
+    실측으로 확인한 최소 node24 버전 — upload-artifact는 v5도 여전히 node20이라 v6이 필요하다.
+    """
+    wf = (_ROOT / ".github" / "workflows" / "market-flow.yml").read_text(encoding="utf-8")
+    deprecated = [
+        "actions/checkout@v4", "actions/checkout@v3",
+        "actions/setup-python@v5", "actions/setup-python@v4",
+        "actions/cache@v4", "actions/cache@v3",
+        "actions/upload-artifact@v5", "actions/upload-artifact@v4",
+    ]
+    found = [d for d in deprecated if d in wf]
+    assert not found, f"Node 20 기반 액션 사용 중: {found}"

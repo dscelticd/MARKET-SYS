@@ -117,15 +117,23 @@ def generate_candle_chart_png(df: pd.DataFrame | None, title: str, tail: int) ->
 
         close = df["Close"]
         addplots = []
+        # secondary_y=False가 필수다. mplfinance의 기본값은 'auto'인데, 보조선의
+        # 값 범위가 주가와 다르다고 판단하면 **별도 y축**을 만들어 버린다. 그 결과
+        # 좌우 축 스케일이 어긋나 캔들이 한쪽에 눌리고 두 축의 눈금이 서로 다른
+        # 값을 가리킨다(2026-09-01 발송분 SanDisk 주봉: 좌 0~800 / 우 50~2000).
+        # 이동평균·볼린저밴드는 모두 주가와 같은 단위이므로 항상 주가 축을 쓴다.
         for period in (5, 20, 60, 120):
             if len(close) >= period:
                 ma = close.rolling(period).mean()
-                addplots.append(mpf.make_addplot(ma.tail(tail), color=_MA_COLORS[period], width=0.9))
+                addplots.append(mpf.make_addplot(
+                    ma.tail(tail), color=_MA_COLORS[period], width=0.9, secondary_y=False))
 
         if len(close) >= 20:
             _, upper, lower = _bollinger_bands(close)
-            addplots.append(mpf.make_addplot(upper.tail(tail), color="#9ca3af", width=0.7, linestyle="--"))
-            addplots.append(mpf.make_addplot(lower.tail(tail), color="#9ca3af", width=0.7, linestyle="--"))
+            addplots.append(mpf.make_addplot(
+                upper.tail(tail), color="#9ca3af", width=0.7, linestyle="--", secondary_y=False))
+            addplots.append(mpf.make_addplot(
+                lower.tail(tail), color="#9ca3af", width=0.7, linestyle="--", secondary_y=False))
 
         display = df.tail(tail)
         if len(display) < 5:

@@ -173,3 +173,36 @@ def test_generate_report_charts_skips_in_mock_mode(monkeypatch):
     monkeypatch.setenv("USE_MOCK_DATA", "true")
     ratings = [{"stock_id": "US_NVDA", "name": "NVIDIA", "grade": "추천"}]
     assert generate_report_charts(ratings) == []
+
+
+# ── 축 스케일 (보조 y축 오생성 방지) ─────────────────────────────────────────
+# 배경: mplfinance의 make_addplot은 secondary_y 기본값이 'auto'라, 보조선의 값
+# 범위가 주가와 다르다고 판단하면 별도 y축을 만든다. 그 결과 좌우 축 스케일이
+# 어긋나 캔들이 한쪽에 눌리고 두 축의 눈금이 서로 다른 값을 가리켰다
+# (2026-09-01 발송분 SanDisk 주봉: 좌 0~800 / 우 50~2000).
+# 이동평균·볼린저밴드는 주가와 같은 단위이므로 항상 주가 축을 써야 한다.
+
+def test_all_addplots_pin_to_price_axis():
+    import pathlib, re
+    src = (pathlib.Path(__file__).resolve().parents[1]
+           / "app" / "reports" / "chart_generator.py").read_text(encoding="utf-8")
+    calls = re.findall(r"mpf\.make_addplot\((?:[^()]|\([^()]*\))*\)", src)
+    assert calls, "make_addplot 호출을 찾지 못함"
+    missing = [c for c in calls if "secondary_y=False" not in c]
+    assert not missing, f"secondary_y=False 누락 — 별도 축이 생겨 스케일이 어긋난다: {missing}"
+
+
+def test_chart_renders_with_moving_averages_on_one_axis():
+    """실제 렌더링이 예외 없이 끝나는지 확인 (축 설정 오류는 여기서 드러난다)."""
+    import numpy as np
+    import pandas as pd
+    from app.reports.chart_generator import generate_candle_chart_png
+
+    idx = pd.date_range("2025-01-01", periods=150, freq="D")
+    base = np.linspace(100, 2000, 150)          # 주가가 20배 오르는 구간 — 축 분리 유발 조건
+    df = pd.DataFrame({
+        "Open": base, "High": base * 1.02, "Low": base * 0.98,
+        "Close": base, "Volume": np.full(150, 1_000_000),
+    }, index=idx)
+    png = generate_candle_chart_png(df, "축 테스트", tail=120)
+    assert png and len(png) > 1000
