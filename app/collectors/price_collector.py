@@ -89,6 +89,29 @@ def _extract_bar_date(index_value) -> str | None:
             return None
 
 
+def _market_of(stock_id: str) -> str:
+    """종목이 속한 시장. 대상 거래일이 시장마다 다를 수 있어 필요하다 —
+    저녁 결산에서 한국은 당일, 미국은 직전 세션이 정상이다."""
+    return "KR" if stock_id.startswith("KR") else "US"
+
+
+def _truncate_to_target(hist, target_date: str):
+    """대상 거래일까지의 봉만 남긴다 (계약 C2).
+
+    진행 중인 세션의 미완성 봉이 "종가"로 둔갑하던 문제를 끊는 지점이다.
+    실측: 2026-09-02 00:36 발송 저녁 결산이 미국 9/1 장중 수치를 "3대 지수
+    모두 하락 마감"이라 서술했다. 그 시각 미국장은 22:30~05:00 진행 중이었다.
+
+    여기서 한 번 자르면 종가·등락률·거래량·기술적 지표·지지저항·캔들 패턴이
+    전부 같은 기준일 위에서 계산된다 — 뒤쪽 계산을 개별로 손볼 필요가 없다.
+    """
+    keep = [
+        i for i, ix in enumerate(hist.index)
+        if (d := _extract_bar_date(ix)) is not None and d <= target_date
+    ]
+    return hist.iloc[keep]
+
+
 def _calc_technicals(closes, price: float) -> dict:
     """RSI / 이동평균(5·20·60일) / MACD 계산"""
     n = len(closes)
@@ -430,17 +453,28 @@ class PriceCollector:
     def __init__(self) -> None:
         self.use_mock = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 
-    def collect(self, stock_ids: list[str] | None = None) -> dict[str, dict]:
+    def collect(
+        self,
+        stock_ids: list[str] | None = None,
+        target: dict[str, str] | None = None,
+    ) -> dict[str, dict]:
+        """target — 시장별 대상 거래일 {"KR": "2026-09-01", "US": "2026-09-01"}.
+        resolve_target_session()이 확정한 값을 그대로 받는다 (계약 C1)."""
         targets = stock_ids or list(_BASE_PRICES.keys())
         if self.use_mock:
             logger.info("PriceCollector: Mock 모드")
             return self._collect_mock(targets)
-        logger.info("PriceCollector: 실제 데이터 모드 (yfinance)")
-        return self._collect_real(targets)
+        logger.info(
+            "PriceCollector: 실제 데이터 모드 (yfinance) — 대상 거래일 %s",
+            target or "미지정",
+        )
+        return self._collect_real(targets, target)
 
     # ── 실제 데이터 ──────────────────────────────────────────────────────────
 
-    def _collect_real(self, stock_ids: list[str]) -> dict[str, dict]:
+    def _collect_real(
+        self, stock_ids: list[str], target: dict[str, str] | None = None
+    ) -> dict[str, dict]:
         try:
             import yfinance as yf
         except ImportError:
@@ -455,10 +489,15 @@ class PriceCollector:
                 continue
 
             sym, name, currency = YFINANCE_MAP[sid]
+            target_date = (target or {}).get(_market_of(sid))
             try:
                 ticker = yf.Ticker(sym)
                 # 90일 히스토리 → 기술적 지표(MA60, RSI14, MACD) 계산에 충분
                 hist   = ticker.history(period="90d", auto_adjust=True)
+
+                # 계약 C2 — 대상 거래일 이후의 봉을 잘라낸다.
+                if target_date:
+                    hist = _truncate_to_target(hist, target_date)
 
                 close_s = hist["Close"].dropna() if "Close" in hist.columns else None
                 vol_s   = hist["Volume"].dropna() if "Volume" in hist.columns else None

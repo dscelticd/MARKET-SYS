@@ -190,7 +190,9 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         disclosure_col  = DisclosureCollector()
 
         try:
-            price_data = price_col.collect(stock_ids)
+            price_data = price_col.collect(
+                stock_ids, target={"KR": target["kr_date"], "US": target["us_date"]}
+            )
         except Exception as e:
             logger.error("[COLLECTOR_ERROR] 가격 데이터 수집 실패: %s", e)
             raise
