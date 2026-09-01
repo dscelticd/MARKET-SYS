@@ -11,6 +11,7 @@ import os
 import random
 import urllib.request
 from datetime import datetime
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +43,7 @@ _BOK_ALL  = sorted(_BOK_2026  + _BOK_2027)
 
 def _next_meeting_date(dates: list[str]) -> str:
     """오늘 이후 가장 가까운 회의 날짜를 반환"""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = now_kst().strftime("%Y-%m-%d")
     for d in sorted(dates):
         if d >= today:
             return d
@@ -53,7 +54,7 @@ def get_upcoming_policy_meetings(days_ahead: int = 14) -> list[dict]:
     """오늘부터 days_ahead일 이내의 FOMC/한국은행 금통위 일정을 반환.
     calendar_collector.py가 이벤트 캘린더 구성 시 재사용한다."""
     from datetime import timedelta
-    today = datetime.now().date()
+    today = now_kst().date()
     end = today + timedelta(days=days_ahead)
 
     events: list[dict] = []
@@ -327,7 +328,7 @@ class MacroCollector:
             "rates": rates,
             "commodities": commodities,
             "sentiment": sentiment,
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_kst().isoformat(),
             # 주요 지수가 실제로 언제 종가인지 — 리포트가 휴장일 데이터를 "오늘"로
             # 서술하지 않도록 프롬프트에 그대로 전달된다
             "data_dates": {
@@ -461,6 +462,6 @@ class MacroCollector:
                 "ai_capex_cycle":       random.choice(["강한 상승", "완만한 상승", "보합", "둔화"]),
                 "semiconductor_cycle":  random.choice(["업사이클 초반", "업사이클 중반", "피크 논란", "다운사이클"]),
             },
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": now_kst().isoformat(),
             "_mock": True,
         }

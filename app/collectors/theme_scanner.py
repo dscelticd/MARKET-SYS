@@ -13,6 +13,7 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ def _load_theme_universe() -> list[dict]:
 
 def _scan_mock(universe: list[dict]) -> list[dict]:
     from app.utils.market_calendar import is_trading_day, previous_trading_day
-    today = datetime.now().date()
+    today = now_kst().date()
     data_date = (today if is_trading_day(today) else previous_trading_day(today)).isoformat()
     return [
         {**t, "change_pct": round(random.uniform(-4.0, 4.0), 2), "price": None,

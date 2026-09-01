@@ -44,6 +44,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +123,7 @@ class TelegramNotifier:
         if not reasons:
             return False
 
-        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now   = now_kst().strftime("%Y-%m-%d %H:%M")
         label = "📅 아침" if report_type == "morning" else "🌙 저녁"
         lines = [
             f"⚠️ *Market Flow {label} 데이터 품질 경고*",
@@ -149,7 +150,7 @@ class TelegramNotifier:
         """
         if not self.is_configured():
             return False
-        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now   = now_kst().strftime("%Y-%m-%d %H:%M")
         label = "📅 아침" if report_type == "morning" else "🌙 저녁"
         lines = [
             f"🚨 *Market Flow {label} 치명적 데이터 오류 감지*",
@@ -180,7 +181,7 @@ class TelegramNotifier:
         """
         if not self.is_configured():
             return False
-        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now   = now_kst().strftime("%Y-%m-%d %H:%M")
         label = "📅 아침" if report_type == "morning" else "🌙 저녁"
         fail_pct = (fail_count / total_count * 100) if total_count else 0
         lines = [
@@ -208,7 +209,7 @@ class TelegramNotifier:
         """
         if not self.is_configured():
             return False
-        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now   = now_kst().strftime("%Y-%m-%d %H:%M")
         label = "📅 아침" if report_type == "morning" else "🌙 저녁"
         lines = [
             f"🚨 *Market Flow {label} 리포트 금지 표현 감지*",
@@ -226,7 +227,7 @@ class TelegramNotifier:
         """파이프라인 오류 알림"""
         if not self.is_configured():
             return
-        now = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now = now_kst().strftime("%Y-%m-%d %H:%M")
         msg = (
             f"🚨 *Market Flow 오류 알림*\n"
             f"일시: {now}\n"
@@ -280,7 +281,7 @@ class TelegramNotifier:
     def _build_message(
         alerts: list[dict], data_confidence: float, report_type: str
     ) -> str:
-        now   = datetime.now().strftime("%Y-%m-%d %H:%M")
+        now   = now_kst().strftime("%Y-%m-%d %H:%M")
         label = "📅 아침" if report_type == "morning" else "🌙 저녁"
 
         lines = [

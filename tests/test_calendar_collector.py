@@ -137,9 +137,7 @@ def test_fetch_fred_events_skips_indicator_on_failure(tmp_path, monkeypatch):
 def test_get_kr_filing_deadlines_finds_deadline_in_window():
     # 오늘이 사업보고서 법정기한(전년 12/31 + 90일) 직전이 되도록 today를 고정
     fixed_today = datetime(2026, 3, 25)
-    with patch("app.collectors.calendar_collector.datetime") as mock_dt:
-        mock_dt.now.return_value = fixed_today
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    with patch("app.collectors.calendar_collector.now_kst", return_value=fixed_today):
         events = get_kr_filing_deadlines(days_ahead=14)
 
     assert any(e["category"] == "filing_deadline" and "사업보고서" in e["title"] for e in events)
@@ -149,9 +147,7 @@ def test_get_kr_filing_deadlines_finds_deadline_in_window():
 
 def test_get_kr_filing_deadlines_returns_empty_when_nothing_in_window():
     fixed_today = datetime(2026, 1, 5)  # 어떤 마감일과도 멀리 떨어진 날짜
-    with patch("app.collectors.calendar_collector.datetime") as mock_dt:
-        mock_dt.now.return_value = fixed_today
-        mock_dt.side_effect = lambda *a, **kw: datetime(*a, **kw)
+    with patch("app.collectors.calendar_collector.now_kst", return_value=fixed_today):
         events = get_kr_filing_deadlines(days_ahead=3)
 
     assert events == []

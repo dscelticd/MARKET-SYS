@@ -16,6 +16,7 @@ from pathlib import Path
 
 import schedule
 import time
+from app.utils.market_calendar import now_kst
 
 # Windows UTF-8
 if sys.platform == "win32":
@@ -45,7 +46,7 @@ except ImportError:
 
 
 def run_report(report_type: str, send_email: bool = True) -> None:
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = now_kst().strftime("%Y-%m-%d %H:%M:%S")
     label = "아침 브리핑" if report_type == "morning" else "저녁 결산"
     logger.info(f"[자동 실행 시작] {label} — {now}")
 

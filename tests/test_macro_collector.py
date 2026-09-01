@@ -112,9 +112,7 @@ def test_next_meeting_falls_back_to_last_when_all_past():
 
 def test_upcoming_policy_meetings_filters_to_window():
     fixed = datetime(2026, 9, 10)
-    with patch("app.collectors.macro_collector.datetime") as mock_dt:
-        mock_dt.now.return_value = fixed
-        mock_dt.strptime = datetime.strptime
+    with patch("app.collectors.macro_collector.now_kst", return_value=fixed):
         events = get_upcoming_policy_meetings(days_ahead=14)
     assert events, "9/16 FOMC가 14일 창에 들어와야 한다"
     for e in events:
@@ -125,9 +123,7 @@ def test_upcoming_policy_meetings_filters_to_window():
 
 def test_upcoming_policy_meetings_empty_window_returns_empty():
     fixed = datetime(2026, 9, 1)
-    with patch("app.collectors.macro_collector.datetime") as mock_dt:
-        mock_dt.now.return_value = fixed
-        mock_dt.strptime = datetime.strptime
+    with patch("app.collectors.macro_collector.now_kst", return_value=fixed):
         assert get_upcoming_policy_meetings(days_ahead=3) == []
 
 
@@ -210,13 +206,17 @@ def test_macro_keeps_yfinance_values_when_kis_unavailable(monkeypatch):
 # ── 지수 신선도 검증 ─────────────────────────────────────────────────────────
 
 def test_stale_index_versus_stock_data_raises_warning():
-    """지수가 종목보다 과거면 경고해야 한다 — 기존에는 '✅ 정상'으로 통과했다."""
+    """지수가 같은 시장 종목보다 과거면 경고해야 한다 — 기존에는 '✅ 정상'으로 통과했다.
+
+    (비교 기준을 '전체 종목의 최신 날짜'에서 '같은 시장 종목'으로 바꿨다 —
+     시장 간 시차로 정상 상황이 오탐되던 문제 때문. test_timezone.py 참고)
+    """
     from app.utils.data_validator import DataValidator
     price = {"KR_005930": {"change_pct": 1.17, "_mock": False, "data_date": "2026-08-31"}}
     macro = {"kr_market": {"KOSPI": {"value": 6912.37, "change_pct": 1.53}},
              "data_dates": {"KOSPI": "2026-08-27"}, "_mock": False}
     _, _, warnings = DataValidator._validate_kospi_consistency(price, macro)
-    assert any("지수가 종목 데이터보다 과거" in w for w in warnings)
+    assert any("지수가 같은 시장 종목보다 과거" in w for w in warnings)
 
 
 def test_aligned_index_dates_produce_no_staleness_warning():

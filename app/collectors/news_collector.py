@@ -21,6 +21,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from html import unescape
 from urllib.parse import quote as _url_quote
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -309,7 +310,7 @@ def _parse_naver_pubdate(pub_date_str: str) -> str:
         dt = parsedate_to_datetime(pub_date_str)
         return dt.isoformat()
     except Exception:
-        return datetime.now().isoformat()
+        return now_kst().isoformat()
 
 
 class NewsCollector:
@@ -462,7 +463,7 @@ class NewsCollector:
                     elif pub_ts:
                         published_at = datetime.fromtimestamp(int(pub_ts)).isoformat()
                     else:
-                        published_at = datetime.now().isoformat()
+                        published_at = now_kst().isoformat()
 
                     publisher = (
                         (content.get("provider") or {}).get("displayName", "")
@@ -493,7 +494,7 @@ class NewsCollector:
     ) -> dict[str, list[dict]]:
         targets_set = set(stock_ids)
         result: dict[str, list[dict]] = {}
-        now = datetime.now()
+        now = now_kst()
 
         for news in _NEWS_POOL:
             relevant = news["stock_ids"]

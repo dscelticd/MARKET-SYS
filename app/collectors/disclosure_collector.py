@@ -16,6 +16,7 @@ import os
 import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class DisclosureCollector:
     def _collect_real(self, stock_ids: list[str]) -> dict[str, list[dict]]:
         result: dict[str, list[dict]] = {}
         # 최근 7일 공시 수집
-        end_dt   = datetime.now()
+        end_dt   = now_kst()
         start_dt = end_dt - timedelta(days=7)
         bgn_de   = start_dt.strftime("%Y%m%d")
         end_de   = end_dt.strftime("%Y%m%d")

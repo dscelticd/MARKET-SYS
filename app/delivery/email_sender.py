@@ -413,7 +413,7 @@ def _build_html_email(
     body_html = _markdown_to_html_body(body_md)
     news_html = _build_news_html(news_data or {}, ratings)
     charts_html = _build_charts_html(chart_images)
-    now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+    now_str = now_kst().strftime("%Y-%m-%d %H:%M")
 
     return f"""<!DOCTYPE html>
 <html lang="ko">
@@ -479,6 +479,7 @@ def _build_html_email(
 _EMAIL_RE = re.compile(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$")
 
 import logging as _logging
+from app.utils.market_calendar import now_kst
 _logger_es = _logging.getLogger(__name__)
 
 
@@ -569,7 +570,7 @@ class EmailSender:
         ratings: list[dict] | None = None,
         chart_images: list[dict] | None = None,
     ) -> bool:
-        date = date_str or datetime.now().strftime("%Y-%m-%d")
+        date = date_str or now_kst().strftime("%Y-%m-%d")
         type_label = "아침 브리핑" if report_type == "morning" else "저녁 결산"
         # 제목 형식은 config/report_config.json의 email.subject_* 에서 가져온다.
         # 기존에는 여기서 하드코딩해 config 값이 정의만 되고 무시되고 있었다.

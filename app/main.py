@@ -61,6 +61,7 @@ from app.reports.report_builder import (
 )
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
+from app.utils.market_calendar import now_kst
 
 
 # ── 로깅 설정 ────────────────────────────────────────────────────────────────
@@ -151,8 +152,8 @@ def _summarize_investor_flow_sources(price_data: dict) -> str:
 
 def run_pipeline(report_type: str, send_email: bool) -> None:
     _setup_logging()
-    date_str = datetime.now().strftime("%Y-%m-%d")
-    time_str = datetime.now().strftime("%H:%M")
+    date_str = now_kst().strftime("%Y-%m-%d")
+    time_str = now_kst().strftime("%H:%M")
 
     logger.info("파이프라인 시작 — type=%s  date=%s %s", report_type, date_str, time_str)
     print(f"\n{BOLD}🚀 Market Flow Intelligence System{RESET}")
@@ -528,7 +529,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             raise
 
         # 등급 JSON도 함께 저장 (대시보드 참조용)
-        date_prefix = datetime.now().strftime("%Y%m%d")
+        date_prefix = now_kst().strftime("%Y%m%d")
         json_path = save_dir / f"{date_prefix}_{report_type}_ratings.json"
         # 뉴스 요약: 파일 크기 제한을 위해 종목당 최대 3건만 저장
         news_summary = {k: v[:3] for k, v in news_data.items() if v}
@@ -549,7 +550,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                     "factor_accuracy": factor_accuracy,
                     "event_calendar": event_calendar,
                     "data_freshness": data_freshness,
-                    "collected_at": datetime.now().strftime("%Y-%m-%d %H:%M KST"),
+                    "collected_at": now_kst().strftime("%Y-%m-%d %H:%M KST"),
                 },
                 ensure_ascii=False, indent=2,
             ),

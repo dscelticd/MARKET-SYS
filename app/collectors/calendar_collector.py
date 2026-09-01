@@ -27,6 +27,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 import requests
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -130,7 +131,7 @@ class CalendarCollector:
             logger.warning("FRED release 목록 조회 실패: %s", e)
             return []
 
-        today = datetime.now().date()
+        today = now_kst().date()
         end = today + timedelta(days=days_ahead)
         events: list[dict] = []
 
@@ -170,7 +171,7 @@ class CalendarCollector:
 def get_kr_filing_deadlines(days_ahead: int = 14) -> list[dict]:
     """분기/반기/사업보고서 법정 제출기한. 대상 종목은 12월 결산 법인으로 가정
     (워치리스트 KR 종목 6개 전부 12월 결산 확인됨)."""
-    today = datetime.now().date()
+    today = now_kst().date()
     end = today + timedelta(days=days_ahead)
 
     # (기말월, 기말일, 제출기한 일수, 보고서명)

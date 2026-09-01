@@ -14,9 +14,29 @@ KOSPI는 목요일 바를 주는 경우가 실제로 관측됐다(2026-08-22 토
 """
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 _WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
+
+KST = timezone(timedelta(hours=9))
+
+
+def now_kst() -> datetime:
+    """한국 시각 기준 현재 시각 (naive datetime).
+
+    코드 전반이 `datetime.now()`를 쓰면서 결과를 KST로 간주해왔는데, GitHub Actions
+    러너는 UTC라 9시간 어긋났다. 실측(2026-09-01): 리포트 헤더가 "00:31 KST"로
+    찍혔으나 실제 수신 시각은 09:31 KST였다.
+
+    표기만의 문제가 아니다. 아침 크론(22:10 UTC = 07:10 KST 다음날)이 돌면
+    `datetime.now().date()`가 **전날**이 되어 리포트 파일명·등급 이력 키가 하루씩
+    밀리고, 금요일 22:10 UTC(= 토요일 07:10 KST)를 "금요일=거래일"로 판정해
+    주말 처리 로직이 통째로 무력화된다.
+
+    tz-aware가 아니라 naive로 반환하는 이유: 기존 코드가 strptime 결과(naive)와
+    직접 비교하는 곳이 많아, aware를 반환하면 TypeError가 곳곳에서 터진다.
+    """
+    return datetime.now(KST).replace(tzinfo=None)
 
 
 def weekday_kr(d: date) -> str:
@@ -47,6 +67,47 @@ def previous_trading_day(d: date) -> date:
     return cur
 
 
+# 정규장 시간 (현지 기준). 한국은 KST, 미국은 ET.
+_SESSION_HOURS = {
+    "KR": ((9, 0), (15, 30), 0),    # 09:00~15:30 KST — KST와 시차 0
+    "US": ((9, 30), (16, 0), -13),  # 09:30~16:00 ET — KST 대비 -13시간(서머타임 기준)
+}
+
+# 종목 ID 접두사 → 시장. 지수는 이름으로 매핑한다.
+_INDEX_MARKET = {
+    "KOSPI": "KR", "KOSDAQ": "KR",
+    "SP500": "US", "NASDAQ": "US", "SOX": "US", "DOW": "US",
+}
+
+
+def index_market(index_name: str) -> str | None:
+    """지수 이름이 어느 시장인지. 모르면 None."""
+    return _INDEX_MARKET.get(index_name)
+
+
+def market_session_state(market: str, now: datetime | None = None) -> str:
+    """시장의 현재 세션 상태 — '개장전' | '개장중' | '마감' | '휴장'.
+
+    "9월 1일 종가 기준"처럼 장중 가격을 종가로 표기하던 문제(2026-09-01 09:31 발송분
+    실측)와, 미국 장이 아직 열리지 않은 정상 상황을 "지수가 종목보다 과거"라고
+    경고하던 오탐을 함께 잡기 위해 도입했다.
+    """
+    now = now or now_kst()
+    hours = _SESSION_HOURS.get(market)
+    if hours is None:
+        return "마감"
+    (oh, om), (ch, cm), offset = hours
+    local = now + timedelta(hours=offset)
+    if not is_trading_day(local.date()):
+        return "휴장"
+    minutes = local.hour * 60 + local.minute
+    if minutes < oh * 60 + om:
+        return "개장전"
+    if minutes <= ch * 60 + cm:
+        return "개장중"
+    return "마감"
+
+
 def _parse_date(value: str | None) -> date | None:
     if not value:
         return None
@@ -73,7 +134,7 @@ def summarize_data_freshness(
       stale_days        — run_date - latest_data_date (달력일)
       has_fresh_data    — 오늘자 데이터가 하나라도 있는지
     """
-    now = now or datetime.now()
+    now = now or now_kst()
     run_date = now.date()
 
     summary: dict = {
@@ -86,6 +147,8 @@ def summarize_data_freshness(
         "date_counts": {},
         "stale_days": None,
         "has_fresh_data": False,
+        # 시장별 세션 상태 — 장중 가격을 "종가"로 표기하던 문제를 막기 위해 전달한다
+        "sessions": {mk: market_session_state(mk, now) for mk in ("KR", "US")},
     }
 
     if not price_data:

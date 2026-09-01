@@ -17,6 +17,7 @@ from bs4 import BeautifulSoup
 
 from app.collectors.kis_collector import KISCollector
 from app.utils.market_calendar import is_trading_day, previous_trading_day
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -472,7 +473,7 @@ class PriceCollector:
 
                 # 이 가격이 "실제로 언제 종가인지" — 주말·휴장일에 금요일 종가를
                 # 당일 등락률로 오인해 보고하던 문제의 핵심 수정점. yfinance 인덱스가
-                # 진짜 거래일을 주는데 기존에는 버리고 datetime.now()만 남기고 있었다.
+                # 진짜 거래일을 주는데 기존에는 버리고 now_kst()만 남기고 있었다.
                 # 심볼마다 반영 시점이 달라(같은 실행에서 삼성전자=금, KOSPI=목 관측)
                 # 종목별로 개별 기록한다.
                 data_date = _extract_bar_date(close_s.index[-1])
@@ -545,7 +546,7 @@ class PriceCollector:
                     "low_52w":       round(low_52w,  2),
                     "market_cap_b":  mktcap,
                     "currency":      currency,
-                    "timestamp":     datetime.now().isoformat(),
+                    "timestamp":     now_kst().isoformat(),
                     "data_date":      data_date,       # 종가의 실제 거래일
                     "prev_data_date": prev_data_date,  # change_pct 비교 대상 거래일
                     "_mock":         False,
@@ -565,10 +566,10 @@ class PriceCollector:
 
     def _collect_mock(self, stock_ids: list[str]) -> dict[str, dict]:
         result: dict[str, dict] = {}
-        timestamp = datetime.now().isoformat()
+        timestamp = now_kst().isoformat()
         # Mock도 실제 데이터와 같은 기준일 규칙을 따르게 한다 — 주말에 Mock 모드로
         # 돌려도 "금요일 종가" 상태가 재현돼야 휴장일 처리 경로를 테스트할 수 있음
-        _today = datetime.now().date()
+        _today = now_kst().date()
         _mock_data_date = (_today if is_trading_day(_today) else previous_trading_day(_today))
         mock_data_date = _mock_data_date.isoformat()
         mock_prev_date = previous_trading_day(_mock_data_date).isoformat()

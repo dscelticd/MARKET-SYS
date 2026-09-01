@@ -23,6 +23,7 @@ from datetime import datetime
 from pathlib import Path
 
 import requests
+from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
 
@@ -206,7 +207,7 @@ class KISCollector:
             raise RuntimeError("KIS 토큰 발급 실패")
 
         iscd, market = _INDEX_CODES[name]
-        today = datetime.now().strftime("%Y%m%d")
+        today = now_kst().strftime("%Y%m%d")
         resp = requests.get(
             f"{self.base_url}/uapi/domestic-stock/v1/quotations/inquire-investor-daily-by-market",
             headers={

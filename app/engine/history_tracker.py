@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from app.utils.market_calendar import is_trading_day
+from app.utils.market_calendar import now_kst
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _HISTORY_DIR  = _PROJECT_ROOT / "data" / "history"
@@ -116,7 +117,7 @@ class HistoryTracker:
           data_quality                                    — 전체 신뢰도 요약
           generated_at                                    — 리포트 생성 시각
         """
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = now_kst().strftime("%Y-%m-%d")
         key   = f"{today}_{report_type}"
 
         # 이 스냅샷의 가격이 실제로 어느 거래일 것인지 — 주말 실행이면 실행일(today)과
@@ -134,8 +135,8 @@ class HistoryTracker:
             "schema_version":   "1.3",
             "date":             today,
             "report_type":      report_type,
-            "generated_at":     datetime.now().isoformat(),
-            "is_trading_day":   is_trading_day(datetime.now().date()),
+            "generated_at":     now_kst().isoformat(),
+            "is_trading_day":   is_trading_day(now_kst().date()),
             "data_date":        data_date,
             # ── 등급/점수 ──
             "grades":           {},   # final_grade (표시 등급)
@@ -255,7 +256,7 @@ class HistoryTracker:
     def get_history(self, stock_id: str, days: int = 7) -> list[dict]:
         """특정 종목의 최근 N일 등급/점수 이력 반환"""
         result = []
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = now_kst() - timedelta(days=days)
 
         for key, entry in sorted(self._data.items()):
             try:
@@ -279,7 +280,7 @@ class HistoryTracker:
 
     def get_all_history(self, days: int = 30) -> list[dict]:
         """전체 이력 반환 (대시보드용)"""
-        cutoff = datetime.now() - timedelta(days=days)
+        cutoff = now_kst() - timedelta(days=days)
         result = []
         for key, entry in sorted(self._data.items()):
             try:
@@ -439,7 +440,7 @@ class HistoryTracker:
         """오늘로부터 lookback_days 이전 시점에 가장 가까운(그 시점 또는 그 이전 중 최신)
         저장 항목을 반환. 같은 날짜에 아침/저녁 두 건이 있으면 아침을 우선한다.
         """
-        target_date = datetime.now() - timedelta(days=lookback_days)
+        target_date = now_kst() - timedelta(days=lookback_days)
         dated: list[tuple[datetime, dict]] = []
         for entry in self._data.values():
             # 주말 엔트리는 직전 거래일 종가를 복사한 중복본이라 기준점으로 쓰면
@@ -491,7 +492,7 @@ class HistoryTracker:
         주말 엔트리는 새 거래가 없는 중복 스냅샷이므로 비교 대상에서 제외한다 —
         그렇지 않으면 월요일 리포트가 "일요일 대비 변화 없음"이라는 무의미한 비교를
         하게 되고, 실제로 필요한 금요일 대비 변화가 가려진다."""
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = now_kst().strftime("%Y-%m-%d")
         candidates = [
             v for k, v in self._data.items()
             if v.get("report_type") == report_type
@@ -505,7 +506,7 @@ class HistoryTracker:
     def get_last_data_date(self, report_type: str | None = None) -> str | None:
         """직전 실행(오늘 제외)이 다룬 데이터 기준일. 리포트가 "직전 리포트 이후
         새로운 거래가 없음"을 판별하는 데 쓰인다."""
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = now_kst().strftime("%Y-%m-%d")
         candidates = [
             v for v in self._data.values()
             if v.get("date") != today and v.get("data_date")

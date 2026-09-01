@@ -18,6 +18,7 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
+from app.utils.market_calendar import now_kst
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -127,7 +128,9 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - 휴장일(주말) 실행이라고 표시된 경우: "오늘 시장이 하락했다"처럼 오늘 거래가 있었던 것처럼 쓰지 마세요. 반드시 "8월 21일(금) 종가 기준"처럼 실제 거래일을 명시하고, "직전 거래일", "금요일 마감 기준" 같은 표현을 쓰세요.
 - "직전 리포트 이후 새로운 거래가 없습니다"라고 표시된 경우: 이 사실을 리포트 도입부에 명확히 알리고, 새 시장 움직임이 있었던 것처럼 서술하지 마세요. 이럴 때는 새로운 등락 해설 대신 다음 거래일 관전 포인트와 누적된 흐름 정리에 집중하세요.
 - "종목별 데이터 기준일이 서로 다릅니다"라고 표시된 경우: 기준일이 다른 종목의 등락률을 같은 날 움직임처럼 비교·연결하지 마세요(예: 8/28 기준 종목과 8/27 기준 종목의 등락을 "같은 날 엇갈렸다"고 해석하면 안 됩니다). 필요하면 기준일이 다르다는 점을 독자에게 알리세요.
-- 등급·점수는 위 기준일 데이터로 산출된 것입니다. 등급 변화를 언급할 때도 "오늘 바뀌었다"가 아니라 어느 거래일 기준인지 함께 밝히세요."""
+- 등급·점수는 위 기준일 데이터로 산출된 것입니다. 등급 변화를 언급할 때도 "오늘 바뀌었다"가 아니라 어느 거래일 기준인지 함께 밝히세요.
+- **"시장이 개장 중"이라고 표시된 경우 해당 시장 수치를 "종가"라고 쓰지 마세요.** 아직 마감 전이라 장중 현재가이며 마감까지 변합니다 — "9월 1일 장중"·"현재가 기준"처럼 쓰고, 마감된 시장만 "종가"로 서술하세요.
+- "시장 상태" 줄에 각 시장이 개장전/개장중/마감/휴장 중 무엇인지 표시됩니다. 서로 다른 상태의 시장을 비교할 때는 그 사실을 밝히세요(예: 한국은 마감했고 미국은 개장 전이라 아직 오늘 움직임이 없음)."""
 
 
 def _format_price_block(price_data: dict[str, dict]) -> str:
@@ -714,9 +717,24 @@ def _format_market_session_block(
     elif stale_days and stale_days > 0:
         lines.append(f"  ⚠️ 아직 오늘 종가가 없습니다(장 시작 전이거나 반영 지연).")
 
+    sessions = freshness.get("sessions") or {}
     if latest:
-        lines.append(f"  ▶ 아래 모든 가격·등락률은 {latest} 종가 기준입니다"
+        # 장이 열려 있는 동안의 당일 데이터는 종가가 아니라 장중 현재가다.
+        # 실측(2026-09-01 09:31 발송분): 개장 31분 후인데 "9월 1일 종가 기준"으로 표기됐다.
+        intraday_markets = [
+            mk for mk, st in sessions.items()
+            if st == "개장중" and latest == freshness.get("run_date")
+        ]
+        kind = "종가" if not intraday_markets else "가격"
+        lines.append(f"  ▶ 아래 모든 가격·등락률은 {latest} {kind} 기준입니다"
                      f"{f' (실행일 기준 {stale_days}일 전)' if stale_days else ''}.")
+        if intraday_markets:
+            lines.append(
+                f"  ⚠️ {'·'.join(intraday_markets)} 시장이 **개장 중**입니다 — 해당 시장 수치는"
+                " 종가가 아니라 장중 현재가이며 마감까지 변할 수 있습니다."
+            )
+    if sessions:
+        lines.append("  ▶ 시장 상태: " + " / ".join(f"{mk} {st}" for mk, st in sessions.items()))
 
     if freshness.get("mixed_dates"):
         counts = freshness.get("date_counts", {})
@@ -944,7 +962,7 @@ class ReportBuilder:
         factor_accuracy: dict | None = None,
         max_tokens: int = 10000,
     ) -> str:
-        date_str = report_date or datetime.now().strftime("%Y-%m-%d")
+        date_str = report_date or now_kst().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
 
         technical_block = _format_technical_block(price_data)
@@ -1066,7 +1084,7 @@ class ReportBuilder:
         factor_accuracy: dict | None = None,
         max_tokens: int = 10000,
     ) -> str:
-        date_str = report_date or datetime.now().strftime("%Y-%m-%d")
+        date_str = report_date or now_kst().strftime("%Y-%m-%d")
         changes_block = _format_changes_block(grade_changes or [])
 
         technical_block = _format_technical_block(price_data)
@@ -1273,7 +1291,7 @@ NVIDIA Blackwell 수요 → SK하이닉스 HBM → TSMC 패키징 → LS ELECTRI
 
 def save_report(content: str, report_type: str, save_dir: Path) -> Path:
     """리포트를 날짜별 파일로 저장"""
-    date_str = datetime.now().strftime("%Y%m%d")
+    date_str = now_kst().strftime("%Y%m%d")
     filename = f"{date_str}_{report_type}.md"
     filepath = save_dir / filename
     filepath.write_text(content, encoding="utf-8")
