@@ -735,7 +735,9 @@ def _holidays_between(start: str, end: str, market: str) -> list[str]:
     return names
 
 
-def _format_target_session_block(target: dict, freshness: dict | None) -> str:
+def _format_target_session_block(
+    target: dict, freshness: dict | None, macro_data: dict | None = None
+) -> str:
     """리포트의 기준 세션을 선언한다 (계약 C6).
 
     이전에는 수집된 데이터의 기준일 산포를 사후에 관찰해 설명했다 —
@@ -787,17 +789,36 @@ def _format_target_session_block(target: dict, freshness: dict | None) -> str:
                 " 엮어 인과를 만들지 마세요."
             )
 
+    # 뉴스·공시는 일부러 자르지 않는다 — 아침 브리핑에 밤사이 소식이 빠지면
+    # 쓸모가 없다. 대신 시점이 다르다는 사실을 못박는다. 이걸 빠뜨리면
+    # "가격은 9/1, 뉴스는 9/2"인 상태에서 나중 뉴스로 앞선 등락을 설명하는
+    # 거꾸로 된 인과가 만들어진다.
+    lines.append(
+        "  ▶ 뉴스·공시는 위 기준일이 아니라 **작성 시점까지의 최신 정보**입니다."
+        " 기준일 이후에 나온 소식으로 기준일의 등락을 설명하지 마세요 —"
+        " 그 소식은 아직 가격에 반영되지 않았습니다. 앞으로의 관전 포인트로만 쓰세요."
+    )
+
     # ── 계약 위반 감지 ──
     # 여기 걸리는 것은 수집 단계에서 이미 막았어야 하는 상태다. 리포트에서
     # 얼버무리지 말고 드러낸다.
     violations: list[str] = []
+    allowed = {d for d in (kr, us) if d}
     if freshness:
         counts = freshness.get("date_counts") or {}
-        allowed = {d for d in (kr, us) if d}
         stray = {d: n for d, n in counts.items() if d not in allowed}
         if stray:
             detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
-            violations.append(f"대상 세션과 다른 기준일의 데이터가 섞였습니다 — {detail}")
+            violations.append(f"대상 세션과 다른 기준일의 종목 데이터가 섞였습니다 — {detail}")
+
+    # 지수도 함께 본다. 종목만 검사하던 탓에 실제 위반을 놓친 적이 있다 —
+    # 2026-09-02 09:03 실행분에서 종목은 전부 9/1이었지만 KOSPI·KOSDAQ이
+    # 9/2 장중값이었고, 리포트는 "9월 1일 종가 기준"이라 선언한 채 나갔다.
+    macro_dates = (macro_data or {}).get("data_dates") or {}
+    stray_idx = {k: v for k, v in macro_dates.items() if v and v not in allowed}
+    if stray_idx:
+        detail = " / ".join(f"{k} {v}" for k, v in sorted(stray_idx.items()))
+        violations.append(f"대상 세션과 다른 기준일의 지수가 섞였습니다 — {detail}")
 
     if violations:
         for v in violations:
@@ -822,7 +843,7 @@ def _format_market_session_block(
     호출부는 예전처럼 관측된 기준일을 설명하는 방식으로 동작한다.
     """
     if target:
-        block = _format_target_session_block(target, freshness)
+        block = _format_target_session_block(target, freshness, macro_data)
         latest = (freshness or {}).get("latest_data_date")
         if prev_report_data_date and latest and prev_report_data_date == latest:
             block += "\n  ▶ 직전 리포트 이후 새로운 거래가 없습니다 — 가격 데이터가 직전과 동일합니다."

@@ -41,6 +41,35 @@ _BOK_2027 = [
 _FOMC_ALL = sorted(_FOMC_2026 + _FOMC_2027)
 _BOK_ALL  = sorted(_BOK_2026  + _BOK_2027)
 
+# 심볼이 어느 시장의 거래일을 따르는지.
+# 국내 지수만 KR이고 나머지는 US로 본다 — 환율·원자재는 사실상 24시간 거래라
+# 고유한 "세션"이 없으므로, 미국 대상 거래일에 맞춰 일관되게 자른다.
+_KR_SYMBOLS = {"^KS11", "^KQ11"}
+
+
+def _symbol_market(sym: str) -> str:
+    return "KR" if sym in _KR_SYMBOLS else "US"
+
+
+def _bar_date_of(index_value) -> str | None:
+    try:
+        return index_value.date().isoformat()
+    except AttributeError:
+        try:
+            return str(index_value)[:10]
+        except Exception:
+            return None
+
+
+def _truncate_hist(hist, target_date: str):
+    """대상 거래일 이후의 봉을 잘라낸다 (계약 C2)."""
+    keep = [
+        i for i, ix in enumerate(hist.index)
+        if (d := _bar_date_of(ix)) is not None and d <= target_date
+    ]
+    return hist.iloc[keep]
+
+
 def _next_meeting_date(dates: list[str]) -> str:
     """오늘 이후 가장 가까운 회의 날짜를 반환"""
     today = now_kst().strftime("%Y-%m-%d")
@@ -101,16 +130,16 @@ class MacroCollector:
     def __init__(self) -> None:
         self.use_mock = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
 
-    def collect(self) -> dict:
+    def collect(self, target: dict[str, str] | None = None) -> dict:
         if self.use_mock:
             logger.info("MacroCollector: Mock 모드")
             return self._collect_mock()
         logger.info("MacroCollector: 실제 데이터 모드 (yfinance)")
-        return self._collect_real()
+        return self._collect_real(target)
 
     # ── 실제 데이터 ──────────────────────────────────────────────────────────
 
-    def _collect_real(self) -> dict:
+    def _collect_real(self, target: dict[str, str] | None = None) -> dict:
         try:
             import yfinance as yf
             import pandas as pd
@@ -122,9 +151,23 @@ class MacroCollector:
         _cache: dict[str, object] = {}
 
         def _get_hist(sym: str):
+            """대상 거래일까지의 봉만 돌려준다 (계약 C2).
+
+            여기가 단일 관문이라, 자르는 것도 여기서 한 번만 하면
+            last_close·prev_close_val·chg_pct·bar_date가 모두 같은 기준일 위에
+            놓인다. 가격 수집기만 고치고 이곳을 놓쳤던 탓에, 대상 세션이 9/1인
+            리포트에 KOSPI가 9/2 장중값(-3.00%)으로 실린 적이 있다.
+
+            기간을 30d로 잡은 이유: 설·추석 연휴 뒤에는 10일치를 잘라내면
+            비교용 직전 봉(iloc[-2])이 남지 않을 수 있다.
+            """
             if sym not in _cache:
                 try:
-                    _cache[sym] = yf.Ticker(sym).history(period="10d", auto_adjust=True)
+                    hist = yf.Ticker(sym).history(period="30d", auto_adjust=True)
+                    tdate = (target or {}).get(_symbol_market(sym))
+                    if tdate is not None and hist is not None and not hist.empty:
+                        hist = _truncate_hist(hist, tdate)
+                    _cache[sym] = hist
                 except Exception:
                     _cache[sym] = None
             return _cache[sym]
@@ -242,7 +285,7 @@ class MacroCollector:
             if kis.is_configured():
                 for name in ("KOSPI", "KOSDAQ"):
                     try:
-                        idx = kis.fetch_market_index(name)
+                        idx = kis.fetch_market_index(name, target_date=(target or {}).get("KR"))
                         kr_market[name] = {
                             "value": idx["value"],
                             "change_pct": idx["change_pct"],

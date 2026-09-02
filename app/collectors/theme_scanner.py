@@ -43,7 +43,9 @@ def _scan_mock(universe: list[dict]) -> list[dict]:
     ]
 
 
-def scan_theme_strength(use_mock: bool = False) -> list[dict]:
+def scan_theme_strength(
+    use_mock: bool = False, target: dict[str, str] | None = None
+) -> list[dict]:
     """테마 유니버스 각 ETF의 당일 등락률을 조회해 강한 순으로 정렬 반환.
     반환 항목: {id, name, ticker, market, change_pct, price, _mock}
     개별 종목 실패는 건너뛰고 계속 진행 — 이 기능 전체가 보조 진단이라 하나의
@@ -65,7 +67,20 @@ def scan_theme_strength(use_mock: bool = False) -> list[dict]:
     results = []
     for theme in universe:
         try:
-            hist = yf.Ticker(theme["ticker"]).history(period="5d", auto_adjust=True)
+            hist = yf.Ticker(theme["ticker"]).history(period="20d", auto_adjust=True)
+            # 테마 유니버스에는 미국 ETF(XLK 등)와 국내 ETF(305720.KS 등)가
+            # 섞여 있다. 미국 기준일을 일괄 적용하면 국내 ETF가 하루 어긋난다 —
+            # 두 시장의 대상 거래일은 휴장·개장 시각 때문에 자주 갈린다.
+            market = "KR" if theme["ticker"].endswith((".KS", ".KQ")) else "US"
+            target_date = (target or {}).get(market)
+            if target_date is not None and hist is not None and not hist.empty:
+                # 계약 C2 — 장중 봉이 테마 등락률로 잡히면 본문 수치와 어긋난다
+                def _d(ix):
+                    try:
+                        return ix.date().isoformat()
+                    except AttributeError:
+                        return str(ix)[:10]
+                hist = hist.iloc[[i for i, ix in enumerate(hist.index) if _d(ix) <= target_date]]
             close = hist["Close"].dropna()
             if len(close) < 2:
                 continue

@@ -159,20 +159,39 @@ def generate_candle_chart_png(df: pd.DataFrame | None, title: str, tail: int) ->
         return None
 
 
-def fetch_chart_history(sym: str, period: str = "1y") -> pd.DataFrame | None:
+def _truncate_to(hist, target_date: str):
+    """대상 거래일 이후의 봉을 잘라낸다 (계약 C2)."""
+    def _d(ix):
+        try:
+            return ix.date().isoformat()
+        except AttributeError:
+            return str(ix)[:10]
+    return hist.iloc[[i for i, ix in enumerate(hist.index) if _d(ix) <= target_date]]
+
+
+def fetch_chart_history(
+    sym: str, period: str = "1y", target_date: str | None = None
+) -> pd.DataFrame | None:
     """차트 전용 장기 일봉 히스토리 수집 — 기존 price_collector의 90일 수집과 별개
-    (MA120·주봉 계산에 필요한 더 긴 이력)"""
+    (MA120·주봉 계산에 필요한 더 긴 이력)
+
+    target_date를 주면 그날까지만 그린다. 안 그러면 본문은 9월 1일 종가 기준인데
+    차트 마지막 봉만 9월 2일 장중인 상태가 되어, 같은 메일 안에서 숫자와 그림이
+    어긋난다.
+    """
     try:
         import yfinance as yf
         hist = yf.Ticker(sym).history(period=period, auto_adjust=True)
         hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna()
+        if target_date:
+            hist = _truncate_to(hist, target_date)
         return hist if len(hist) >= 20 else None
     except Exception as e:
         logger.warning("차트용 히스토리 수집 실패 (%s): %s", sym, e)
         return None
 
 
-def generate_stock_charts(stock_id: str) -> dict:
+def generate_stock_charts(stock_id: str, target_date: str | None = None) -> dict:
     """관심종목 하나의 일봉(90봉)·주봉 차트 PNG 생성. 실패한 항목은 None.
     제목에 한글 종목명을 사용 — GitHub Actions(Ubuntu) 러너에는 fonts-nanum을
     워크플로에서 설치해 한글이 깨지지 않도록 함(_configure_korean_font 참고).
@@ -184,7 +203,7 @@ def generate_stock_charts(stock_id: str) -> dict:
     sym, name, _ = mapping
     ticker_label = sym.replace(".KS", "").replace(".KQ", "")
 
-    daily_hist = fetch_chart_history(sym)
+    daily_hist = fetch_chart_history(sym, target_date=target_date)
     if daily_hist is None:
         return result
 
@@ -198,6 +217,7 @@ def generate_report_charts(
     ratings: list[dict],
     grade_changes: list[dict] | None = None,
     price_data: dict[str, dict] | None = None,
+    target: dict[str, str] | None = None,
 ) -> list[dict]:
     """주목 종목(추천/위험/판단보류·당일 등급 변화·당일 등락률 ±5% 이상)의 차트를
     생성해 이메일 첨부용 리스트로 반환:
@@ -212,7 +232,8 @@ def generate_report_charts(
 
     charts = []
     for sid in attention_ids:
-        imgs = generate_stock_charts(sid)
+        market = "KR" if sid.startswith("KR") else "US"
+        imgs = generate_stock_charts(sid, target_date=(target or {}).get(market))
         if imgs["daily"] or imgs["weekly"]:
             charts.append({"stock_id": sid, "name": name_map.get(sid, sid), **imgs})
     return charts

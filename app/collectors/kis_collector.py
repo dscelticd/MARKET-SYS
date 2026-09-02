@@ -188,7 +188,7 @@ class KISCollector:
 
     # ── 국내 지수 (KOSPI/KOSDAQ) ─────────────────────────────────────────────
 
-    def fetch_market_index(self, name: str) -> dict:
+    def fetch_market_index(self, name: str, target_date: str | None = None) -> dict:
         """KOSPI/KOSDAQ의 최근 완료된 거래일 지수를 반환.
 
         yfinance의 ^KS11·^KQ11 피드가 거래일을 통째로 누락하는 사고가 반복돼 도입했다.
@@ -196,6 +196,12 @@ class KISCollector:
         채 "현재 6912.37 (+1.53%)"로 응답했으나, 실제 8/31 종가는 6820.02(-1.34% 누적)였다.
         같은 시점 삼성전자 등 개별 종목은 8/31까지 정상이라 지수만 어긋났고,
         그 결과 리포트가 "미국 하락 + 한국 상승 디커플링"이라는 없는 서사를 만들었다.
+
+        target_date("YYYY-MM-DD")를 주면 **그 거래일 행만** 반환한다. 이것이 없으면
+        장중 값이 통과한다 — _is_completed_session()은 장전 자리표시자(시가=고가=저가)
+        만 걸러낼 뿐, 개장 3분 뒤의 행은 고가≠저가라 "완료"로 통과하기 때문이다.
+        실측(2026-09-02 09:03 실행): 대상 세션이 9/1인데 KOSPI가 9/2 장중값
+        6630.53(-3.00%)으로 수집돼, "9월 1일 종가 기준"이라 선언한 리포트에 들어갔다.
 
         실패 시 예외를 던져 호출부가 yfinance로 폴백하게 한다.
         반환: {"value", "change_pct", "data_date"}
@@ -238,9 +244,14 @@ class KISCollector:
             raw_date = str(row.get("stck_bsop_date", ""))
             if len(raw_date) != 8:
                 continue
+            bar_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+            if target_date and bar_date != target_date:
+                continue   # 대상 거래일이 아닌 행(장중 당일 포함)은 쓰지 않는다
             return {
                 "value": round(float(row["bstp_nmix_prpr"]), 2),
                 "change_pct": round(float(row["bstp_nmix_prdy_ctrt"]), 2),
-                "data_date": f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}",
+                "data_date": bar_date,
             }
-        raise ValueError(f"{name}: 완료된 거래일 데이터를 찾지 못함")
+        raise ValueError(
+            f"{name}: {target_date or '완료된'} 거래일 데이터를 찾지 못함"
+        )

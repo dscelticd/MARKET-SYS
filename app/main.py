@@ -223,7 +223,9 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
             logger.error("[COLLECTOR_ERROR] 뉴스 데이터 수집 실패: %s", e)
             raise
         try:
-            macro_data = macro_col.collect()
+            macro_data = macro_col.collect(
+                target={"KR": target["kr_date"], "US": target["us_date"]}
+            )
         except Exception as e:
             logger.error("[COLLECTOR_ERROR] 거시지표 수집 실패: %s", e)
             raise
@@ -304,7 +306,10 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         # ── 시장 전체 테마 강약 스캔 (워치리스트 밖, 섹터/테마 ETF 기준) ──
         # 개별 종목 심층분석과 무관한 가벼운 보조 정보라 실패해도 파이프라인을 막지 않음
         try:
-            theme_scan = scan_theme_strength(use_mock=use_mock)
+            theme_scan = scan_theme_strength(
+                use_mock=use_mock,
+                target={"KR": target["kr_date"], "US": target["us_date"]},
+            )
         except Exception as e:
             logger.warning("[THEME_SCAN_ERROR] 테마 스캔 실패 (무시하고 계속): %s", e)
             theme_scan = []
@@ -602,7 +607,10 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                 try:
                     # 주목 종목(추천/위험/판단보류·당일 등급 변화)만 캔들차트 첨부
                     # — 전종목 첨부 시 이미지 과다로 발송 지연/용량 문제 → Mock 모드는 생략
-                    chart_images = generate_report_charts(rating_dicts, changes, price_data)
+                    chart_images = generate_report_charts(
+                        rating_dicts, changes, price_data,
+                        target={"KR": target["kr_date"], "US": target["us_date"]},
+                    )
                     if chart_images:
                         print(f"  주목 종목 차트 생성: {len(chart_images)}개 종목")
                     sender.send_report(
