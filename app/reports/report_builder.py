@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +18,7 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
-from app.utils.market_calendar import now_kst, weekday_kr
+from app.utils.market_calendar import holiday_name, now_kst, weekday_kr
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -718,6 +718,23 @@ def _format_missing_block(missing_stocks: dict[str, dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _holidays_between(start: str, end: str, market: str) -> list[str]:
+    """(start, end] 구간에서 해당 시장이 쉰 날의 이름. 왜 기준일이 갈렸는지를
+    추측이 아니라 달력으로 설명하기 위한 것이다."""
+    try:
+        d = datetime.strptime(start, "%Y-%m-%d").date()
+        last = datetime.strptime(end, "%Y-%m-%d").date()
+    except ValueError:
+        return []
+    names: list[str] = []
+    while d < last:
+        d += timedelta(days=1)
+        name = holiday_name(d, market)
+        if name:
+            names.append(f"{d.month}/{d.day} {name}")
+    return names
+
+
 def _format_target_session_block(target: dict, freshness: dict | None) -> str:
     """리포트의 기준 세션을 선언한다 (계약 C6).
 
@@ -744,12 +761,29 @@ def _format_target_session_block(target: dict, freshness: dict | None) -> str:
         if kr == us:
             lines.append("  ▶ 두 시장이 같은 거래일 기준입니다 — 종목 간 등락률을 직접 비교해도 됩니다.")
         else:
+            # 두 시장의 기준일이 갈리는 이유는 두 가지다 —
+            #   ① 저녁 결산: 20:40 KST에 미국장은 아직 열리지 않았다(22:30 개장)
+            #   ② 휴장일 차이: 2026년 KRX 17일 · 미국 10일 중 겹치는 날은 4일뿐이라
+            #      한쪽만 쉬는 날이 훨씬 많다(예: 9/7 미국 Labor Day, 9/24~25 추석)
+            # 원인을 뭉뚱그리면 "미국장이 늦게 열려서"라는 틀린 설명이 붙는다.
+            if target.get("report_type") == "evening":
+                lines.append(
+                    "  ▶ 미국장은 한국시간 22:30에 열리므로, 저녁 결산 시점에 완료된 가장 최근"
+                    " 미국 세션은 하루 전입니다. 이는 정상이며 결함이 아닙니다."
+                )
+            else:
+                behind, ahead = (kr, us) if kr < us else (us, kr)
+                market = "KR" if kr < us else "US"
+                label = "한국" if market == "KR" else "미국"
+                skipped = _holidays_between(behind, ahead, market)
+                detail = f" ({', '.join(skipped)} 휴장)" if skipped else ""
+                lines.append(
+                    f"  ▶ 두 시장의 휴장일이 달라 기준 거래일이 다릅니다 —"
+                    f" {label} 시장이 {behind} 이후 쉬었습니다{detail}."
+                    " 이는 정상이며 결함이 아닙니다."
+                )
             lines.append(
-                "  ▶ 미국장은 한국시간 22:30에 열리므로, 저녁 결산 시점에 완료된 가장 최근"
-                " 미국 세션은 하루 전입니다. 이는 정상이며 결함이 아닙니다."
-            )
-            lines.append(
-                "     다만 한국 종목의 당일 등락과 미국 종목의 등락을 '같은 날 움직임'으로"
+                "     다만 한국 종목의 등락과 미국 종목의 등락을 '같은 날 움직임'으로"
                 " 엮어 인과를 만들지 마세요."
             )
 

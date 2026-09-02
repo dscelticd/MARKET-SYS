@@ -76,7 +76,7 @@ class HistoryTracker:
         if isinstance(flag, bool):
             return flag
         try:
-            return is_trading_day(datetime.strptime(entry["date"], "%Y-%m-%d").date())
+            return is_trading_day(datetime.strptime(entry["date"], "%Y-%m-%d").date(), "KR")
         except (KeyError, ValueError, TypeError):
             return True  # 판정 불가 시 기존 동작 유지 (배제하지 않음)
 
@@ -91,7 +91,7 @@ class HistoryTracker:
                 d = datetime.strptime(entry["date"], "%Y-%m-%d").date()
             except (KeyError, ValueError, TypeError):
                 continue
-            entry["is_trading_day"] = is_trading_day(d)
+            entry["is_trading_day"] = is_trading_day(d, "KR")
             changed = True
         if changed:
             self._persist()
@@ -176,7 +176,7 @@ class HistoryTracker:
             "run_date":         run_date,     # 실제 실행일 (감사용)
             "report_type":      report_type,
             "generated_at":     now_kst().isoformat(),
-            "is_trading_day":   is_trading_day(datetime.strptime(today, "%Y-%m-%d").date()),
+            "is_trading_day":   is_trading_day(datetime.strptime(today, "%Y-%m-%d").date(), "KR"),
             "data_date":        data_date,
             # ── 등급/점수 ──
             "grades":           {},   # final_grade (표시 등급)

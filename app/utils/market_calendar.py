@@ -14,7 +14,12 @@ KOSPI는 목요일 바를 주는 경우가 실제로 관측됐다(2026-08-22 토
 """
 from __future__ import annotations
 
+import json
+import logging
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 _WEEKDAY_KR = ["월", "화", "수", "목", "금", "토", "일"]
 
@@ -39,6 +44,52 @@ def now_kst() -> datetime:
     return datetime.now(KST).replace(tzinfo=None)
 
 
+# ── 휴장일 달력 ──────────────────────────────────────────────────────────────
+# 주말만으로는 거래일을 맞힐 수 없다. 휴장일을 모르면 두 가지가 깨진다:
+#   ① 대상 거래일이 휴장일로 잡혀 전 종목 결측 → 리포트가 빈다
+#   ② 휴장일 직전 종가가 "당일 등락"으로 서술된다
+# 2026년은 KRX 17일 · 미국 10일이고 겹치는 날은 4일뿐이라, 두 시장의 기준
+# 거래일이 휴장 때문에 갈라지는 경우가 실제로 생긴다(예: 9/7 미국 Labor Day).
+
+_HOLIDAYS_PATH = Path(__file__).resolve().parents[2] / "config" / "market_holidays.json"
+_holidays_cache: dict | None = None
+_gap_warned: set[int] = set()
+
+
+def _holidays() -> dict:
+    """휴장일 설정을 한 번만 읽어 캐시한다. 파일이 없거나 깨져도 죽지 않는다 —
+    주말 판정으로 물러나되, 조용히 넘어가지 않고 경고를 남긴다."""
+    global _holidays_cache
+    if _holidays_cache is None:
+        try:
+            _holidays_cache = json.loads(_HOLIDAYS_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            _logger.error(
+                "[HOLIDAY_CALENDAR_MISSING] %s 를 읽지 못했습니다 (%s) — "
+                "주말만 휴장으로 간주합니다. 공휴일에 리포트가 비거나 전일 종가가 "
+                "당일 등락으로 서술될 수 있습니다.", _HOLIDAYS_PATH, exc,
+            )
+            _holidays_cache = {"markets": {}, "covered_years": []}
+    return _holidays_cache
+
+
+def is_market_holiday(d: date, market: str) -> bool:
+    """d가 해당 시장의 휴장일인지 (주말 제외 — 주말은 is_trading_day가 본다)."""
+    cal = _holidays()
+    covered = cal.get("covered_years") or []
+    if covered and d.year not in covered and d.year not in _gap_warned:
+        _gap_warned.add(d.year)
+        _logger.warning(
+            "[HOLIDAY_CALENDAR_GAP] %d년 휴장일이 config/market_holidays.json에 "
+            "없습니다 — 주말만 휴장으로 간주합니다. KRX 공식 공고로 갱신하세요.", d.year,
+        )
+    return d.isoformat() in (cal.get("markets", {}).get(market) or {})
+
+
+def holiday_name(d: date, market: str) -> str | None:
+    return (_holidays().get("markets", {}).get(market) or {}).get(d.isoformat())
+
+
 def weekday_kr(d: date) -> str:
     """날짜의 한글 요일 한 글자 반환 (월~일)"""
     return _WEEKDAY_KR[d.weekday()]
@@ -48,21 +99,26 @@ def is_weekend(d: date) -> bool:
     return d.weekday() >= 5
 
 
-def is_trading_day(d: date) -> bool:
+def is_trading_day(d: date, market: str | None = None) -> bool:
     """거래일 여부.
 
-    현재는 주말만 판정하며 법정공휴일(설·추석·신정, 미국 독립기념일 등)은 반영하지
-    않는다. 공휴일 목록을 별도 관리하면 매년 갱신 부담이 생기는 반면, 실제 데이터의
-    기준일(data_date)을 함께 확인하는 summarize_data_freshness()가 공휴일에도
-    "새 거래 없음"을 정확히 잡아내므로 요일 판정은 보조 수단으로만 쓴다.
+    market을 주면 그 시장의 휴장일까지 반영한다. 주지 않으면 주말만 본다 —
+    시장이 특정되지 않는 호출부(요일 표기 등)의 기존 동작을 유지하기 위함이다.
+
+    시장을 명시하는 것이 중요한 이유: 2026년 기준 KRX 17일 · 미국 10일 중
+    겹치는 날은 4일뿐이라, 한쪽만 쉬는 날이 훨씬 많다.
     """
-    return not is_weekend(d)
+    if is_weekend(d):
+        return False
+    if market and is_market_holiday(d, market):
+        return False
+    return True
 
 
-def previous_trading_day(d: date) -> date:
+def previous_trading_day(d: date, market: str | None = None) -> date:
     """d 이전(당일 제외)의 가장 가까운 거래일"""
     cur = d - timedelta(days=1)
-    while not is_trading_day(cur):
+    while not is_trading_day(cur, market):
         cur -= timedelta(days=1)
     return cur
 
@@ -98,7 +154,7 @@ def market_session_state(market: str, now: datetime | None = None) -> str:
         return "마감"
     (oh, om), (ch, cm), offset = hours
     local = now + timedelta(hours=offset)
-    if not is_trading_day(local.date()):
+    if not is_trading_day(local.date(), market):
         return "휴장"
     minutes = local.hour * 60 + local.minute
     if minutes < oh * 60 + om:
@@ -147,8 +203,8 @@ def last_completed_session(market: str, moment: datetime) -> date:
     미국장은 KST 기준 다음날 새벽에 끝나므로 탐색을 하루 앞에서 시작한다.
     """
     d = moment.date() + timedelta(days=1)
-    for _ in range(20):
-        if is_trading_day(d):
+    for _ in range(25):   # 연휴가 길어도(설·추석) 도달하도록 여유를 둔다
+        if is_trading_day(d, market):
             close = session_close_kst(market, d)
             if close is not None and close <= moment:
                 return d

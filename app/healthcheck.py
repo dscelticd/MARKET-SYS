@@ -126,6 +126,7 @@ config_files = {
     "config/themes.json":       "관심테마",
     "config/user_profile.json": "투자성향",
     "config/report_config.json":"리포트 설정",
+    "config/market_holidays.json":"휴장일 달력",
 }
 for fname, desc in config_files.items():
     p = _PROJECT_ROOT / fname
