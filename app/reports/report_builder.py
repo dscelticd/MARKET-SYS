@@ -18,7 +18,7 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
-from app.utils.market_calendar import now_kst
+from app.utils.market_calendar import now_kst, weekday_kr
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -718,17 +718,82 @@ def _format_missing_block(missing_stocks: dict[str, dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_target_session_block(target: dict, freshness: dict | None) -> str:
+    """리포트의 기준 세션을 선언한다 (계약 C6).
+
+    이전에는 수집된 데이터의 기준일 산포를 사후에 관찰해 설명했다 —
+    "종목별 데이터 기준일이 서로 다릅니다", "기준일이 다른 종목 간 등락률
+    비교는 적절하지 않습니다" 같은 문장이 리포트에 실렸다. 리포트가 스스로
+    자기 데이터를 믿지 말라고 경고하는 자기모순이었다.
+
+    C1~C3이 지켜지면 기준일은 관찰 대상이 아니라 **선언 대상**이다.
+    여기서는 대상 세션을 명시하고, 데이터가 그와 어긋나면 계약 위반으로
+    경보를 낸다 — 계약이 지켜지면 조용하고, 깨지면 시끄럽다.
+    """
+    kr, us = target.get("kr_date"), target.get("us_date")
+    lines = ["  이 리포트의 기준 세션 (모든 가격·등락률이 이 날짜 기준입니다)"]
+    for label, d in (("한국 시장", kr), ("미국 시장", us)):
+        if d:
+            try:
+                wd = weekday_kr(datetime.strptime(d, "%Y-%m-%d").date())
+                lines.append(f"  ▶ {label}: {d} ({wd}) 정규장 종가")
+            except ValueError:
+                lines.append(f"  ▶ {label}: {d} 정규장 종가")
+
+    if kr and us:
+        if kr == us:
+            lines.append("  ▶ 두 시장이 같은 거래일 기준입니다 — 종목 간 등락률을 직접 비교해도 됩니다.")
+        else:
+            lines.append(
+                "  ▶ 미국장은 한국시간 22:30에 열리므로, 저녁 결산 시점에 완료된 가장 최근"
+                " 미국 세션은 하루 전입니다. 이는 정상이며 결함이 아닙니다."
+            )
+            lines.append(
+                "     다만 한국 종목의 당일 등락과 미국 종목의 등락을 '같은 날 움직임'으로"
+                " 엮어 인과를 만들지 마세요."
+            )
+
+    # ── 계약 위반 감지 ──
+    # 여기 걸리는 것은 수집 단계에서 이미 막았어야 하는 상태다. 리포트에서
+    # 얼버무리지 말고 드러낸다.
+    violations: list[str] = []
+    if freshness:
+        counts = freshness.get("date_counts") or {}
+        allowed = {d for d in (kr, us) if d}
+        stray = {d: n for d, n in counts.items() if d not in allowed}
+        if stray:
+            detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
+            violations.append(f"대상 세션과 다른 기준일의 데이터가 섞였습니다 — {detail}")
+
+    if violations:
+        for v in violations:
+            _logger.error("[CONTRACT_VIOLATION] %s (대상: KR=%s US=%s)", v, kr, us)
+        lines.append("")
+        lines.append("  🚨 데이터 계약 위반이 감지됐습니다:")
+        lines.extend(f"     - {v}" for v in violations)
+        lines.append("     해당 수치는 신뢰하지 말고, 리포트 서두에 이 사실을 알리세요.")
+
+    return "\n".join(lines)
+
+
 def _format_market_session_block(
     freshness: dict | None,
     macro_data: dict | None = None,
     prev_report_data_date: str | None = None,
+    target: dict | None = None,
 ) -> str:
-    """데이터가 "실제로 언제 것인지"를 Claude에게 명시적으로 알려주는 블록.
+    """세션 컨텍스트 블록.
 
-    기존에는 이 정보가 프롬프트에 전혀 없어서, 일요일 리포트가 금요일 종가를
-    "KOSDAQ -4.63% 급락"처럼 현재형으로 서술하는 문제가 있었다. Claude가 눈치껏
-    "(일요일 기준 전일 데이터)"라고 보정한 적도 있지만 매번 달라 신뢰할 수 없었다.
+    target이 주어지면 기준 세션을 선언하는 방식(계약 C6)을 쓴다. target이 없는
+    호출부는 예전처럼 관측된 기준일을 설명하는 방식으로 동작한다.
     """
+    if target:
+        block = _format_target_session_block(target, freshness)
+        latest = (freshness or {}).get("latest_data_date")
+        if prev_report_data_date and latest and prev_report_data_date == latest:
+            block += "\n  ▶ 직전 리포트 이후 새로운 거래가 없습니다 — 가격 데이터가 직전과 동일합니다."
+        return block
+
     if not freshness:
         return "(세션 정보 없음)"
 
@@ -742,12 +807,10 @@ def _format_market_session_block(
     if not freshness.get("run_is_trading_day"):
         lines.append("  ⚠️ 오늘은 주말(휴장일)입니다 — 한국·미국 증시 모두 거래가 없었습니다.")
     elif stale_days and stale_days > 0:
-        lines.append(f"  ⚠️ 아직 오늘 종가가 없습니다(장 시작 전이거나 반영 지연).")
+        lines.append("  ⚠️ 아직 오늘 종가가 없습니다(장 시작 전이거나 반영 지연).")
 
     sessions = freshness.get("sessions") or {}
     if latest:
-        # 장이 열려 있는 동안의 당일 데이터는 종가가 아니라 장중 현재가다.
-        # 실측(2026-09-01 09:31 발송분): 개장 31분 후인데 "9월 1일 종가 기준"으로 표기됐다.
         intraday_markets = [
             mk for mk, st in sessions.items()
             if st == "개장중" and latest == freshness.get("run_date")
@@ -776,7 +839,7 @@ def _format_market_session_block(
         lines.append(f"  ⚠️ 지수별 기준일도 다릅니다 — {detail}")
 
     if prev_report_data_date and latest and prev_report_data_date == latest:
-        lines.append(f"  ▶ 직전 리포트 이후 새로운 거래가 없습니다 — 가격 데이터가 직전과 완전히 동일합니다.")
+        lines.append("  ▶ 직전 리포트 이후 새로운 거래가 없습니다 — 가격 데이터가 직전과 완전히 동일합니다.")
 
     return "\n".join(lines)
 
@@ -986,6 +1049,7 @@ class ReportBuilder:
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
         missing_stocks: dict[str, dict] | None = None,
+        target_session: dict | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
         max_tokens: int = 20000,
@@ -1007,7 +1071,7 @@ class ReportBuilder:
         factor_accuracy_block = _format_factor_accuracy_block(factor_accuracy)
         theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
-            data_freshness, macro_data, prev_report_data_date
+            data_freshness, macro_data, prev_report_data_date, target=target_session
         )
         missing_block = _format_missing_block(missing_stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
@@ -1112,6 +1176,7 @@ class ReportBuilder:
         data_freshness: dict | None = None,
         prev_report_data_date: str | None = None,
         missing_stocks: dict[str, dict] | None = None,
+        target_session: dict | None = None,
         themes: list[dict] | None = None,
         factor_accuracy: dict | None = None,
         max_tokens: int = 20000,
@@ -1133,7 +1198,7 @@ class ReportBuilder:
         factor_accuracy_block = _format_factor_accuracy_block(factor_accuracy)
         theme_knowledge_block = _format_theme_knowledge_block(themes, stocks)
         session_block = _format_market_session_block(
-            data_freshness, macro_data, prev_report_data_date
+            data_freshness, macro_data, prev_report_data_date, target=target_session
         )
         missing_block = _format_missing_block(missing_stocks)
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
