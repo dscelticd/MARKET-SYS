@@ -533,27 +533,36 @@ class PriceCollector:
                 if target_date:
                     hist = _truncate_to_target(hist, target_date)
 
-                    # 계약 C3 — 대상일 봉이 없으면 직전 거래일 값으로 메우지
-                    # 않는다. 여기서 continue 하지 않으면 iloc[-1]이 하루 전
-                    # 종가를 집어 "당일 등락"으로 둔갑시킨다.
-                    latest_bar = _extract_bar_date(hist.index[-1]) if len(hist) else None
-                    if latest_bar != target_date:
-                        logger.warning(
-                            "%s(%s): 대상 거래일 %s 데이터 없음 (최신 봉 %s) → 결측 처리",
-                            sid, sym, target_date, latest_bar or "없음",
-                        )
-                        result[sid] = _missing_record(
-                            sid, sym.replace(".KS", "").replace(".KQ", ""),
-                            name, currency, target_date,
-                            f"대상 거래일 데이터 미도착 (최신 봉 {latest_bar or '없음'})",
-                        )
-                        continue
-
                 close_s = hist["Close"].dropna() if "Close" in hist.columns else None
                 vol_s   = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
                 if close_s is None or len(close_s) < 2:
                     raise ValueError("종가 데이터 부족")
+
+                # 계약 C3 — 대상일 종가가 없으면 직전 거래일 값으로 메우지 않는다.
+                #
+                # **반드시 dropna() 이후의 close_s로 판정해야 한다.** 원본 hist의
+                # 마지막 인덱스를 보면 안 된다 — yfinance는 종가가 아직 확정되지
+                # 않은 날에도 Close=NaN인 자리 행을 준다(비미국 거래소에서 흔하다).
+                # 그러면 hist.index[-1]은 대상일과 같아 가드를 통과하는데, 정작
+                # 값은 dropna()로 그 행이 빠진 뒤의 하루 전 종가가 된다.
+                #
+                # 실측 사고 (2026-09-02 저녁 결산, 9/3 00:15 발송):
+                #   "한국 2026-09-02 종가 기준"이라 선언하고 9월 1일 값을 실었다.
+                #   삼성전자 +0.38%(실제 9/2는 -4.02%), SK하이닉스 +1.14%(실제 -4.73%).
+                #   9월 2일은 국내 증시가 크게 밀린 날이라 서술 방향이 반대였다.
+                latest_bar = _extract_bar_date(close_s.index[-1])
+                if target_date and latest_bar != target_date:
+                    logger.warning(
+                        "%s(%s): 대상 거래일 %s 종가 없음 (최신 종가 %s) → 결측 처리",
+                        sid, sym, target_date, latest_bar or "없음",
+                    )
+                    result[sid] = _missing_record(
+                        sid, sym.replace(".KS", "").replace(".KQ", ""),
+                        name, currency, target_date,
+                        f"대상 거래일 종가 미도착 (최신 종가 {latest_bar or '없음'})",
+                    )
+                    continue
 
                 price      = float(close_s.iloc[-1])
                 prev_close = float(close_s.iloc[-2])

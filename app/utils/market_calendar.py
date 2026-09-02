@@ -136,6 +136,12 @@ _INDEX_MARKET = {
 }
 
 
+def stock_market(stock_id: str) -> str:
+    """종목 ID가 어느 시장인지. 대상 거래일이 시장마다 다르므로,
+    기준일 검증도 반드시 시장별로 해야 한다."""
+    return "KR" if str(stock_id).startswith("KR") else "US"
+
+
 def index_market(index_name: str) -> str | None:
     """지수 이름이 어느 시장인지. 모르면 None."""
     return _INDEX_MARKET.get(index_name)
@@ -291,6 +297,7 @@ def summarize_data_freshness(
         "oldest_data_date": None,
         "mixed_dates": False,
         "date_counts": {},
+        "date_counts_by_market": {},
         "stale_days": None,
         "has_fresh_data": False,
         # 시장별 세션 상태 — 장중 가격을 "종가"로 표기하던 문제를 막기 위해 전달한다
@@ -301,11 +308,15 @@ def summarize_data_freshness(
         return summary
 
     counts: dict[str, int] = {}
-    for p in price_data.values():
+    by_market: dict[str, dict[str, int]] = {}
+    for sid, p in price_data.items():
         d = _parse_date(p.get("data_date"))
         if d is None:
             continue
         counts[d.isoformat()] = counts.get(d.isoformat(), 0) + 1
+        mk = by_market.setdefault(stock_market(sid), {})
+        mk[d.isoformat()] = mk.get(d.isoformat(), 0) + 1
+    summary["date_counts_by_market"] = by_market
 
     if not counts:
         return summary

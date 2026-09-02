@@ -18,7 +18,7 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
-from app.utils.market_calendar import holiday_name, now_kst, weekday_kr
+from app.utils.market_calendar import holiday_name, index_market, now_kst, weekday_kr
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -804,18 +804,42 @@ def _format_target_session_block(
     # 얼버무리지 말고 드러낸다.
     violations: list[str] = []
     allowed = {d for d in (kr, us) if d}
+    by_market = {"KR": kr, "US": us}
+
+    # **시장별로** 검사한다. 합집합으로 검사하면 한쪽 시장의 대상일이 다른
+    # 시장의 잘못된 데이터를 덮어준다 — 실측 사고(2026-09-02 저녁 결산)에서
+    # 대상이 KR=9/2·US=9/1이었는데 한국 종목이 9/1 데이터로 들어왔고,
+    # 9/1이 "허용 집합"에 있다는 이유로 경보가 뜨지 않았다.
     if freshness:
-        counts = freshness.get("date_counts") or {}
-        stray = {d: n for d, n in counts.items() if d not in allowed}
-        if stray:
-            detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
-            violations.append(f"대상 세션과 다른 기준일의 종목 데이터가 섞였습니다 — {detail}")
+        counts_bm = freshness.get("date_counts_by_market") or {}
+        for mk, counts in counts_bm.items():
+            want = by_market.get(mk)
+            if not want:
+                continue
+            stray = {d: n for d, n in counts.items() if d != want}
+            if stray:
+                detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
+                violations.append(
+                    f"{mk} 시장의 대상 거래일은 {want}인데 다른 기준일 데이터가 섞였습니다 — {detail}"
+                )
+        if not counts_bm:   # 구 형식 폴백
+            counts = freshness.get("date_counts") or {}
+            stray = {d: n for d, n in counts.items() if d not in allowed}
+            if stray:
+                detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
+                violations.append(f"대상 세션과 다른 기준일의 종목 데이터가 섞였습니다 — {detail}")
 
     # 지수도 함께 본다. 종목만 검사하던 탓에 실제 위반을 놓친 적이 있다 —
     # 2026-09-02 09:03 실행분에서 종목은 전부 9/1이었지만 KOSPI·KOSDAQ이
     # 9/2 장중값이었고, 리포트는 "9월 1일 종가 기준"이라 선언한 채 나갔다.
     macro_dates = (macro_data or {}).get("data_dates") or {}
-    stray_idx = {k: v for k, v in macro_dates.items() if v and v not in allowed}
+    stray_idx = {}
+    for k, v in macro_dates.items():
+        if not v:
+            continue
+        want = by_market.get(index_market(k) or "US")
+        if want and v != want:
+            stray_idx[k] = v
     if stray_idx:
         detail = " / ".join(f"{k} {v}" for k, v in sorted(stray_idx.items()))
         violations.append(f"대상 세션과 다른 기준일의 지수가 섞였습니다 — {detail}")
@@ -1461,9 +1485,17 @@ NVIDIA Blackwell 수요 → SK하이닉스 HBM → TSMC 패키징 → LS ELECTRI
 """
 
 
-def save_report(content: str, report_type: str, save_dir: Path) -> Path:
-    """리포트를 날짜별 파일로 저장"""
-    date_str = now_kst().strftime("%Y%m%d")
+def save_report(
+    content: str, report_type: str, save_dir: Path, report_date: str | None = None
+) -> Path:
+    """리포트를 발행일별 파일로 저장.
+
+    report_date(발행일, "YYYY-MM-DD")를 받는다. now_kst()로 파일명을 만들면
+    예약 실행이 자정을 넘겨 밀렸을 때 같은 리포트의 .md와 _ratings.json이
+    서로 다른 날짜로 저장된다 — 실측(2026-09-02 저녁분)에서 JSON은 20260902,
+    마크다운은 20260903으로 갈렸다.
+    """
+    date_str = (report_date or now_kst().strftime("%Y-%m-%d")).replace("-", "")
     filename = f"{date_str}_{report_type}.md"
     filepath = save_dir / filename
     filepath.write_text(content, encoding="utf-8")

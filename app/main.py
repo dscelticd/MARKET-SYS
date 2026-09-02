@@ -562,7 +562,7 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
         print_section("Step 6. 리포트 저장")
         save_dir = cfg.report_save_dir()
         try:
-            saved_path = save_report(report_content, report_type, save_dir)
+            saved_path = save_report(report_content, report_type, save_dir, date_str)
             print(f"  저장 완료: {saved_path}")
         except Exception as e:
             logger.error("[REPORT_SAVE_ERROR] 리포트 파일 저장 실패: %s", e)
