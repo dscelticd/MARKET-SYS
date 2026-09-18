@@ -131,3 +131,71 @@ def test_no_target_keeps_legacy_behaviour():
     hist = _hist(["2026-09-01", "2026-09-02"], [110.0, 120.0])
     row = _collect_one(hist, None)
     assert row["price"] == 120.0
+
+
+# ── KIS 종목시세 폴백 (yfinance 발표 지연 대응) ─────────────────────────────
+# 배경: 대상일 종가가 없으면 무조건 결측 처리하던 방식이 yfinance의 정상적인
+# 발표 지연과 겹쳐 관심종목 절반 이상을 매일 리포트에서 빠뜨렸다(실측
+# 2026-09-14~18, 5거래일 연속). 국내 종목은 KIS(증권사 직접 데이터)로 재시도해
+# 지연을 흡수한다.
+
+def test_kis_fallback_fills_in_the_target_date_when_yfinance_is_behind(monkeypatch):
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])   # 9/2가 없음
+    kis_quote = {"value": 250_500.0, "prev_close": 261_000.0,
+                 "change_pct": -4.02, "volume": 12_345_678, "data_date": "2026-09-02"}
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price", return_value=kis_quote), \
+         _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
+        c = PriceCollector(); c.use_mock = False
+        row = c.collect(["KR_005930"], target={"KR": "2026-09-02", "US": "2026-09-02"})["KR_005930"]
+    assert not row.get("missing")
+    assert row["price"] == 250_500.0
+    assert row["data_date"] == "2026-09-02"     # KIS 값이 대상일 종가로 정상 채택됨
+    assert row["change_pct"] == -4.02
+
+
+def test_kis_fallback_is_not_attempted_for_us_stocks(monkeypatch):
+    """KIS는 국내 증권사 API다. 미국 종목에는 쓰지 않는다 — 시도 자체를
+    안 해야 불필요한 지연·오류가 없다."""
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [200.0, 210.0])
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price") as kis_call:
+        c = PriceCollector(); c.use_mock = False
+        c.collect(["US_NVDA"], target={"KR": "2026-09-02", "US": "2026-09-02"})
+    kis_call.assert_not_called()
+
+
+def test_kis_fallback_is_skipped_while_korean_market_is_still_open(monkeypatch):
+    """target_date가 실수로 당일(장중)이 되면 KIS의 당일 행은 미확정 실시간가다
+    — 확정 종가인 척 쓰면 LG전자 사고와 같은 오염이 재발한다."""
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector.now_kst") as nk, \
+         _patch("app.collectors.price_collector.market_session_state", return_value="개장중"), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price") as kis_call:
+        nk.return_value.strftime.return_value = "2026-09-02"
+        nk.return_value.isoformat.return_value = "2026-09-02T10:00:00"
+        c = PriceCollector(); c.use_mock = False
+        c.collect(["KR_005930"], target={"KR": "2026-09-02", "US": "2026-09-02"})
+    kis_call.assert_not_called()
+
+
+def test_kis_failure_falls_back_to_honest_stale_data(monkeypatch):
+    """KIS마저 실패하면(데모 서버 타임아웃 등) 결측이 아니라 직전 확정
+    종가를 정직한 날짜로 사용한다."""
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price",
+                side_effect=TimeoutError("read timed out")), \
+         _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
+        c = PriceCollector(); c.use_mock = False
+        row = c.collect(["KR_005930"], target={"KR": "2026-09-02", "US": "2026-09-02"})["KR_005930"]
+    assert not row.get("missing")
+    assert row["data_date"] == "2026-09-01"
+    assert row["price"] == 261_000.0

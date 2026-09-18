@@ -217,6 +217,19 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                 )
             print(f"  ⚠️ 대상 거래일 데이터 없음 {len(missing_stocks)}종목 — 분석에서 제외: "
                   + ", ".join(m.get("name", sid) for sid, m in missing_stocks.items()))
+
+        # 결측과 별개로 "지연"(데이터는 있으나 대상일보다 이전) 종목도 운영자가
+        # 콘솔에서 바로 볼 수 있게 한다 — 분석에는 포함되지만(제외되지 않음)
+        # 실제 데이터 날짜가 대상일과 다르다는 사실은 눈에 띄어야 한다.
+        stale_stocks = {
+            sid: p for sid, p in price_data.items()
+            if p.get("data_date") and
+            p["data_date"] != target[("kr_date" if sid.startswith("KR") else "us_date")]
+        }
+        if stale_stocks:
+            print(f"  ⏳ 대상 거래일 데이터 지연 {len(stale_stocks)}종목(직전 확정 종가 사용): "
+                  + ", ".join(f"{p.get('name', sid)}({p['data_date']})"
+                              for sid, p in stale_stocks.items()))
         try:
             news_data  = news_col.collect(stock_ids)
         except Exception as e:

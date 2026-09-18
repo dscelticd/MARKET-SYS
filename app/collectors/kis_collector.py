@@ -54,6 +54,7 @@ def _summarize_daily_flows(daily: list[dict]) -> dict:
 
 
 _TR_ID_MARKET_INDEX = "FHPTJ04040000"
+_TR_ID_DAILY_PRICE = "FHKST01010400"
 # 지수 코드 — FID_INPUT_ISCD가 실제 지수, FID_INPUT_ISCD_1은 시장 구분
 _INDEX_CODES = {
     "KOSPI":  ("0001", "KSP"),
@@ -255,3 +256,100 @@ class KISCollector:
         raise ValueError(
             f"{name}: {target_date or '완료된'} 거래일 데이터를 찾지 못함"
         )
+
+    def fetch_stock_price(
+        self, ticker: str, target_date: str | None = None, retries: int = 3
+    ) -> dict:
+        """국내 개별 종목의 종가를 KIS 공식 API(체결 데이터)로 직접 조회한다.
+
+        yfinance의 국내 종목 종가 발표가 수 시간~다음날까지 늦어지는 사례가 반복
+        관측됐다. 실측(2026-09-14~18, 5거래일 연속): 저녁 결산이 한국장 마감
+        **9시간 뒤**(00:38 실행)에도 yfinance에 당일 종가가 없어 관심종목 7개
+        전부가 "데이터 미도착"으로 리포트에서 빠졌다. 아침 브리핑도 미국장 마감
+        4시간 뒤(09:13 실행)에 NVDA·QQQ 같은 초대형주조차 전일 데이터가 없었다
+        (13:30 재조회 시점엔 이미 올라와 있었다 — 코드 결함이 아니라 발표 지연이다).
+
+        지수에 KIS를 쓴 것과 같은 이유로 개별 종목에도 KIS를 쓴다. 증권사 자체
+        체결 데이터라 제3자 집계 지연이 없다. prev_close는 추정하지 않고 API가
+        함께 주는 직전 거래일 행에서 그대로 가져온다.
+
+        target_date("YYYY-MM-DD")를 주면 그 거래일 행만 채택한다 — 오늘 자리의
+        행은 장중이면 미확정 값이라 반드시 걸러야 한다(지수 조회에서 겪은 것과
+        같은 함정).
+
+        실패 시 예외를 던져 호출부가 yfinance로 폴백하게 한다.
+        반환: {"value", "prev_close", "change_pct", "volume", "data_date"}
+        """
+        token = self.get_token()
+        if not token:
+            raise RuntimeError("KIS 토큰 발급 실패")
+
+        # KIS 데모 서버는 타임아웃이 간헐적으로 발생한다(실측: 연속 호출 3회 중
+        # 2회 ReadTimeout, 3회째 성공). 관심종목 7개를 매번 조회해야 하므로
+        # 짧은 재시도 없이는 결국 yfinance 폴백으로 도망치는 빈도가 높아져
+        # KIS를 쓰는 의미가 줄어든다.
+        last_exc: Exception | None = None
+        data: dict | None = None
+        for attempt in range(retries + 1):
+            try:
+                resp = requests.get(
+                    f"{self.base_url}/uapi/domestic-stock/v1/quotations/inquire-daily-price",
+                    headers={
+                        "content-type": "application/json",
+                        "authorization": f"Bearer {token}",
+                        "appkey": self.app_key,
+                        "appsecret": self.app_secret,
+                        "tr_id": _TR_ID_DAILY_PRICE,
+                    },
+                    params={
+                        "FID_COND_MRKT_DIV_CODE": "J",
+                        "FID_INPUT_ISCD": ticker,
+                        "FID_PERIOD_DIV_CODE": "D",
+                        "FID_ORG_ADJ_PRC": "0",
+                    },
+                    timeout=10,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+                if data.get("rt_cd") != "0":
+                    raise RuntimeError(f"KIS 종목시세 조회 오류: {data.get('msg1', '알 수 없는 오류')}")
+                last_exc = None
+                break
+            except Exception as exc:
+                last_exc = exc
+                if attempt < retries:
+                    time.sleep(1.5)
+        if last_exc is not None or data is None:
+            raise last_exc or RuntimeError("KIS 종목시세 조회 실패")
+
+        rows = data.get("output") or []
+        for i, row in enumerate(rows):
+            raw_date = str(row.get("stck_bsop_date", ""))
+            if len(raw_date) != 8:
+                continue
+            bar_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+            if target_date and bar_date != target_date:
+                continue   # 대상 거래일이 아닌 행(장중 당일 포함)은 쓰지 않는다
+            try:
+                close = float(row["stck_clpr"])
+            except (KeyError, ValueError, TypeError):
+                continue
+            if close <= 0:
+                continue   # 자리표시자/미확정 행
+
+            prev_close = None
+            if i + 1 < len(rows):
+                try:
+                    pc = float(rows[i + 1]["stck_clpr"])
+                    prev_close = pc if pc > 0 else None
+                except (KeyError, ValueError, TypeError):
+                    prev_close = None
+
+            return {
+                "value": close,
+                "prev_close": prev_close,
+                "change_pct": round(float(row.get("prdy_ctrt", 0) or 0), 2),
+                "volume": int(float(row.get("acml_vol", 0) or 0)),
+                "data_date": bar_date,
+            }
+        raise ValueError(f"{ticker}: {target_date or '완료된'} 거래일 데이터를 찾지 못함")

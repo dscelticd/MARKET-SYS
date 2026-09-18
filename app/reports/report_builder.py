@@ -18,7 +18,7 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
-from app.utils.market_calendar import holiday_name, index_market, now_kst, weekday_kr
+from app.utils.market_calendar import holiday_name, index_market, now_kst, stock_market, weekday_kr
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -718,6 +718,46 @@ def _format_missing_block(missing_stocks: dict[str, dict] | None) -> str:
     return "\n".join(lines)
 
 
+def _format_stale_block(price_data: dict[str, dict] | None, target: dict) -> str:
+    """대상 세션 데이터가 아직 도착하지 않아 직전 확정 종가로 대체된 종목을 명시한다.
+
+    배경: 결측 가드(계약 C3)를 "대상일과 정확히 일치하지 않으면 무조건 결측"으로
+    엄격하게 짰더니, yfinance의 정상적인 발표 지연(실측 2026-09-14~18 5거래일
+    연속: 한국장 마감 9시간 뒤·미국장 마감 4시간 뒤에도 최신 종가가 없었음) 때문에
+    관심종목 절반 이상이 매일 리포트에서 통째로 빠지는 회귀가 생겼다.
+
+    이 블록은 "결측"과 "지연"을 구분한다. 결측(_format_missing_block)은 데이터가
+    아예 없어 등급 산정에서 제외된 종목이고, 지연(이 블록)은 데이터는 있지만
+    대상 세션보다 하루 이상 늦은 종목이다 — 등급 산정에는 포함하되, LG전자
+    사고(늦은 종가를 당일 종가인 척 낸 것)가 재발하지 않도록 실제 날짜를
+    명시하고 "오늘 등락"으로 서술하지 못하게 못박는다.
+    """
+    if not price_data:
+        return ""
+    by_market = {"KR": target.get("kr_date"), "US": target.get("us_date")}
+    stale = []
+    for sid, p in price_data.items():
+        if p.get("missing") or not p.get("data_date"):
+            continue
+        want = by_market.get(stock_market(sid))
+        if want and p["data_date"] != want:
+            stale.append((p.get("name", sid), p.get("ticker", ""), p["data_date"], want))
+    if not stale:
+        return ""
+    lines = [
+        "## 데이터 지연 종목 (대상일보다 이전 확정 종가 사용)",
+        "",
+        "아래 종목은 대상 세션 데이터가 아직 도착하지 않아, 표시된 실제 날짜의",
+        "직전 확정 종가를 대신 사용했습니다. **이 종목의 가격·등락을 대상 세션의",
+        "'오늘' 움직임으로 서술하지 마세요.** 실제 데이터 날짜를 함께 밝히고,",
+        "다음 회차에 최신 데이터로 갱신될 수 있음을 참고 사항으로만 짧게 언급하세요.",
+        "",
+    ]
+    for name, ticker, actual, want in stale:
+        lines.append(f"- {name}({ticker}) — 실제 데이터 {actual} 기준 (대상 세션 {want})")
+    return "\n".join(lines)
+
+
 def _holidays_between(start: str, end: str, market: str) -> list[str]:
     """(start, end] 구간에서 해당 시장이 쉰 날의 이름. 왜 기준일이 갈렸는지를
     추측이 아니라 달력으로 설명하기 위한 것이다."""
@@ -802,32 +842,16 @@ def _format_target_session_block(
     # ── 계약 위반 감지 ──
     # 여기 걸리는 것은 수집 단계에서 이미 막았어야 하는 상태다. 리포트에서
     # 얼버무리지 말고 드러낸다.
+    #
+    # 종목(price_data) 단위 기준일 검사는 여기서 더 이상 하지 않는다. 대상일과
+    # 어긋난 종목은 이제 결측 처리되지 않고 "지연" 상태로 정직하게 표시일자와
+    # 함께 리포트에 실린다(_format_stale_block) — 즉 대상일과 다른 날짜가
+    # 섞이는 것 자체가 더는 계약 위반이 아니라 정상적으로 예상·설명되는
+    # 상태다. 이 검사를 그대로 두면 지연 종목이 하나만 있어도 매번 🚨가 뜨는
+    # 오탐이 된다. 지수는 개별 종목과 달리 이런 "정직한 지연" 경로가 없어
+    # (index_or_proxy의 ETF 대체가 유일한 완화책) 아래 검사를 유지한다.
     violations: list[str] = []
-    allowed = {d for d in (kr, us) if d}
     by_market = {"KR": kr, "US": us}
-
-    # **시장별로** 검사한다. 합집합으로 검사하면 한쪽 시장의 대상일이 다른
-    # 시장의 잘못된 데이터를 덮어준다 — 실측 사고(2026-09-02 저녁 결산)에서
-    # 대상이 KR=9/2·US=9/1이었는데 한국 종목이 9/1 데이터로 들어왔고,
-    # 9/1이 "허용 집합"에 있다는 이유로 경보가 뜨지 않았다.
-    if freshness:
-        counts_bm = freshness.get("date_counts_by_market") or {}
-        for mk, counts in counts_bm.items():
-            want = by_market.get(mk)
-            if not want:
-                continue
-            stray = {d: n for d, n in counts.items() if d != want}
-            if stray:
-                detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
-                violations.append(
-                    f"{mk} 시장의 대상 거래일은 {want}인데 다른 기준일 데이터가 섞였습니다 — {detail}"
-                )
-        if not counts_bm:   # 구 형식 폴백
-            counts = freshness.get("date_counts") or {}
-            stray = {d: n for d, n in counts.items() if d not in allowed}
-            if stray:
-                detail = " / ".join(f"{d}: {n}종목" for d, n in sorted(stray.items(), reverse=True))
-                violations.append(f"대상 세션과 다른 기준일의 종목 데이터가 섞였습니다 — {detail}")
 
     # 지수도 함께 본다. 종목만 검사하던 탓에 실제 위반을 놓친 적이 있다 —
     # 2026-09-02 09:03 실행분에서 종목은 전부 9/1이었지만 KOSPI·KOSDAQ이
@@ -1153,12 +1177,15 @@ class ReportBuilder:
             data_freshness, macro_data, prev_report_data_date, target=target_session
         )
         missing_block = _format_missing_block(missing_stocks)
+        stale_block = _format_stale_block(price_data, target_session or {})
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 아침 브리핑 리포트를 작성하세요.
 
 ## 데이터 기준 시점 (가장 먼저 확인할 것)
 {session_block}
 
 {missing_block}
+
+{stale_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}
@@ -1280,12 +1307,15 @@ class ReportBuilder:
             data_freshness, macro_data, prev_report_data_date, target=target_session
         )
         missing_block = _format_missing_block(missing_stocks)
+        stale_block = _format_stale_block(price_data, target_session or {})
         prompt = f"""오늘은 {date_str}입니다. 아래 데이터를 바탕으로 저녁 결산 리포트를 작성하세요.
 
 ## 데이터 기준 시점 (가장 먼저 확인할 것)
 {session_block}
 
 {missing_block}
+
+{stale_block}
 
 ## 거시지표 스냅샷
 {_format_macro_block(macro_data)}

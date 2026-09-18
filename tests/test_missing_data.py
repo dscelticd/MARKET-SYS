@@ -61,15 +61,29 @@ def _collect(hist, target, raise_exc=None):
 # ── 수집 단계 ────────────────────────────────────────────────────────────────
 
 def test_stale_bar_is_not_passed_off_as_the_target_day():
-    """LG전자 사고의 재현. 대상일 9/1인데 8/31 봉만 있으면 결측이어야 한다.
-    이 검사가 깨지면 전날 급등이 다시 당일 등락으로 둔갑한다."""
+    """LG전자 사고의 재현. 대상일 9/1인데 8/31 봉까지만 있다.
+
+    2026-09 이후 설계: 데이터가 아예 없는 게 아니라 "늦게 도착"하는 상황이므로
+    결측 처리하지 않는다(그러면 관심종목이 매일 통째로 빠진다 — 실측 2026-09-
+    14~18 5거래일 연속으로 발생한 회귀). 대신 **실제 데이터의 날짜(8/31)를
+    정직하게 그대로 남겨** 9/1로 둔갑하지 못하게 한다. 이 정직함이 LG전자
+    사고("늦은 종가를 당일 종가인 척 낸 것")를 막는 핵심이지, 결측 처리 자체가
+    핵심이 아니었다."""
     row = _collect(_hist(["2026-08-28", "2026-08-31"], [201_600.0, 216_500.0]),
+                   {"KR": "2026-09-01", "US": "2026-09-01"})
+    assert not row.get("missing")
+    assert row["data_date"] == "2026-08-31"      # 9-01로 위장되지 않는다
+    assert row["price"] == 216_500.0
+    assert row["change_pct"] == round((216_500.0 - 201_600.0) / 201_600.0 * 100, 2)
+
+
+def test_no_prior_data_at_all_is_genuinely_missing():
+    """직전 거래일 데이터조차 없으면(봉이 1개 이하) 정직하게 보여줄 것도 없어
+    진짜 결측이다."""
+    row = _collect(_hist(["2026-08-31"], [216_500.0]),
                    {"KR": "2026-09-01", "US": "2026-09-01"})
     assert row["missing"] is True
     assert row["price"] is None
-    assert row["change_pct"] is None
-    assert row["data_date"] is None
-    assert "2026-08-31" in row["missing_reason"]
 
 
 def test_target_day_present_is_collected_normally():

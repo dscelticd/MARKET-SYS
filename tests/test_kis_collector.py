@@ -146,3 +146,88 @@ def test_fetch_investor_flow_raises_when_no_token(tmp_path, monkeypatch):
     collector = KISCollector()
     with pytest.raises(RuntimeError):
         collector.fetch_investor_flow("005930")
+
+
+# ── fetch_stock_price — 개별 종목 종가 (계약 C2·C3, yfinance 발표 지연 대응) ──
+# 배경: yfinance의 국내 종목 종가 발표가 수 시간~다음날까지 늦어지는 사례가
+# 반복 관측됐다(실측 2026-09-14~18, 5거래일 연속). KIS는 증권사 자체 체결
+# 데이터라 이런 지연이 없어, 개별 종목에도 지수와 같은 원리로 도입했다.
+
+def _daily_price_response(rows):
+    r = MagicMock()
+    r.raise_for_status.return_value = None
+    r.json.return_value = {"rt_cd": "0", "output": rows}
+    return r
+
+
+def _price_row(date_yyyymmdd, close, prdy_ctrt, volume):
+    return {"stck_bsop_date": date_yyyymmdd, "stck_clpr": str(close),
+            "prdy_ctrt": str(prdy_ctrt), "acml_vol": str(volume)}
+
+
+def test_fetch_stock_price_returns_the_target_date_row(tmp_path, monkeypatch):
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20260918", 260500, 3.17, 100),   # 오늘(장중) — 골라내면 안 됨
+            _price_row("20260917", 252500, -0.39, 11_827_514),
+            _price_row("20260916", 253500, 2.01, 11_757_106)]
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
+        result = collector.fetch_stock_price("005930", target_date="2026-09-17")
+    assert result["value"] == 252500.0
+    assert result["prev_close"] == 253500.0   # API가 준 직전 행을 그대로 사용
+    assert result["change_pct"] == -0.39
+    assert result["volume"] == 11_827_514
+    assert result["data_date"] == "2026-09-17"
+
+
+def test_fetch_stock_price_ignores_the_in_progress_session_row(tmp_path, monkeypatch):
+    """오늘(장중) 행은 미확정 실시간가다. target_date로 지목하지 않으면
+    걸러져야 한다 — 장중값을 확정 종가로 오인하면 LG전자 사고가 재발한다."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20260918", 260500, 3.17, 100),
+            _price_row("20260917", 252500, -0.39, 11_827_514)]
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
+        with pytest.raises(ValueError):
+            collector.fetch_stock_price("005930", target_date="2026-09-19")  # 존재하지 않는 날
+
+
+def test_fetch_stock_price_retries_transient_failures(tmp_path, monkeypatch):
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20260917", 252500, -0.39, 11_827_514),
+            _price_row("20260916", 253500, 2.01, 11_757_106)]
+
+    calls = {"n": 0}
+    def _flaky_get(*a, **kw):
+        calls["n"] += 1
+        if calls["n"] < 3:
+            raise TimeoutError("read timed out")
+        return _daily_price_response(rows)
+
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", side_effect=_flaky_get), \
+         patch("app.collectors.kis_collector.time.sleep"):
+        result = collector.fetch_stock_price("005930", target_date="2026-09-17", retries=3)
+    assert result["value"] == 252500.0
+    assert calls["n"] == 3
+
+
+def test_fetch_stock_price_raises_after_exhausting_retries(tmp_path, monkeypatch):
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", side_effect=TimeoutError("read timed out")), \
+         patch("app.collectors.kis_collector.time.sleep"):
+        with pytest.raises(TimeoutError):
+            collector.fetch_stock_price("005930", target_date="2026-09-17", retries=1)

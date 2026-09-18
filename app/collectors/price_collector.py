@@ -16,7 +16,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from app.collectors.kis_collector import KISCollector
-from app.utils.market_calendar import is_trading_day, previous_trading_day
+from app.utils.market_calendar import is_trading_day, market_session_state, previous_trading_day
 from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
@@ -87,6 +87,17 @@ def _extract_bar_date(index_value) -> str | None:
             return str(index_value)[:10]
         except Exception:
             return None
+
+
+def _kis_bar_to_series_row(kis: dict) -> dict:
+    """KIS fetch_stock_price() 결과를 yfinance hist 행과 같은 열 이름으로 변환."""
+    return {
+        "Open": kis.get("open", kis["value"]),
+        "High": kis.get("high", kis["value"]),
+        "Low":  kis.get("low",  kis["value"]),
+        "Close": kis["value"],
+        "Volume": kis.get("volume", 0),
+    }
 
 
 def _market_of(stock_id: str) -> str:
@@ -506,6 +517,7 @@ class PriceCollector:
         self, stock_ids: list[str], target: dict[str, str] | None = None
     ) -> dict[str, dict]:
         try:
+            import pandas as pd
             import yfinance as yf
         except ImportError:
             logger.warning("yfinance 미설치 → Mock 폴백")
@@ -524,45 +536,111 @@ class PriceCollector:
 
             sym, name, currency = YFINANCE_MAP[sid]
             target_date = (target or {}).get(_market_of(sid))
+            display_ticker = sym.replace(".KS", "").replace(".KQ", "")
             try:
                 ticker = yf.Ticker(sym)
-                # 90일 히스토리 → 기술적 지표(MA60, RSI14, MACD) 계산에 충분
-                hist   = ticker.history(period="90d", auto_adjust=True)
+                # 90일 히스토리 -> 기술적 지표(MA60, RSI14, MACD) 계산에 충분
+                hist_full = ticker.history(period="90d", auto_adjust=True)
+                hist = hist_full
 
-                # 계약 C2 — 대상 거래일 이후의 봉을 잘라낸다.
+                # 계약 C2 - 대상 거래일 이후의 봉을 잘라낸다.
                 if target_date:
                     hist = _truncate_to_target(hist, target_date)
 
                 close_s = hist["Close"].dropna() if "Close" in hist.columns else None
-                vol_s   = hist["Volume"].dropna() if "Volume" in hist.columns else None
+
+                # 반드시 dropna() 이후의 close_s로 판정해야 한다. 원본 hist의
+                # 마지막 인덱스를 보면 안 된다 - yfinance는 종가가 아직 확정되지
+                # 않은 날에도 Close=NaN인 자리 행을 준다(비미국 거래소에서 흔하다).
+                latest_bar = (
+                    _extract_bar_date(close_s.index[-1])
+                    if close_s is not None and len(close_s) else None
+                )
+
+                if target_date and latest_bar != target_date:
+                    # 대상일 종가가 아직 yfinance에 없다. 실측(2026-09-14~18,
+                    # 5거래일 연속): 한국장 마감 9시간 뒤에도, 미국장 마감 4시간
+                    # 뒤에도 최신 봉이 없었다 - yfinance 발표 지연이지 데이터
+                    # 자체가 없는 게 아니다. 이걸 바로 결측 처리하면 관심종목
+                    # 절반 이상이 매일 리포트에서 통째로 빠진다(실제로 그랬다).
+                    #
+                    # 국내 종목은 KIS(증권사 직접 체결 데이터, 지연 없음)로
+                    # 재시도한다. 여기서 얻은 봉을 hist에 이어 붙이면 이후의
+                    # 모든 계산(종가·등락률·기술적 지표·지지저항·캔들패턴)이
+                    # 자연스럽게 대상일 기준으로 정렬된다.
+                    # 방어 장치: target_date가 정상적으로 계산됐다면(resolve_
+                    # target_session) 이미 마감된 세션만 가리키지만, 혹시라도
+                    # 당일 개장 중인 날짜가 넘어오면 KIS의 "당일 행"은 아직
+                    # 확정 종가가 아니라 실시간 체결가다 — 그걸 확정 종가로
+                    # 받아들이면 LG전자 사고와 같은 성격의 오염이 재발한다.
+                    kis_bar = None
+                    kr_session_open = (
+                        target_date == now_kst().strftime("%Y-%m-%d")
+                        and market_session_state("KR") != "마감"
+                    )
+                    if sid.startswith("KR_") and kr_session_open:
+                        logger.debug(
+                            "%s: 대상일 %s이 아직 개장 중(KR 세션=%s) — KIS 폴백 보류",
+                            sid, target_date, market_session_state("KR"),
+                        )
+                    if sid.startswith("KR_") and not kr_session_open and _kis_collector.is_configured():
+                        try:
+                            kis = _kis_collector.fetch_stock_price(
+                                display_ticker, target_date=target_date
+                            )
+                            kis_bar = _kis_bar_to_series_row(kis)
+                            # None(추출 실패) 행이 섞이면 <target_date 비교가
+                            # TypeError를 낸다 — 먼저 걸러낸다.
+                            older_mask = [
+                                (d := _extract_bar_date(ix)) is not None and d < target_date
+                                for ix in hist_full.index
+                            ]
+                            older = hist_full[older_mask]
+                            hist = pd.concat([
+                                older,
+                                pd.DataFrame([kis_bar], index=[pd.Timestamp(target_date)]),
+                            ])
+                            close_s = hist["Close"].dropna()
+                            latest_bar = target_date
+                            logger.info(
+                                "%s: KIS로 대상 거래일 %s 종가 확보 (yfinance 지연 보완)",
+                                sid, target_date,
+                            )
+                        except Exception as e:
+                            logger.debug("%s: KIS 종목시세 폴백 실패: %s", sid, e)
+
+                    if kis_bar is None:
+                        # 계약 C3 - 정말 데이터가 없으면(결측) 메우지 않는다.
+                        # 단, "대상일 데이터가 아직 없다"와 "직전 거래일까지는
+                        # 실제로 확보돼 있다"는 다르다. hist_full(절단 전 원본)에
+                        # 실제 완결된 이전 거래일 종가가 있다면 그것으로 대체하되
+                        # - LG전자 사고처럼 그 값을 대상일 종가인 척 하지 않는다.
+                        # data_date를 정직하게 실제 날짜로 남기고 "지연(stale)"
+                        # 상태로 리포트에 전달해, 프롬프트가 "오늘 등락"으로
+                        # 서술하지 못하게 명시적으로 알린다.
+                        prior = (
+                            hist_full["Close"].dropna()
+                            if "Close" in hist_full.columns else None
+                        )
+                        if prior is None or len(prior) < 2:
+                            result[sid] = _missing_record(
+                                sid, display_ticker, name, currency, target_date,
+                                f"대상 거래일 종가 미도착 (최신 종가 {latest_bar or '없음'}), "
+                                "직전 거래일 데이터도 부족",
+                            )
+                            continue
+                        logger.warning(
+                            "%s(%s): 대상 거래일 %s 종가 미도착 (최신 종가 %s) -> "
+                            "지연 상태로 직전 확정 종가 사용, 목표일 종가로 위장하지 않음",
+                            sid, sym, target_date, latest_bar or "없음",
+                        )
+                        hist = hist_full
+                        close_s = prior
+                        latest_bar = _extract_bar_date(close_s.index[-1])
 
                 if close_s is None or len(close_s) < 2:
                     raise ValueError("종가 데이터 부족")
-
-                # 계약 C3 — 대상일 종가가 없으면 직전 거래일 값으로 메우지 않는다.
-                #
-                # **반드시 dropna() 이후의 close_s로 판정해야 한다.** 원본 hist의
-                # 마지막 인덱스를 보면 안 된다 — yfinance는 종가가 아직 확정되지
-                # 않은 날에도 Close=NaN인 자리 행을 준다(비미국 거래소에서 흔하다).
-                # 그러면 hist.index[-1]은 대상일과 같아 가드를 통과하는데, 정작
-                # 값은 dropna()로 그 행이 빠진 뒤의 하루 전 종가가 된다.
-                #
-                # 실측 사고 (2026-09-02 저녁 결산, 9/3 00:15 발송):
-                #   "한국 2026-09-02 종가 기준"이라 선언하고 9월 1일 값을 실었다.
-                #   삼성전자 +0.38%(실제 9/2는 -4.02%), SK하이닉스 +1.14%(실제 -4.73%).
-                #   9월 2일은 국내 증시가 크게 밀린 날이라 서술 방향이 반대였다.
-                latest_bar = _extract_bar_date(close_s.index[-1])
-                if target_date and latest_bar != target_date:
-                    logger.warning(
-                        "%s(%s): 대상 거래일 %s 종가 없음 (최신 종가 %s) → 결측 처리",
-                        sid, sym, target_date, latest_bar or "없음",
-                    )
-                    result[sid] = _missing_record(
-                        sid, sym.replace(".KS", "").replace(".KQ", ""),
-                        name, currency, target_date,
-                        f"대상 거래일 종가 미도착 (최신 종가 {latest_bar or '없음'})",
-                    )
-                    continue
+                vol_s = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
                 price      = float(close_s.iloc[-1])
                 prev_close = float(close_s.iloc[-2])

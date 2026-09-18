@@ -10,10 +10,16 @@
       C1~C3이 지켜지면 기준일은 관찰 대상이 아니라 선언 대상이다. 이 블록은
       대상 세션을 명시하고, 데이터가 어긋나면 계약 위반으로 경보를 낸다 —
       계약이 지켜지면 조용하고, 깨지면 시끄럽다.
+
+추가 배경(2026-09-18): 종목 단위 기준일 불일치를 전부 "계약 위반"으로 취급하자
+      정상적인 데이터 발표 지연(실측 5거래일 연속)까지 매번 🚨로 잡아, 그 지연을
+      해소하려던 결측 가드가 오히려 관심종목을 통째로 결측 처리해버렸다.
+      그래서 종목 단위 검사는 폐지하고 _format_stale_block()의 정직한 안내로
+      대체했다 — 아래 종목 관련 위반 테스트는 그 폐지를 검증한다. 지수는
+      "정직한 지연" 경로가 없어(ETF 프록시가 유일한 완화책) 위반 검사를
+      그대로 유지한다.
 """
 from __future__ import annotations
-
-import logging
 
 from app.reports.report_builder import _format_market_session_block
 
@@ -49,14 +55,12 @@ def test_evening_one_day_gap_is_explained_as_normal_not_warned():
 
 # ── 위반 감지 ────────────────────────────────────────────────────────────────
 
-def test_stray_data_date_is_reported_as_a_contract_violation(caplog):
-    """수집 단계에서 막혔어야 하는 상태. 리포트에서 얼버무리지 않는다."""
-    with caplog.at_level(logging.ERROR, logger="app.reports.report_builder"):
-        b = _block({"kr_date": "2026-09-01", "us_date": "2026-09-01"},
-                   {"date_counts": {"2026-09-01": 12, "2026-08-31": 6}})
-    assert "🚨" in b and "계약 위반" in b
-    assert "2026-08-31: 6종목" in b
-    assert any("[CONTRACT_VIOLATION]" in r.message for r in caplog.records)
+def test_stock_level_date_mismatch_no_longer_triggers_a_violation():
+    """종목 단위 기준일 불일치는 더 이상 계약 위반이 아니다(2026-09-18 폐지) —
+    데이터 발표 지연은 정상 상황이고 _format_stale_block()이 대신 알린다."""
+    b = _block({"kr_date": "2026-09-01", "us_date": "2026-09-01"},
+               {"date_counts": {"2026-09-01": 12, "2026-08-31": 6}})
+    assert "🚨" not in b
 
 
 def test_no_violation_banner_when_data_matches_the_target():

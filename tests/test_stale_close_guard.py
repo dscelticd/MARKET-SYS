@@ -18,6 +18,16 @@
       들어 있어 경보가 뜨지 않았다. 시장별로 검사해야 한다.
 
 두 결함 중 하나만 있었어도 드러났을 사고다. 둘 다 막는다.
+
+추가 배경(2026-09-18 재검토): 원인 ①을 고친 직후, 대상일과 정확히 일치하지
+않으면 무조건 결측 처리하는 방식이 더 큰 회귀를 냈다 — yfinance의 정상적인
+발표 지연(장 마감 9시간 뒤에도 종가가 없는 사례) 때문에 관심종목 절반 이상이
+매일 리포트에서 통째로 빠졌다. 그래서 "결측"과 "지연"을 분리했다: 직전
+거래일까지의 실제 데이터가 있으면 그 데이터를 정직한 날짜와 함께 포함시키고
+(지연), 그것조차 없을 때만 결측 처리한다. 종목 단위 계약 위반 탐지기는
+이 "지연" 상태를 흔하게 만나게 되므로 폐지했다 — 지연은 이제
+_format_stale_block()이 명시적으로 알린다. 지수는 이 "정직한 지연" 경로가
+없어(ETF 프록시가 유일한 완화책) 탐지기를 그대로 유지한다.
 """
 from __future__ import annotations
 
@@ -65,13 +75,17 @@ def _collect(hist, target):
 
 def test_nan_close_placeholder_row_does_not_pass_the_guard():
     """실제 사고의 형태 — 9/2 행은 있으나 종가가 NaN이다.
-    원본 인덱스로 판정하면 통과해 9/1 종가가 "9/2 종가"로 나간다."""
+    원본 인덱스로 판정하면 통과해 9/1 종가가 "9/2 종가"로 나간다.
+
+    2026-09-18 재검토 이후: 9/1까지 실제 데이터가 있으므로 결측 처리하지
+    않는다. 다만 data_date가 정직하게 9/1로 남아 9/2로 위장되지 않아야
+    한다 — 이게 이 테스트가 지키는 핵심 안전 속성이다."""
     h = _hist_with_placeholder(["2026-08-31", "2026-09-01", "2026-09-02"],
                                [260_000.0, 261_000.0, float("nan")])
     row = _collect(h, {"KR": "2026-09-02", "US": "2026-09-02"})
-    assert row["missing"] is True
-    assert row["price"] is None
-    assert "2026-09-01" in row["missing_reason"]
+    assert not row.get("missing")
+    assert row["data_date"] == "2026-09-01"   # 9-02로 위장되지 않는다
+    assert row["price"] == 261_000.0
 
 
 def test_real_close_on_the_target_day_is_collected():
@@ -85,9 +99,21 @@ def test_real_close_on_the_target_day_is_collected():
 
 
 def test_all_nan_tail_rows_are_skipped_not_averaged():
+    """9/2·9/3이 둘 다 NaN이어도 9/1까지의 실제 종가는 있다 — 결측이 아니라
+    9/1 기준 지연으로 처리돼야 하며, NaN 행이 계산에 섞여 들어가면 안 된다."""
     h = _hist_with_placeholder(["2026-08-31", "2026-09-01", "2026-09-02", "2026-09-03"],
                                [260_000.0, 261_000.0, float("nan"), float("nan")])
-    assert _collect(h, {"KR": "2026-09-03", "US": "2026-09-03"})["missing"] is True
+    row = _collect(h, {"KR": "2026-09-03", "US": "2026-09-03"})
+    assert not row.get("missing")
+    assert row["data_date"] == "2026-09-01"
+    assert row["price"] == 261_000.0
+
+
+def test_no_usable_prior_data_is_still_genuinely_missing():
+    """직전 거래일 데이터조차 1개 이하면 정직하게 보여줄 것도 없다."""
+    h = _hist_with_placeholder(["2026-09-01"], [261_000.0])
+    row = _collect(h, {"KR": "2026-09-03", "US": "2026-09-03"})
+    assert row["missing"] is True
 
 
 # ── 원인 ② ──────────────────────────────────────────────────────────────────
@@ -106,18 +132,18 @@ def test_stock_market_classification():
     assert stock_market("TW_TSM") == "US"     # 미국 상장 ADR
 
 
-def test_tripwire_catches_kr_data_hiding_behind_the_us_target_date():
-    """합집합 검사의 구멍 — 대상 KR=9/2·US=9/1일 때 한국 종목의 9/1 데이터가
-    '허용된 날짜'라는 이유로 통과했다. 실제로 이 때문에 경보가 없었다."""
+def test_union_style_check_no_longer_flags_kr_stale_data_as_a_violation():
+    """이전 회귀(합집합 검사)를 직접 고치는 대신, 종목 단위 기준일 검사 자체를
+    폐지했다(2026-09-18) — 대상일과 다른 날짜의 종목 데이터는 이제 정상적으로
+    예상되는 "지연" 상태이기 때문이다(_format_stale_block이 대신 알린다).
+    세션 블록 자체에는 더 이상 종목 기준일 불일치로 인한 🚨가 뜨지 않는다."""
     b = _format_market_session_block(
         {"date_counts": {"2026-09-01": 18},
          "date_counts_by_market": {"KR": {"2026-09-01": 7}, "US": {"2026-09-01": 11}}},
         None, None,
         target={"kr_date": "2026-09-02", "us_date": "2026-09-01", "report_type": "evening"},
     )
-    assert "🚨" in b
-    assert "KR 시장의 대상 거래일은 2026-09-02" in b
-    assert "2026-09-01: 7종목" in b
+    assert "🚨" not in b
 
 
 def test_tripwire_quiet_when_each_market_matches_its_own_target():
