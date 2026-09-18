@@ -199,3 +199,43 @@ def test_kis_failure_falls_back_to_honest_stale_data(monkeypatch):
     assert not row.get("missing")
     assert row["data_date"] == "2026-09-01"
     assert row["price"] == 261_000.0
+
+
+def test_kis_overrides_yfinance_even_when_the_date_already_matches(monkeypatch):
+    """실측(2026-09-18 15:48, 마감 18분 뒤): yfinance가 대상일과 날짜가 일치하는
+    행을 줬는데 그 값 자체가 아직 확정 전(정산 중)이었다 — 삼성전자가
+    +2.87%로 수집됐으나 5분 뒤 재조회하니 +3.37%(KIS와 일치)로 바뀌어 있었다.
+    "날짜가 맞으면 신선하다"는 판정만으로는 이 오차를 잡지 못한다. 그래서
+    국내 종목은 날짜 일치 여부와 무관하게 항상 KIS로 덮어써야 한다."""
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 259_750.0])  # 9/1 = 정산 전 값
+    # KIS 응답은 자체적으로 정합성 있는 종가·직전종가·등락률 묶음이다.
+    # 261,000 / 252,500 = +3.37% — 테스트 값도 이 정합성을 지켜야 한다.
+    kis_quote = {"value": 261_000.0, "prev_close": 252_500.0,
+                 "change_pct": 3.37, "volume": 14_657_812, "data_date": "2026-09-01"}
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price", return_value=kis_quote), \
+         _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
+        c = PriceCollector(); c.use_mock = False
+        row = c.collect(["KR_005930"], target={"KR": "2026-09-01", "US": "2026-09-01"})["KR_005930"]
+    assert row["price"] == 261_000.0      # yfinance의 259,750이 아니라 KIS 확정치
+    assert row["change_pct"] == 3.37
+    assert row["data_date"] == "2026-09-01"
+
+
+def test_kis_attempt_happens_regardless_of_yfinance_freshness(monkeypatch):
+    """KIS 시도가 "yfinance가 대상일 데이터를 안 줄 때만"으로 게이트되면
+    안 된다 — 위 시나리오처럼 날짜는 맞지만 값이 틀린 경우를 놓친다."""
+    from unittest.mock import patch as _patch
+    hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 259_750.0])
+    kis_quote = {"value": 261_000.0, "prev_close": 260_000.0,
+                 "change_pct": 3.37, "volume": 1, "data_date": "2026-09-01"}
+    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+         _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price",
+                return_value=kis_quote) as kis_call, \
+         _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
+        c = PriceCollector(); c.use_mock = False
+        c.collect(["KR_005930"], target={"KR": "2026-09-01", "US": "2026-09-01"})
+    kis_call.assert_called_once()

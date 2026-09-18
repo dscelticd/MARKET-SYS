@@ -557,95 +557,114 @@ class PriceCollector:
                     if close_s is not None and len(close_s) else None
                 )
 
-                if target_date and latest_bar != target_date:
-                    # 대상일 종가가 아직 yfinance에 없다. 실측(2026-09-14~18,
-                    # 5거래일 연속): 한국장 마감 9시간 뒤에도, 미국장 마감 4시간
-                    # 뒤에도 최신 봉이 없었다 - yfinance 발표 지연이지 데이터
-                    # 자체가 없는 게 아니다. 이걸 바로 결측 처리하면 관심종목
-                    # 절반 이상이 매일 리포트에서 통째로 빠진다(실제로 그랬다).
-                    #
-                    # 국내 종목은 KIS(증권사 직접 체결 데이터, 지연 없음)로
-                    # 재시도한다. 여기서 얻은 봉을 hist에 이어 붙이면 이후의
-                    # 모든 계산(종가·등락률·기술적 지표·지지저항·캔들패턴)이
-                    # 자연스럽게 대상일 기준으로 정렬된다.
-                    # 방어 장치: target_date가 정상적으로 계산됐다면(resolve_
-                    # target_session) 이미 마감된 세션만 가리키지만, 혹시라도
-                    # 당일 개장 중인 날짜가 넘어오면 KIS의 "당일 행"은 아직
-                    # 확정 종가가 아니라 실시간 체결가다 — 그걸 확정 종가로
-                    # 받아들이면 LG전자 사고와 같은 성격의 오염이 재발한다.
-                    kis_bar = None
-                    kr_session_open = (
-                        target_date == now_kst().strftime("%Y-%m-%d")
-                        and market_session_state("KR") != "마감"
+                # 국내 종목은 대상일이 마감된 뒤라면 yfinance 응답 여부와
+                # 무관하게 **항상 KIS를 먼저 시도**해 확정치로 덮어쓴다.
+                #
+                # 원래는 "yfinance가 대상일 데이터를 안 주면" KIS로 재시도하는
+                # 구조였다. 그런데 yfinance가 대상일과 날짜가 일치하는 행을
+                # 주더라도 그 값 자체가 아직 확정 전(장 마감 직후 몇 분간
+                # 정산 중인 값)인 사례가 실측됐다: 2026-09-18 15:48(마감 18분
+                # 뒤) 삼성전자가 +2.87%로 수집됐는데, 5분 뒤 재조회하니
+                # +3.37%(KIS와 일치)로 바뀌어 있었다. "날짜가 맞으면 신선하다"
+                # 는 판정 자체에 구멍이 있었던 것 — 그래서 날짜 일치 여부로
+                # KIS 시도를 게이트하지 않는다.
+                #
+                # 방어 장치: target_date가 정상적으로 계산됐다면(resolve_
+                # target_session) 이미 마감된 세션만 가리키지만, 혹시라도
+                # 당일 개장 중인 날짜가 넘어오면 KIS의 "당일 행"은 아직
+                # 확정 종가가 아니라 실시간 체결가다 — 그걸 확정 종가로
+                # 받아들이면 LG전자 사고와 같은 성격의 오염이 재발한다.
+                kis_bar = None
+                kr_session_open = (
+                    target_date == now_kst().strftime("%Y-%m-%d")
+                    and market_session_state("KR") != "마감"
+                )
+                if target_date and sid.startswith("KR_") and kr_session_open:
+                    logger.debug(
+                        "%s: 대상일 %s이 아직 개장 중(KR 세션=%s) — KIS 조회 보류",
+                        sid, target_date, market_session_state("KR"),
                     )
-                    if sid.startswith("KR_") and kr_session_open:
-                        logger.debug(
-                            "%s: 대상일 %s이 아직 개장 중(KR 세션=%s) — KIS 폴백 보류",
-                            sid, target_date, market_session_state("KR"),
+                elif target_date and sid.startswith("KR_") and _kis_collector.is_configured():
+                    try:
+                        kis = _kis_collector.fetch_stock_price(
+                            display_ticker, target_date=target_date
                         )
-                    if sid.startswith("KR_") and not kr_session_open and _kis_collector.is_configured():
-                        try:
-                            kis = _kis_collector.fetch_stock_price(
-                                display_ticker, target_date=target_date
-                            )
-                            kis_bar = _kis_bar_to_series_row(kis)
-                            # None(추출 실패) 행이 섞이면 <target_date 비교가
-                            # TypeError를 낸다 — 먼저 걸러낸다.
-                            older_mask = [
-                                (d := _extract_bar_date(ix)) is not None and d < target_date
-                                for ix in hist_full.index
-                            ]
-                            older = hist_full[older_mask]
-                            hist = pd.concat([
-                                older,
-                                pd.DataFrame([kis_bar], index=[pd.Timestamp(target_date)]),
-                            ])
-                            close_s = hist["Close"].dropna()
-                            latest_bar = target_date
-                            logger.info(
-                                "%s: KIS로 대상 거래일 %s 종가 확보 (yfinance 지연 보완)",
-                                sid, target_date,
-                            )
-                        except Exception as e:
-                            logger.debug("%s: KIS 종목시세 폴백 실패: %s", sid, e)
+                        kis_bar = _kis_bar_to_series_row(kis)
+                        # None(추출 실패) 행이 섞이면 <target_date 비교가
+                        # TypeError를 낸다 — 먼저 걸러낸다.
+                        older_mask = [
+                            (d := _extract_bar_date(ix)) is not None and d < target_date
+                            for ix in hist_full.index
+                        ]
+                        older = hist_full[older_mask]
+                        hist = pd.concat([
+                            older,
+                            pd.DataFrame([kis_bar], index=[pd.Timestamp(target_date)]),
+                        ])
+                        close_s = hist["Close"].dropna()
+                        latest_bar = target_date
+                        logger.info(
+                            "%s: KIS 확정 종가로 대상 거래일 %s 값 사용", sid, target_date,
+                        )
+                    except Exception as e:
+                        logger.debug("%s: KIS 종목시세 조회 실패 → yfinance 값 사용: %s", sid, e)
 
-                    if kis_bar is None:
-                        # 계약 C3 - 정말 데이터가 없으면(결측) 메우지 않는다.
-                        # 단, "대상일 데이터가 아직 없다"와 "직전 거래일까지는
-                        # 실제로 확보돼 있다"는 다르다. hist_full(절단 전 원본)에
-                        # 실제 완결된 이전 거래일 종가가 있다면 그것으로 대체하되
-                        # - LG전자 사고처럼 그 값을 대상일 종가인 척 하지 않는다.
-                        # data_date를 정직하게 실제 날짜로 남기고 "지연(stale)"
-                        # 상태로 리포트에 전달해, 프롬프트가 "오늘 등락"으로
-                        # 서술하지 못하게 명시적으로 알린다.
-                        prior = (
-                            hist_full["Close"].dropna()
-                            if "Close" in hist_full.columns else None
+                if target_date and latest_bar != target_date:
+                    # KIS도 실패(또는 시도 안 함)했고 yfinance도 대상일 종가가
+                    # 없다. 실측(2026-09-14~18, 5거래일 연속): 한국장 마감
+                    # 9시간 뒤에도, 미국장 마감 4시간 뒤에도 최신 봉이 없었다 —
+                    # 발표 지연이지 데이터 자체가 없는 게 아니다. 이걸 바로
+                    # 결측 처리하면 관심종목 절반 이상이 매일 리포트에서
+                    # 통째로 빠진다(실제로 그랬다).
+                    #
+                    # 계약 C3 - 정말 데이터가 없으면(결측) 메우지 않는다.
+                    # 단, "대상일 데이터가 아직 없다"와 "직전 거래일까지는
+                    # 실제로 확보돼 있다"는 다르다. hist_full(절단 전 원본)에
+                    # 실제 완결된 이전 거래일 종가가 있다면 그것으로 대체하되
+                    # - LG전자 사고처럼 그 값을 대상일 종가인 척 하지 않는다.
+                    # data_date를 정직하게 실제 날짜로 남기고 "지연(stale)"
+                    # 상태로 리포트에 전달해, 프롬프트가 "오늘 등락"으로
+                    # 서술하지 못하게 명시적으로 알린다.
+                    prior = (
+                        hist_full["Close"].dropna()
+                        if "Close" in hist_full.columns else None
+                    )
+                    if prior is None or len(prior) < 2:
+                        result[sid] = _missing_record(
+                            sid, display_ticker, name, currency, target_date,
+                            f"대상 거래일 종가 미도착 (최신 종가 {latest_bar or '없음'}), "
+                            "직전 거래일 데이터도 부족",
                         )
-                        if prior is None or len(prior) < 2:
-                            result[sid] = _missing_record(
-                                sid, display_ticker, name, currency, target_date,
-                                f"대상 거래일 종가 미도착 (최신 종가 {latest_bar or '없음'}), "
-                                "직전 거래일 데이터도 부족",
-                            )
-                            continue
-                        logger.warning(
-                            "%s(%s): 대상 거래일 %s 종가 미도착 (최신 종가 %s) -> "
-                            "지연 상태로 직전 확정 종가 사용, 목표일 종가로 위장하지 않음",
-                            sid, sym, target_date, latest_bar or "없음",
-                        )
-                        hist = hist_full
-                        close_s = prior
-                        latest_bar = _extract_bar_date(close_s.index[-1])
+                        continue
+                    logger.warning(
+                        "%s(%s): 대상 거래일 %s 종가 미도착 (최신 종가 %s) -> "
+                        "지연 상태로 직전 확정 종가 사용, 목표일 종가로 위장하지 않음",
+                        sid, sym, target_date, latest_bar or "없음",
+                    )
+                    hist = hist_full
+                    close_s = prior
+                    latest_bar = _extract_bar_date(close_s.index[-1])
 
                 if close_s is None or len(close_s) < 2:
                     raise ValueError("종가 데이터 부족")
                 vol_s = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
-                price      = float(close_s.iloc[-1])
-                prev_close = float(close_s.iloc[-2])
-                change     = price - prev_close
-                change_pct = round((change / prev_close) * 100, 2) if prev_close else 0.0
+                if kis_bar is not None and kis.get("prev_close"):
+                    # KIS 값을 채택했다면 등락률도 KIS 응답에서 직접 가져온다.
+                    # close_s.iloc[-2](=yfinance가 준 직전 거래일 종가)로 재계산하면
+                    # KIS의 확정 종가를 KIS가 아닌 다른 소스의 전일 종가와 섞어
+                    # 등락률을 재구성하게 된다 — 두 소스가 반올림·수정주가 처리
+                    # 방식에서 미세하게 어긋나면 등락률이 틀어진다. KIS 응답 자체가
+                    # 이미 종가·직전종가·등락률을 정합성 있게 함께 준다.
+                    price      = float(kis["value"])
+                    prev_close = float(kis["prev_close"])
+                    change     = price - prev_close
+                    change_pct = float(kis["change_pct"])
+                else:
+                    price      = float(close_s.iloc[-1])
+                    prev_close = float(close_s.iloc[-2])
+                    change     = price - prev_close
+                    change_pct = round((change / prev_close) * 100, 2) if prev_close else 0.0
 
                 # 이 가격이 "실제로 언제 종가인지" — 주말·휴장일에 금요일 종가를
                 # 당일 등락률로 오인해 보고하던 문제의 핵심 수정점. yfinance 인덱스가
