@@ -77,3 +77,108 @@ def test_format_theme_scan_block_shows_top_and_bottom_five():
 def test_format_theme_scan_block_handles_empty():
     assert "테마 스캔 데이터 없음" in _format_theme_scan_block(None)
     assert "테마 스캔 데이터 없음" in _format_theme_scan_block([])
+
+
+# ── 국내 테마 ETF의 KIS 우선 조회 ────────────────────────────────────────────
+# 배경: 개별 종목과 같은 이유로 국내 ETF도 마감 직후 몇 분간 yfinance 종가가
+# 정산 중일 수 있다(price_collector에서 실측: 2026-09-18 삼성전자
+# +2.87%→5분 뒤 +3.37%로 정정). 대상일과 무관하게 항상 KIS를 먼저 시도한다.
+
+def _kr_universe():
+    return [{"id": "battery_kr", "name": "2차전지(국내)", "ticker": "305720.KS", "market": "KR"}]
+
+
+def test_kr_theme_etf_prefers_kis_even_when_yfinance_date_matches():
+    import pandas as pd
+    hist = pd.DataFrame(
+        {"Close": [14700.0, 14300.0]},  # yfinance = 아직 정산 전 값(예: -2.72%)
+        index=pd.to_datetime(["2026-09-17", "2026-09-18"]),
+    )
+    kis_quote = {"value": 14670.0, "prev_close": 14625.0, "change_pct": 0.31, "data_date": "2026-09-18"}
+
+    with patch("app.collectors.theme_scanner._load_theme_universe", return_value=_kr_universe()), \
+         patch("yfinance.Ticker", return_value=MagicMock(history=MagicMock(return_value=hist))), \
+         patch("app.collectors.theme_scanner._kis_collector.is_configured", return_value=True), \
+         patch("app.collectors.theme_scanner._kis_collector.fetch_stock_price", return_value=kis_quote), \
+         patch("app.collectors.theme_scanner.market_session_state", return_value="마감"):
+        results = scan_theme_strength(use_mock=False, target={"KR": "2026-09-18", "US": "2026-09-17"})
+
+    assert len(results) == 1
+    assert results[0]["change_pct"] == 0.31   # yfinance의 -2.72%가 아니라 KIS 확정치
+    assert results[0]["price"] == 14670.0
+    assert results[0]["data_date"] == "2026-09-18"
+
+
+def test_kr_theme_etf_kis_attempt_is_unconditional_on_date_match():
+    """KIS 시도가 "yfinance가 대상일을 안 줄 때만"으로 게이트되면 정산 중
+    오차를 놓친다 — 날짜 일치 여부와 무관하게 항상 시도해야 한다."""
+    import pandas as pd
+    hist = pd.DataFrame(
+        {"Close": [14700.0, 14300.0]},
+        index=pd.to_datetime(["2026-09-17", "2026-09-18"]),
+    )
+    kis_quote = {"value": 14670.0, "prev_close": 14625.0, "change_pct": 0.31, "data_date": "2026-09-18"}
+
+    with patch("app.collectors.theme_scanner._load_theme_universe", return_value=_kr_universe()), \
+         patch("yfinance.Ticker", return_value=MagicMock(history=MagicMock(return_value=hist))), \
+         patch("app.collectors.theme_scanner._kis_collector.is_configured", return_value=True), \
+         patch("app.collectors.theme_scanner._kis_collector.fetch_stock_price",
+               return_value=kis_quote) as kis_call, \
+         patch("app.collectors.theme_scanner.market_session_state", return_value="마감"):
+        scan_theme_strength(use_mock=False, target={"KR": "2026-09-18", "US": "2026-09-17"})
+
+    kis_call.assert_called_once()
+
+
+def test_kr_theme_etf_skips_kis_while_market_is_open():
+    """target_date가 실수로 당일(장중)이면 KIS의 당일 행은 미확정 실시간가다
+    — 확정 종가로 오인하지 않도록 보류한다."""
+    import pandas as pd
+    hist = pd.DataFrame(
+        {"Close": [14700.0, 14300.0]},
+        index=pd.to_datetime(["2026-09-17", "2026-09-18"]),
+    )
+
+    with patch("app.collectors.theme_scanner._load_theme_universe", return_value=_kr_universe()), \
+         patch("yfinance.Ticker", return_value=MagicMock(history=MagicMock(return_value=hist))), \
+         patch("app.collectors.theme_scanner.now_kst") as nk, \
+         patch("app.collectors.theme_scanner.market_session_state", return_value="개장중"), \
+         patch("app.collectors.theme_scanner._kis_collector.fetch_stock_price") as kis_call:
+        nk.return_value.strftime.return_value = "2026-09-18"
+        scan_theme_strength(use_mock=False, target={"KR": "2026-09-18", "US": "2026-09-17"})
+
+    kis_call.assert_not_called()
+
+
+def test_kr_theme_etf_falls_back_to_yfinance_when_kis_fails():
+    import pandas as pd
+    hist = pd.DataFrame(
+        {"Close": [14700.0, 14625.0]},
+        index=pd.to_datetime(["2026-09-17", "2026-09-18"]),
+    )
+
+    with patch("app.collectors.theme_scanner._load_theme_universe", return_value=_kr_universe()), \
+         patch("yfinance.Ticker", return_value=MagicMock(history=MagicMock(return_value=hist))), \
+         patch("app.collectors.theme_scanner._kis_collector.is_configured", return_value=True), \
+         patch("app.collectors.theme_scanner._kis_collector.fetch_stock_price",
+               side_effect=TimeoutError("read timed out")), \
+         patch("app.collectors.theme_scanner.market_session_state", return_value="마감"):
+        results = scan_theme_strength(use_mock=False, target={"KR": "2026-09-18", "US": "2026-09-17"})
+
+    assert len(results) == 1
+    assert results[0]["price"] == 14625.0
+    assert results[0]["data_date"] == "2026-09-18"
+
+
+def test_us_theme_etf_never_calls_kis():
+    import pandas as pd
+    hist = pd.DataFrame({"Close": [100.0, 105.0]}, index=pd.to_datetime(["2026-09-17", "2026-09-18"]))
+    fake_universe = [{"id": "a", "name": "A테마", "ticker": "AAA", "market": "US"}]
+
+    with patch("app.collectors.theme_scanner._load_theme_universe", return_value=fake_universe), \
+         patch("yfinance.Ticker", return_value=MagicMock(history=MagicMock(return_value=hist))), \
+         patch("app.collectors.theme_scanner._kis_collector.fetch_stock_price") as kis_call:
+        results = scan_theme_strength(use_mock=False, target={"KR": "2026-09-18", "US": "2026-09-18"})
+
+    kis_call.assert_not_called()
+    assert len(results) == 1 and results[0]["change_pct"] == 5.0

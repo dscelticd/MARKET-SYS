@@ -13,12 +13,14 @@ import logging
 import random
 from datetime import datetime
 from pathlib import Path
-from app.utils.market_calendar import now_kst
+from app.collectors.kis_collector import KISCollector
+from app.utils.market_calendar import market_session_state, now_kst
 
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
 _THEME_UNIVERSE_FILE = _PROJECT_ROOT / "config" / "theme_universe.json"
+_kis_collector = KISCollector()
 
 
 def _load_theme_universe() -> list[dict]:
@@ -67,11 +69,13 @@ def scan_theme_strength(
     results = []
     for theme in universe:
         try:
-            hist = yf.Ticker(theme["ticker"]).history(period="20d", auto_adjust=True)
+            ticker = theme["ticker"]
+            hist = yf.Ticker(ticker).history(period="20d", auto_adjust=True)
             # 테마 유니버스에는 미국 ETF(XLK 등)와 국내 ETF(305720.KS 등)가
             # 섞여 있다. 미국 기준일을 일괄 적용하면 국내 ETF가 하루 어긋난다 —
             # 두 시장의 대상 거래일은 휴장·개장 시각 때문에 자주 갈린다.
-            market = "KR" if theme["ticker"].endswith((".KS", ".KQ")) else "US"
+            is_kr = ticker.endswith((".KS", ".KQ"))
+            market = "KR" if is_kr else "US"
             target_date = (target or {}).get(market)
             if target_date is not None and hist is not None and not hist.empty:
                 # 계약 C2 — 장중 봉이 테마 등락률로 잡히면 본문 수치와 어긋난다
@@ -82,17 +86,43 @@ def scan_theme_strength(
                         return str(ix)[:10]
                 hist = hist.iloc[[i for i, ix in enumerate(hist.index) if _d(ix) <= target_date]]
             close = hist["Close"].dropna()
-            if len(close) < 2:
+
+            price = prev = change_pct = data_date = None
+            if len(close) >= 2:
+                price = float(close.iloc[-1])
+                prev = float(close.iloc[-2])
+                change_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
+                try:
+                    data_date = close.index[-1].date().isoformat()
+                except AttributeError:
+                    data_date = str(close.index[-1])[:10]
+
+            # 국내 ETF는 개별 종목·지수와 같은 이유로 KIS를 우선한다 — 마감
+            # 직후 몇 분간 yfinance 종가가 정산 중이라 대상일과 날짜가
+            # 일치해도 값 자체가 아직 확정 전일 수 있다(price_collector에서
+            # 실측: 2026-09-18 15:48 삼성전자 +2.87%→5분 뒤 +3.37%로 정정).
+            # target_date와 무관하게 항상 시도하고, 장중이면 보류한다.
+            kr_session_open = (
+                target_date == now_kst().strftime("%Y-%m-%d")
+                and market_session_state("KR") != "마감"
+            )
+            if is_kr and target_date and not kr_session_open and _kis_collector.is_configured():
+                try:
+                    display_ticker = ticker.replace(".KS", "").replace(".KQ", "")
+                    kis = _kis_collector.fetch_stock_price(display_ticker, target_date=target_date)
+                    price = float(kis["value"])
+                    change_pct = float(kis["change_pct"])
+                    data_date = kis["data_date"]
+                    logger.info("%s: KIS 확정 종가로 대상 거래일 %s 값 사용",
+                               theme.get("id"), target_date)
+                except Exception as e:
+                    logger.debug("%s: KIS 테마 ETF 조회 실패 → yfinance 값 사용: %s",
+                                theme.get("id"), e)
+
+            if price is None or change_pct is None:
                 continue
-            price = float(close.iloc[-1])
-            prev = float(close.iloc[-2])
-            change_pct = round((price - prev) / prev * 100, 2) if prev else 0.0
             # 이 등락률이 실제로 어느 거래일 것인지 — 주말에 금요일 등락을
             # "당일 등락률"로 보고하던 문제를 막기 위해 기준일을 함께 남긴다
-            try:
-                data_date = close.index[-1].date().isoformat()
-            except AttributeError:
-                data_date = str(close.index[-1])[:10]
             results.append({
                 **theme, "change_pct": change_pct, "price": round(price, 2),
                 "data_date": data_date, "_mock": False,
