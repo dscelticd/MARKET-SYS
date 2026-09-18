@@ -160,9 +160,16 @@ def _daily_price_response(rows):
     return r
 
 
-def _price_row(date_yyyymmdd, close, prdy_ctrt, volume):
-    return {"stck_bsop_date": date_yyyymmdd, "stck_clpr": str(close),
-            "prdy_ctrt": str(prdy_ctrt), "acml_vol": str(volume)}
+def _price_row(date_yyyymmdd, close, prdy_ctrt, volume, open_=None, high=None, low=None):
+    row = {"stck_bsop_date": date_yyyymmdd, "stck_clpr": str(close),
+           "prdy_ctrt": str(prdy_ctrt), "acml_vol": str(volume)}
+    if open_ is not None:
+        row["stck_oprc"] = str(open_)
+    if high is not None:
+        row["stck_hgpr"] = str(high)
+    if low is not None:
+        row["stck_lwpr"] = str(low)
+    return row
 
 
 def test_fetch_stock_price_returns_the_target_date_row(tmp_path, monkeypatch):
@@ -231,3 +238,37 @@ def test_fetch_stock_price_raises_after_exhausting_retries(tmp_path, monkeypatch
          patch("app.collectors.kis_collector.time.sleep"):
         with pytest.raises(TimeoutError):
             collector.fetch_stock_price("005930", target_date="2026-09-17", retries=1)
+
+
+def test_fetch_stock_price_returns_ohlc_for_the_candle(tmp_path, monkeypatch):
+    """open/high/low가 없으면 호출부(price_collector)가 Open=High=Low=Close로
+    뭉갠 납작한 봉을 만들어, 캔들 패턴 판정이 매번 도지(십자형)로 잘못 나온다."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20260917", 252500, -0.39, 11_827_514,
+                       open_=257000, high=259000, low=251500)]
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
+        result = collector.fetch_stock_price("005930", target_date="2026-09-17")
+    assert result["open"] == 257000.0
+    assert result["high"] == 259000.0
+    assert result["low"] == 251500.0
+
+
+def test_fetch_stock_price_ohlc_is_none_when_missing_from_response(tmp_path, monkeypatch):
+    """API 응답에 시가·고가·저가 필드가 없으면(구버전 필드셋 등) None으로
+    두고, 호출부가 종가로 대체하게 한다 — 값을 지어내지 않는다."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20260917", 252500, -0.39, 11_827_514)]   # open/high/low 없음
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
+         patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
+        result = collector.fetch_stock_price("005930", target_date="2026-09-17")
+    assert result["open"] is None
+    assert result["high"] is None
+    assert result["low"] is None
+    assert result["value"] == 252500.0   # 종가는 정상 반환

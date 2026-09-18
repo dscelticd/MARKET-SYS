@@ -345,8 +345,23 @@ class KISCollector:
                 except (KeyError, ValueError, TypeError):
                     prev_close = None
 
+            # 시가·고가·저가도 함께 반환한다. 이게 없으면 호출부(price_collector)가
+            # Open=High=Low=Close로 뭉갠 납작한 봉을 만들게 된다 — 캔들 패턴
+            # 판정(_classify_candle)이 KIS를 쓴 날마다 매번 도지(십자형)로
+            # 잘못 나오는 결과였다. KIS를 개별 종목의 사실상 매번 쓰는
+            # 소스로 바꾼 뒤부터는 "가끔의 결함"이 아니라 "상시 결함"이 된다.
+            def _num(key: str) -> float | None:
+                try:
+                    v = float(row.get(key, 0) or 0)
+                    return v if v > 0 else None
+                except (TypeError, ValueError):
+                    return None
+
             return {
                 "value": close,
+                "open": _num("stck_oprc"),
+                "high": _num("stck_hgpr"),
+                "low":  _num("stck_lwpr"),
                 "prev_close": prev_close,
                 "change_pct": round(float(row.get("prdy_ctrt", 0) or 0), 2),
                 "volume": int(float(row.get("acml_vol", 0) or 0)),
