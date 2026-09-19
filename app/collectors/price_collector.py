@@ -89,6 +89,63 @@ def _extract_bar_date(index_value) -> str | None:
             return None
 
 
+def _official_close_from_info(ticker_obj, target_date: str, prior_close: float | None) -> dict | None:
+    """일봉의 Close가 NaN일 때 공식 종가를 info 경로로 확보한다 (계약 C2·C3).
+
+    실측(2026-09-19 09:37, 미국장 마감 4시간 반 뒤): 관심종목 미국 11종목
+    전부 일봉에 9/18 행은 있는데 Close만 NaN이었다. 그래서 토요일 아침
+    브리핑이 "9월 17일(목) 기준" 데이터로 나갔다 — 미국 금요일 종가를 처음
+    담아야 하는 회차인데 그 목적을 달성하지 못했고, SanDisk +10.99%,
+    Coherent +7.22% 같은 큰 움직임이 통째로 빠졌다.
+
+    같은 시점 get_info()에는 확정 종가가 이미 들어 있었다. 다만 이 필드는
+    장중에는 실시간 현재가라, 그대로 믿으면 장중값을 종가로 둔갑시키는
+    사고(LG전자 건과 같은 성격)가 된다. 그래서 세 겹으로 검증해 전부
+    통과할 때만 채택한다:
+
+      ① marketState가 정규장 진행 중(REGULAR/PRE)이 아닐 것
+      ② regularMarketTime을 거래소 현지 시각으로 환산한 날짜가 대상
+         거래일과 일치할 것 — 이 가격이 어느 세션의 것인지 직접 확인한다
+      ③ regularMarketPreviousClose가 이미 확정된 직전 거래일 종가와 일치할 것
+         — 필드 의미가 바뀌거나 다른 세션을 가리키면 여기서 걸린다
+
+    ③이 자기검증 장치다. 실측으로 11종목 전부 직전 확정 종가와 정확히
+    일치하는 것을 확인했고, 어긋나면 채택하지 않고 지연 폴백으로 넘어간다.
+    """
+    try:
+        info = ticker_obj.get_info() or {}
+    except Exception:
+        return None
+
+    if str(info.get("marketState") or "") in ("REGULAR", "PRE"):
+        return None   # 정규장 진행 중 — 지금 값은 확정 종가가 아니다
+
+    close = info.get("regularMarketPrice")
+    prev = info.get("regularMarketPreviousClose")
+    ts = info.get("regularMarketTime")
+    if not close or not prev or not ts:
+        return None
+
+    try:
+        from zoneinfo import ZoneInfo
+        local = datetime.fromtimestamp(int(ts), tz=ZoneInfo(info.get("exchangeTimezoneName") or "UTC"))
+    except Exception:
+        return None
+    if local.date().isoformat() != target_date:
+        return None   # 이 가격이 가리키는 세션이 대상 거래일이 아니다
+
+    if prior_close and abs(float(prev) - prior_close) / prior_close > 0.0005:
+        return None   # 자기검증 실패 — 직전 종가가 맞지 않는다
+
+    return {
+        "Open":   float(info.get("regularMarketOpen") or close),
+        "High":   float(info.get("regularMarketDayHigh") or close),
+        "Low":    float(info.get("regularMarketDayLow") or close),
+        "Close":  float(close),
+        "Volume": int(info.get("regularMarketVolume") or 0),
+    }
+
+
 def _kis_bar_to_series_row(kis: dict) -> dict:
     """KIS fetch_stock_price() 결과를 yfinance hist 행과 같은 열 이름으로 변환."""
     return {
@@ -629,6 +686,34 @@ class PriceCollector:
                         hist_full["Close"].dropna()
                         if "Close" in hist_full.columns else None
                     )
+
+                    # 지연 폴백으로 물러나기 전에, 공식 종가가 info 경로에
+                    # 이미 와 있는지 확인한다. 일봉 Close만 NaN이고 실제
+                    # 확정 종가는 나와 있는 경우가 흔하다(실측 2026-09-19:
+                    # 미국 11종목 전부 이 상태였고, 그 탓에 토요일 아침
+                    # 브리핑이 미국 금요일 종가를 담지 못했다).
+                    info_bar = None
+                    if prior is not None and len(prior) >= 1:
+                        info_bar = _official_close_from_info(
+                            ticker, target_date, float(prior.iloc[-1])
+                        )
+                    if info_bar is not None:
+                        older_mask = [
+                            (d := _extract_bar_date(ix)) is not None and d < target_date
+                            for ix in hist_full.index
+                        ]
+                        hist = pd.concat([
+                            hist_full[older_mask],
+                            pd.DataFrame([info_bar], index=[pd.Timestamp(target_date)]),
+                        ])
+                        close_s = hist["Close"].dropna()
+                        latest_bar = target_date
+                        logger.info(
+                            "%s: 일봉 Close가 비어 있어 공식 종가(info)로 대상 거래일 %s 값 확보",
+                            sid, target_date,
+                        )
+
+                if target_date and latest_bar != target_date:
                     if prior is None or len(prior) < 2:
                         result[sid] = _missing_record(
                             sid, display_ticker, name, currency, target_date,
