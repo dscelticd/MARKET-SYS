@@ -61,8 +61,9 @@ from app.reports.report_builder import (
 )
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
-from app.utils.market_calendar import now_kst, resolve_target_session
+from app.utils.market_calendar import now_kst, resolve_target_session, stock_market, index_market
 from app.utils import delivery_log
+from app.utils.watchlist_check import validate_watchlist
 
 
 # ── 로깅 설정 ────────────────────────────────────────────────────────────────
@@ -149,6 +150,60 @@ def _summarize_investor_flow_sources(price_data: dict) -> str:
     return " / ".join(parts) if parts else "0종목"
 
 
+_SOURCE_LABEL = {"kis": "KIS", "info": "공식종가", "yfinance": "yfinance", "stale": "지연"}
+
+
+def summarize_run_quality(
+    price_data: dict, missing_stocks: dict, target: dict,
+    macro_data: dict | None = None, confidence: float | None = None,
+) -> tuple[str, bool]:
+    """이번 실행의 데이터 품질을 한 줄로 요약한다. 반환: (요약, 이상 여부).
+
+    예) KR 7/7 (KIS 7) · US 11/11 (yfinance 9, 공식종가 2) · 지수 5/5 · 지연 0 · 결측 0 · 신뢰도 92
+
+    왜 필요한가 — 2026-10 운영 점검 때 지난 한 달간 결측·지연이 몇 번 났는지,
+    어느 소스가 쓰였는지 확인할 수 없었다. 실행 로그는 로그인해야 보이고 7일 뒤
+    삭제된다. 이 한 줄을 실행 결과 주석으로 남기면 공개 API로 언제든 조회된다.
+    """
+    def _target_of(market: str) -> str | None:
+        return target.get("kr_date" if market == "KR" else "us_date")
+
+    parts: list[str] = []
+    for market in ("KR", "US"):
+        tgt = _target_of(market)
+        rows = [p for sid, p in price_data.items() if stock_market(sid) == market]
+        total = len(rows) + sum(1 for sid in missing_stocks if stock_market(sid) == market)
+        if not total:
+            continue
+        fresh = [p for p in rows if p.get("data_date") == tgt]
+        sources = Counter(
+            "Mock" if p.get("_mock") else _SOURCE_LABEL.get(p.get("price_source"), "?")
+            for p in fresh
+        )
+        detail = ", ".join(f"{k} {n}" for k, n in sources.most_common())
+        parts.append(f"{market} {len(fresh)}/{total}" + (f" ({detail})" if detail else ""))
+
+    index_off = 0
+    dates = (macro_data or {}).get("data_dates") or {}
+    if dates:
+        index_ok = sum(
+            1 for name, d in dates.items()
+            if index_market(name) and d == _target_of(index_market(name))
+        )
+        index_off = len(dates) - index_ok
+        parts.append(f"지수 {index_ok}/{len(dates)}")
+
+    stale = sum(
+        1 for sid, p in price_data.items()
+        if p.get("data_date") and p["data_date"] != _target_of(stock_market(sid))
+    )
+    parts.append(f"지연 {stale}")
+    parts.append(f"결측 {len(missing_stocks)}")
+    if confidence is not None:
+        parts.append(f"신뢰도 {confidence:.0f}")
+    return " · ".join(parts), bool(stale or missing_stocks or index_off)
+
+
 def _gh_annotation(level: str, message: str) -> None:
     """GitHub Actions 실행 결과에 주석을 남긴다 — 로그는 로그인해야 보이고 7일 뒤
     지워지지만, 주석은 실행 목록에서 바로 보인다. 로컬 실행에서는 아무것도 안 한다."""
@@ -222,6 +277,17 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         print(f"  관심테마: {len(cfg.themes.themes)}개 로드 완료")
         print(f"  투자성향: {cfg.user.risk_tolerance}")
         logger.info("설정 로드 완료 — %d개 종목", len(stocks))
+
+        # 관심종목 목록과 수집 심볼 매핑이 어긋나면 해당 종목이 조용히 결측된다
+        try:
+            wl_problems = validate_watchlist(stocks)
+        except Exception as e:
+            logger.warning("[WATCHLIST_CHECK_ERROR] 관심종목 점검 실패 (무시하고 계속): %s", e)
+            wl_problems = []
+        for prob in wl_problems:
+            print(f"  ⚠️ 관심종목 설정: {prob}")
+            logger.error("[WATCHLIST_CONFIG] %s", prob)
+            _gh_annotation("warning", f"관심종목 설정 — {prob}")
 
         # ── Step 2: Collector 실행 ──
         use_mock = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
@@ -400,6 +466,29 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
                 logger.warning("[VALIDATION_WARNING] %s", iss)
         logger.info("데이터 품질 — 신뢰도:%.0f점 (%s)  이슈:%d건  치명적오류:%s",
                     conf, status, len(issues), critical_error)
+
+        # ── 실행 품질 한 줄 요약 → 실행 이력 주석 + (이상 시) 텔레그램 ──
+        quality_line, degraded = summarize_run_quality(
+            price_data, missing_stocks, target, macro_data, conf,
+        )
+        print(f"  실행 품질: {quality_line}")
+        logger.info("[RUN_QUALITY] %s", quality_line)
+        _gh_annotation(
+            "warning" if degraded else "notice",
+            f"{date_str} {report_type} — {quality_line}",
+        )
+        # 발송하는 실행에서만 알린다 — 로컬 개발 실행마다 알림이 오면 정작
+        # 운영 알림이 묻힌다
+        if degraded and send_email and notifier.is_configured():
+            try:
+                notifier.notify_data_gaps(
+                    quality_line,
+                    [m.get("name", sid) for sid, m in missing_stocks.items()],
+                    [f"{p.get('name', sid)}({p['data_date']})" for sid, p in stale_stocks.items()],
+                    report_type,
+                )
+            except Exception as e:
+                logger.error("[TELEGRAM_NOTIFY_ERROR] 데이터 품질 알림 실패: %s", e)
 
         # 치명적 오류 시 공포탐욕 지수 산출 보류 — 단일 지표 오류가 시장 심리
         # 판단 전체를 오염시키지 않도록 방어

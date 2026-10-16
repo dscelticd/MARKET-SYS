@@ -272,3 +272,53 @@ def test_fetch_stock_price_ohlc_is_none_when_missing_from_response(tmp_path, mon
     assert result["high"] is None
     assert result["low"] is None
     assert result["value"] == 252500.0   # 종가는 정상 반환
+
+
+# ── 실전/모의 환경 전환 ──────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("value,expected", [
+    ("real", "https://openapi.koreainvestment.com:9443"),
+    (" REAL ", "https://openapi.koreainvestment.com:9443"),
+    ("demo", "https://openapivts.koreainvestment.com:29443"),
+    ("", "https://openapivts.koreainvestment.com:29443"),
+])
+def test_kis_env_selects_server(tmp_path, monkeypatch, value, expected):
+    _make_collector(tmp_path, monkeypatch)
+    monkeypatch.setenv("KIS_ENV", value)
+    assert KISCollector().base_url == expected
+
+
+def test_unknown_kis_env_is_reported_not_silently_ignored(tmp_path, monkeypatch, caplog):
+    """'prod'·'실전' 같은 오타는 예전엔 조용히 모의 서버로 붙어 원인을 알 수 없었다."""
+    _make_collector(tmp_path, monkeypatch)
+    monkeypatch.setenv("KIS_ENV", "prod")
+    with caplog.at_level("ERROR"):
+        c = KISCollector()
+    assert c.env == "demo"
+    assert "KIS_ENV" in caplog.text and "prod" in caplog.text
+
+
+def test_token_from_the_other_environment_is_not_reused(tmp_path, monkeypatch):
+    """모의→실전 전환 당일, 같은 날짜 캐시에 남은 모의 서버 토큰을 실전 서버에 쓰면 안 된다."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    monkeypatch.setenv("KIS_ENV", "real")
+    collector = KISCollector()
+    import app.collectors.kis_collector as mod
+    mod._TOKEN_CACHE_FILE.write_text(
+        '{"app_key": "test-key", "env": "demo", "access_token": "demo-token", "expires_at": '
+        + str(time.time() + 9999) + '}',
+        encoding="utf-8",
+    )
+    assert collector._read_cached_token() is None
+
+
+def test_legacy_cache_without_env_is_treated_as_demo(tmp_path, monkeypatch):
+    """env 필드가 생기기 전의 캐시는 모의 환경에서 발급된 것 — 모의에서는 계속 재사용."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    import app.collectors.kis_collector as mod
+    mod._TOKEN_CACHE_FILE.write_text(
+        '{"app_key": "test-key", "access_token": "old", "expires_at": '
+        + str(time.time() + 9999) + '}',
+        encoding="utf-8",
+    )
+    assert collector._read_cached_token() == "old"

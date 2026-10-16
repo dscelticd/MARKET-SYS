@@ -1383,6 +1383,22 @@ def _render_watchlist_manager() -> None:
     # ── 섹션 1: 관심종목 편집 ─────────────────────────────────────────────────
     stocks = cfg.watchlist.stocks
 
+    # 여기서 종목을 추가해도 수집 심볼 매핑(YFINANCE_MAP)은 자동으로 생기지 않는다.
+    # 빠뜨리면 그 종목이 매 리포트에서 결측되므로 편집하는 바로 이 자리에서 알린다
+    # (저장 직후 st.rerun()으로 다시 그려질 때도 계속 보이도록 매번 점검).
+    try:
+        from app.utils.watchlist_check import validate_watchlist
+        wl_problems = validate_watchlist(stocks)
+    except Exception:
+        wl_problems = []
+    if wl_problems:
+        st.warning(
+            "⚠️ **리포트에서 빠지거나 날짜가 어긋날 종목이 있습니다**\n\n"
+            + "\n".join(f"- {p}" for p in wl_problems)
+            + "\n\n수집 심볼은 `app/collectors/price_collector.py`의 `YFINANCE_MAP`에서 "
+            "관리합니다 (코스피 `.KS`, 코스닥 `.KQ`, 미국 상장은 티커 그대로)."
+        )
+
     edited_wdf = st.data_editor(
         _wl_to_df(stocks),
         column_config={

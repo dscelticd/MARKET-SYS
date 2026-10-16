@@ -162,6 +162,7 @@ def test_us_stock_with_nan_close_recovers_the_target_day():
     assert row["data_date"] == "2026-09-18"      # 9/17로 물러나지 않는다
     assert row["price"] == 222.27
     assert row["change_pct"] == 1.34
+    assert row["price_source"] == "info"         # 실행 품질 요약이 출처를 집계한다
 
 
 def test_falls_back_to_honest_stale_when_info_is_not_trustworthy():
@@ -176,6 +177,7 @@ def test_falls_back_to_honest_stale_when_info_is_not_trustworthy():
     assert not row.get("missing")
     assert row["data_date"] == "2026-09-17"      # 정직하게 실제 날짜
     assert row["price"] == 219.34
+    assert row["price_source"] == "stale"
 
 
 def test_candle_pattern_is_not_degenerate_after_info_recovery():

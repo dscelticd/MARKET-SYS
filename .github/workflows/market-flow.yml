@@ -51,7 +51,10 @@ concurrency:
 jobs:
   run-report:
     name: 리포트 생성 및 이메일 발송
-    runs-on: ubuntu-latest
+    # ubuntu-latest는 2026-10-19부터 Ubuntu 26으로 바뀐다. 이미지가 바뀌면 시스템
+    # 패키지(fonts-nanum)·Python 빌드·폰트 렌더링이 예고 없이 달라질 수 있어, 버전을
+    # 고정하고 올릴 시점을 직접 정한다. 올릴 때는 workflow_dispatch로 먼저 시험 실행.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
 
     steps:

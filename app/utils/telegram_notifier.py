@@ -223,6 +223,26 @@ class TelegramNotifier:
         ]
         return self._send("\n".join(lines))
 
+    def notify_data_gaps(
+        self, quality_line: str, missing: list[str], stale: list[str],
+        report_type: str = "morning",
+    ) -> bool:
+        """대상 거래일 데이터가 빠지거나(결측) 이전 날짜로 대체된(지연) 종목이 있을 때.
+
+        리포트 본문에도 안내 블록이 붙지만, 메일을 열어봐야 안다. 9/14~18처럼
+        며칠째 반복되는 문제는 운영자가 바로 알아야 한다.
+        """
+        if not self.is_configured():
+            return False
+        label = "📅 아침" if report_type == "morning" else "🌙 저녁"
+        lines = [f"⏳ *Market Flow {label} 리포트 데이터 공백*", _escape(quality_line), ""]
+        if missing:
+            lines.append(f"결측: {_escape(', '.join(missing))}")
+        if stale:
+            lines.append(f"지연: {_escape(', '.join(stale))}")
+        lines += ["", "_리포트는 발송되며, 해당 종목은 본문에 결측·지연으로 표시됩니다\\._"]
+        return self._send("\n".join(lines))
+
     def notify_missed_reports(self, missed: list[tuple[str, str]]) -> bool:
         """발송 기록이 없는 회차를 알린다.
 

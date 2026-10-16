@@ -5,8 +5,11 @@ KIS(한국투자증권) Open API — 국내 종목 투자자별(개인/외국인
 소스. 개인 순매수도 잔차 추정이 아닌 실측값을 직접 제공해 네이버 방식보다 정확하다.
 
 사전 준비: 한국투자증권 계좌 개설(비대면 가능) → 홈페이지/앱에서 오픈API 서비스 신청
-→ 앱키(App Key)/앱시크릿(App Secret) 발급. 모의투자 앱키도 실계좌 소유가 필요하지만
-market_flow는 시세 조회만 하므로 모의투자 앱키로 충분(KIS_ENV=demo, 기본값).
+→ 앱키(App Key)/앱시크릿(App Secret) 발급. 모의투자 앱키도 실계좌 소유가 필요하다.
+market_flow는 시세 조회만 하므로 모의투자 앱키(KIS_ENV=demo, 기본값)로도 동작하지만,
+모의투자 서버의 종가는 마감 후 한동안 흔들리는 것이 실측됐다(2026-09-18 삼성전자
+15:51 261,000원 → 16:28 260,000원). 확정 종가가 중요하므로 실전 앱키(KIS_ENV=real)를
+권장한다 — 조회 전용 TR(FHKST01010400/01010900, FHPTJ04040000)은 두 환경이 같다.
 
 API 참고: https://github.com/koreainvestment/open-trading-api
   - 토큰 발급: POST {base}/oauth2/tokenP (유효 24시간 — 파일 캐싱으로 재발급 최소화)
@@ -83,8 +86,17 @@ class KISCollector:
     def __init__(self) -> None:
         self.app_key = os.getenv("KIS_APP_KEY", "")
         self.app_secret = os.getenv("KIS_APP_SECRET", "")
-        self.env = os.getenv("KIS_ENV", "demo")
-        self.base_url = _BASE_URLS.get(self.env, _BASE_URLS["demo"])
+        self.env = (os.getenv("KIS_ENV") or "demo").strip().lower()
+        if self.env not in _BASE_URLS:
+            # "prod", "실전" 등으로 잘못 넣으면 예전에는 조용히 모의투자 서버로
+            # 붙었다 — 실전 앱키로 모의 서버에 접속하면 토큰 발급부터 실패하고,
+            # 원인이 KIS_ENV 오타라는 사실은 어디에도 드러나지 않는다.
+            logger.error(
+                "[KIS_CONFIG] KIS_ENV=%r 은 알 수 없는 값 — 'real'(실전) 또는 'demo'(모의)만 "
+                "허용됩니다. 모의투자 서버로 접속합니다.", self.env,
+            )
+            self.env = "demo"
+        self.base_url = _BASE_URLS[self.env]
 
     def is_configured(self) -> bool:
         return bool(self.app_key and self.app_secret)
@@ -98,6 +110,8 @@ class KISCollector:
             data = json.loads(_TOKEN_CACHE_FILE.read_text(encoding="utf-8"))
             if data.get("app_key") != self.app_key:
                 return None  # 앱키가 바뀌었으면 캐시 무효
+            if data.get("env", "demo") != self.env:
+                return None  # 모의↔실전 전환 — 다른 서버가 발급한 토큰은 쓸 수 없다
             if data.get("expires_at", 0) > time.time() + _TOKEN_EXPIRY_BUFFER_SEC:
                 return data["access_token"]
         except Exception:
@@ -109,6 +123,7 @@ class KISCollector:
         _TOKEN_CACHE_FILE.write_text(
             json.dumps({
                 "app_key": self.app_key,
+                "env": self.env,
                 "access_token": token,
                 "expires_at": time.time() + expires_in,
             }),

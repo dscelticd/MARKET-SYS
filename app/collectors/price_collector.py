@@ -632,6 +632,9 @@ class PriceCollector:
                 # 확정 종가가 아니라 실시간 체결가다 — 그걸 확정 종가로
                 # 받아들이면 LG전자 사고와 같은 성격의 오염이 재발한다.
                 kis_bar = None
+                # 이 종목의 대상일 종가가 실제로 어디서 왔는지 — 실행 이력 주석과
+                # 품질 알림이 이 값을 집계한다(kis / info / yfinance / stale)
+                price_source = "yfinance"
                 kr_session_open = (
                     target_date == now_kst().strftime("%Y-%m-%d")
                     and market_session_state("KR") != "마감"
@@ -660,6 +663,7 @@ class PriceCollector:
                         ])
                         close_s = hist["Close"].dropna()
                         latest_bar = target_date
+                        price_source = "kis"
                         logger.info(
                             "%s: KIS 확정 종가로 대상 거래일 %s 값 사용", sid, target_date,
                         )
@@ -708,6 +712,7 @@ class PriceCollector:
                         ])
                         close_s = hist["Close"].dropna()
                         latest_bar = target_date
+                        price_source = "info"
                         logger.info(
                             "%s: 일봉 Close가 비어 있어 공식 종가(info)로 대상 거래일 %s 값 확보",
                             sid, target_date,
@@ -729,6 +734,7 @@ class PriceCollector:
                     hist = hist_full
                     close_s = prior
                     latest_bar = _extract_bar_date(close_s.index[-1])
+                    price_source = "stale"
 
                 if close_s is None or len(close_s) < 2:
                     raise ValueError("종가 데이터 부족")
@@ -829,6 +835,7 @@ class PriceCollector:
                     "timestamp":     now_kst().isoformat(),
                     "data_date":      data_date,       # 종가의 실제 거래일
                     "prev_data_date": prev_data_date,  # change_pct 비교 대상 거래일
+                    "price_source":  price_source,     # kis / info / yfinance / stale
                     "_mock":         False,
                     "technical":     technical,
                     "analyst":       analyst,

@@ -135,6 +135,21 @@ for fname, desc in config_files.items():
     else:
         check("FAIL", fname, f"파일 없음 ({desc})")
 
+# 관심종목 목록과 수집 심볼 매핑(YFINANCE_MAP)의 어긋남 — 대시보드에서 종목을
+# 추가해도 매핑은 자동으로 생기지 않아, 빠뜨리면 그 종목이 매 리포트에서 결측된다
+try:
+    import json as _json
+    from app.utils.watchlist_check import validate_watchlist
+    _stocks = _json.loads((_PROJECT_ROOT / "config/watchlist.json").read_text(encoding="utf-8"))["stocks"]
+    _problems = validate_watchlist(_stocks)
+    if _problems:
+        for _p in _problems:
+            check("FAIL", "관심종목 매핑", _p)
+    else:
+        check("OK", "관심종목 매핑", f"{len(_stocks)}종목 모두 수집 심볼과 일치")
+except Exception as e:
+    check("WARN", "관심종목 매핑", f"점검 실패: {str(e)[:60]}")
+
 # ── 4. 데이터 폴더 ───────────────────────────────────────────────────────────
 print("\n[4] 데이터 폴더 확인")
 folders = ["data/reports", "data/history", "data/cache"]

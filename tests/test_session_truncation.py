@@ -154,6 +154,7 @@ def test_kis_fallback_fills_in_the_target_date_when_yfinance_is_behind(monkeypat
     assert row["price"] == 250_500.0
     assert row["data_date"] == "2026-09-02"     # KIS 값이 대상일 종가로 정상 채택됨
     assert row["change_pct"] == -4.02
+    assert row["price_source"] == "kis"
 
 
 def test_kis_fallback_is_not_attempted_for_us_stocks(monkeypatch):
