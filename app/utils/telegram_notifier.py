@@ -223,6 +223,28 @@ class TelegramNotifier:
         ]
         return self._send("\n".join(lines))
 
+    def notify_missed_reports(self, missed: list[tuple[str, str]]) -> bool:
+        """발송 기록이 없는 회차를 알린다.
+
+        실행 자체가 없었던 회차(러너 미배정 등)는 그 실행이 스스로 알릴 수 없다.
+        실측 2026-10-05 저녁 — GitHub이 러너를 배정하지 못해 취소됐고, 같은
+        작업 안에 있던 실패 알림도 돌지 않아 아무도 몰랐다. 다음 실행이 대신 알린다.
+        """
+        if not self.is_configured() or not missed:
+            return False
+        now = now_kst().strftime("%Y-%m-%d %H:%M")
+        names = {"morning": "아침 브리핑", "evening": "저녁 결산"}
+        lines = [
+            "⚠️ *Market Flow 리포트 누락 감지*",
+            f"일시: {_escape(now)}",
+            "",
+            *[f"• {_escape(d)} {names.get(t, t)}" for t, d in missed],
+            "",
+            "_위 회차는 발송 기록이 없습니다\\. GitHub Actions 실행 이력에서 "
+            "취소·실패 여부를 확인하세요\\._",
+        ]
+        return self._send("\n".join(lines))
+
     def notify_error(self, error_msg: str, report_type: str = "morning") -> None:
         """파이프라인 오류 알림"""
         if not self.is_configured():

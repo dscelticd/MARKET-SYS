@@ -18,7 +18,9 @@ import anthropic
 _logger = logging.getLogger(__name__)
 
 from app.utils.data_validator import DataValidator
-from app.utils.market_calendar import holiday_name, index_market, now_kst, stock_market, weekday_kr
+from app.utils.market_calendar import (
+    holiday_name, index_market, now_kst, session_open_kst, stock_market, weekday_kr,
+)
 
 SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 전문가입니다.
 수집된 시장 데이터와 신호 점수를 바탕으로 개인 투자자를 위한 시장 브리핑 리포트를 작성합니다.
@@ -804,13 +806,16 @@ def _format_target_session_block(
             lines.append("  ▶ 두 시장이 같은 거래일 기준입니다 — 종목 간 등락률을 직접 비교해도 됩니다.")
         else:
             # 두 시장의 기준일이 갈리는 이유는 두 가지다 —
-            #   ① 저녁 결산: 20:40 KST에 미국장은 아직 열리지 않았다(22:30 개장)
+            #   ① 저녁 결산: 20:40 KST에 미국장은 아직 열리지 않았다(22:30, 겨울엔 23:30 개장)
             #   ② 휴장일 차이: 2026년 KRX 17일 · 미국 10일 중 겹치는 날은 4일뿐이라
             #      한쪽만 쉬는 날이 훨씬 많다(예: 9/7 미국 Labor Day, 9/24~25 추석)
             # 원인을 뭉뚱그리면 "미국장이 늦게 열려서"라는 틀린 설명이 붙는다.
             if target.get("report_type") == "evening":
+                # 개장 시각은 서머타임에 따라 22:30/23:30으로 바뀐다 — 고정 문구로
+                # 두면 겨울 내내 틀린 시각을 리포트에 싣게 된다.
+                us_open = session_open_kst("US", datetime.strptime(kr, "%Y-%m-%d").date())
                 lines.append(
-                    "  ▶ 미국장은 한국시간 22:30에 열리므로, 저녁 결산 시점에 완료된 가장 최근"
+                    f"  ▶ 미국장은 한국시간 {us_open:%H:%M}에 열리므로, 저녁 결산 시점에 완료된 가장 최근"
                     " 미국 세션은 하루 전입니다. 이는 정상이며 결함이 아닙니다."
                 )
             else:

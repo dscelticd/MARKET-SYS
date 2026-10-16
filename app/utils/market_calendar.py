@@ -123,11 +123,34 @@ def previous_trading_day(d: date, market: str | None = None) -> date:
     return cur
 
 
-# 정규장 시간 (현지 기준). 한국은 KST, 미국은 ET.
+# 정규장 시간 (현지 기준)과 거래소 시간대.
+#
+# 시차를 숫자로 고정하지 않는다. 미국은 서머타임이 끝나면(11월 첫 일요일)
+# KST 대비 -13시간에서 -14시간이 되어, 정규장 마감이 05:00 KST에서 06:00 KST로
+# 밀린다. 예전에는 -13으로 고정돼 있어 겨울 내내 05:00~06:00 KST 사이를
+# "미국장 마감"으로 판정했다 — 그 시각 미국은 정규장 마지막 한 시간이 진행
+# 중이다. 저녁 결산이 실측 03:29·04:43·05:24에 실행되고 있어(2026-10 예약 지연)
+# 이 구간에 걸리면 장중 가격이 종가로 채택된다. 날짜마다 시간대 규칙으로 환산한다.
 _SESSION_HOURS = {
-    "KR": ((9, 0), (15, 30), 0),    # 09:00~15:30 KST — KST와 시차 0
-    "US": ((9, 30), (16, 0), -13),  # 09:30~16:00 ET — KST 대비 -13시간(서머타임 기준)
+    "KR": ((9, 0), (15, 30), "Asia/Seoul"),        # 09:00~15:30 KST
+    "US": ((9, 30), (16, 0), "America/New_York"),  # 09:30~16:00 ET (EDT/EST 자동)
 }
+
+
+def _session_tz(market: str):
+    from zoneinfo import ZoneInfo
+    return ZoneInfo(_SESSION_HOURS[market][2])
+
+
+def _kst_to_local(moment: datetime, market: str) -> datetime:
+    """KST naive 시각 → 거래소 현지 naive 시각."""
+    return moment.replace(tzinfo=KST).astimezone(_session_tz(market)).replace(tzinfo=None)
+
+
+def _local_to_kst(d: date, hh: int, mm: int, market: str) -> datetime:
+    """거래소 현지 날짜·시각 → KST naive 시각."""
+    local = datetime(d.year, d.month, d.day, hh, mm, tzinfo=_session_tz(market))
+    return local.astimezone(KST).replace(tzinfo=None)
 
 # 종목 ID 접두사 → 시장. 지수는 이름으로 매핑한다.
 _INDEX_MARKET = {
@@ -158,8 +181,8 @@ def market_session_state(market: str, now: datetime | None = None) -> str:
     hours = _SESSION_HOURS.get(market)
     if hours is None:
         return "마감"
-    (oh, om), (ch, cm), offset = hours
-    local = now + timedelta(hours=offset)
+    (oh, om), (ch, cm), _ = hours
+    local = _kst_to_local(now, market)
     if not is_trading_day(local.date(), market):
         return "휴장"
     minutes = local.hour * 60 + local.minute
@@ -189,15 +212,25 @@ def market_session_state(market: str, now: datetime | None = None) -> str:
 def session_close_kst(market: str, d: date) -> datetime | None:
     """market의 거래일 d 정규장이 끝나는 순간을 KST로 환산.
 
-    미국장 현지 16:00은 KST로 **다음날 05:00**이다. 이 환산을 빼먹으면
-    "미국 8월 31일 종가"와 "한국시간 9월 1일 새벽 마감"을 서로 다른 것으로
-    오해하게 된다 — 실제로는 같은 세션이다.
+    미국장 현지 16:00은 KST로 **다음날 05:00**(서머타임) / **06:00**(표준시)이다.
+    이 환산을 빼먹으면 "미국 8월 31일 종가"와 "한국시간 9월 1일 새벽 마감"을
+    서로 다른 것으로 오해하게 된다 — 실제로는 같은 세션이다.
     """
     hours = _SESSION_HOURS.get(market)
     if hours is None:
         return None
-    _, (close_h, close_m), offset = hours
-    return datetime(d.year, d.month, d.day, close_h, close_m) - timedelta(hours=offset)
+    _, (close_h, close_m), _ = hours
+    return _local_to_kst(d, close_h, close_m, market)
+
+
+def session_open_kst(market: str, d: date) -> datetime | None:
+    """market의 거래일 d 정규장이 열리는 순간을 KST로 환산.
+    미국은 서머타임 22:30 / 표준시 23:30 KST."""
+    hours = _SESSION_HOURS.get(market)
+    if hours is None:
+        return None
+    (open_h, open_m), _, _ = hours
+    return _local_to_kst(d, open_h, open_m, market)
 
 
 def last_completed_session(market: str, moment: datetime) -> date:
@@ -227,7 +260,7 @@ def resolve_target_session(report_type: str, now: datetime | None = None) -> dic
       (미국 D일 세션은 KST D+1 05:00에 끝나므로 아침 브리핑에 이미 담긴다).
 
     저녁 결산 — 당일 한국장 마감 결산이다. 기준선은 현재 시각. 한국은 당일,
-      미국은 직전 완료 세션(당일 미국장은 22:30에야 열린다)이라 두 날짜가
+      미국은 직전 완료 세션(당일 미국장은 22:30, 겨울엔 23:30에야 열린다)이라 두 날짜가
       하루 차이 나는 것이 정상이며, 이는 숨길 것이 아니라 명시할 사실이다.
 
     반환: report_type / boundary / kr_date / us_date / unified

@@ -62,6 +62,7 @@ from app.reports.report_builder import (
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
 from app.utils.market_calendar import now_kst, resolve_target_session
+from app.utils import delivery_log
 
 
 # ── 로깅 설정 ────────────────────────────────────────────────────────────────
@@ -148,9 +149,38 @@ def _summarize_investor_flow_sources(price_data: dict) -> str:
     return " / ".join(parts) if parts else "0종목"
 
 
+def _gh_annotation(level: str, message: str) -> None:
+    """GitHub Actions 실행 결과에 주석을 남긴다 — 로그는 로그인해야 보이고 7일 뒤
+    지워지지만, 주석은 실행 목록에서 바로 보인다. 로컬 실행에서는 아무것도 안 한다."""
+    if os.getenv("GITHUB_ACTIONS") == "true":
+        print(f"::{level}::{message}")
+
+
+def _report_missed_deliveries(notifier: TelegramNotifier) -> None:
+    """발송 기록이 없는 지난 회차를 알린다. 보조 점검이라 실패해도 파이프라인은 계속."""
+    try:
+        missed = delivery_log.find_missed()
+    except Exception as e:
+        logger.warning("[DELIVERY_LOG_ERROR] 누락 점검 실패 (무시하고 계속): %s", e)
+        return
+    if not missed:
+        return
+    names = {"morning": "아침", "evening": "저녁"}
+    labels = ", ".join(f"{d} {names.get(t, t)}" for t, d in missed)
+    logger.error("[REPORT_MISSED] 발송 기록이 없는 회차: %s", labels)
+    print(f"  ⚠️ 발송 기록이 없는 회차: {labels}")
+    _gh_annotation("warning", f"발송 기록이 없는 회차: {labels}")
+    try:
+        # 텔레그램으로 알린 경우에만 '알림 완료'로 기록 — 일시 실패면 다음 실행이 다시 알린다
+        if notifier.is_configured() and notifier.notify_missed_reports(missed):
+            delivery_log.mark_alerted(missed)
+    except Exception as e:
+        logger.error("[TELEGRAM_NOTIFY_ERROR] 누락 알림 실패: %s", e)
+
+
 # ── 파이프라인 ───────────────────────────────────────────────────────────────
 
-def run_pipeline(report_type: str, send_email: bool) -> None:
+def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> None:
     _setup_logging()
     # 계약 C1 — 대상 거래일을 먼저 확정한다. 실행 시각은 여기서 역할이 끝난다.
     # 이 한 줄이 "예약이 4시간 밀리면 기준이 장중으로 미끄러지던" 구조를 끊는다.
@@ -167,6 +197,20 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
     print(f"   대상 거래일: 한국 {target['kr_date']}  |  미국 {target['us_date']}")
 
     notifier = TelegramNotifier()
+
+    # ── 발송 기록 점검 — 중복 방지·누락 감지 ──
+    # 이메일을 보내는 실행에서만 한다. 발송하지 않는 로컬 생성까지 막을 이유는 없다.
+    # 데이터 수집·Claude 호출 전에 판정해야 중복 실행이 비용을 쓰지 않는다.
+    if send_email:
+        _report_missed_deliveries(notifier)
+        prev_sent = delivery_log.already_sent(report_type, date_str)
+        if prev_sent and not force:
+            msg = (f"{date_str} {'아침 브리핑' if report_type == 'morning' else '저녁 결산'}은 "
+                   f"{prev_sent}에 이미 발송됨 — 중복 발송하지 않고 종료")
+            logger.info("[DUPLICATE_SKIP] %s", msg)
+            print(f"\n  ⏭️  {msg}\n     (그래도 다시 보내려면 --force)\n")
+            _gh_annotation("notice", msg)
+            return
 
     try:
         # ── Step 1: 설정 로드 ──
@@ -632,6 +676,12 @@ def run_pipeline(report_type: str, send_email: bool) -> None:
                         chart_images=chart_images,
                     )
                     logger.info("이메일 발송 완료")
+                    try:
+                        delivery_log.record_sent(report_type, date_str)
+                    except Exception as e:
+                        # 기록 실패가 발송 성공을 뒤집지는 않는다 — 다음 예비 실행이
+                        # 중복 발송할 수 있다는 사실만 남긴다
+                        logger.error("[DELIVERY_LOG_ERROR] 발송 기록 저장 실패: %s", e)
                 except Exception as e:
                     logger.error("[EMAIL_SEND_ERROR] 이메일 발송 실패: %s", e)
                     print(f"  ❌ 이메일 발송 실패: {e}")
@@ -665,6 +715,7 @@ def main() -> None:
   python app/main.py --report morning --send-email
   python app/main.py --report evening
   python app/main.py --report evening --send-email
+  python app/main.py --report evening --send-email --force   # 이미 보낸 회차 재발송
   streamlit run app/dashboard.py
         """,
     )
@@ -680,11 +731,17 @@ def main() -> None:
         default=False,
         help="리포트 생성 후 이메일 발송",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        default=False,
+        help="같은 발행일 리포트가 이미 발송됐어도 다시 발송 (수동 재발송용)",
+    )
 
     args = parser.parse_args()
     _force_utf8_console()
     _setup_logging()
-    run_pipeline(report_type=args.report, send_email=args.send_email)
+    run_pipeline(report_type=args.report, send_email=args.send_email, force=args.force)
 
 
 if __name__ == "__main__":
