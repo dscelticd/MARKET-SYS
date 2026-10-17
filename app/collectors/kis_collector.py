@@ -272,29 +272,8 @@ class KISCollector:
             f"{name}: {target_date or '완료된'} 거래일 데이터를 찾지 못함"
         )
 
-    def fetch_stock_price(
-        self, ticker: str, target_date: str | None = None, retries: int = 3
-    ) -> dict:
-        """국내 개별 종목의 종가를 KIS 공식 API(체결 데이터)로 직접 조회한다.
-
-        yfinance의 국내 종목 종가 발표가 수 시간~다음날까지 늦어지는 사례가 반복
-        관측됐다. 실측(2026-09-14~18, 5거래일 연속): 저녁 결산이 한국장 마감
-        **9시간 뒤**(00:38 실행)에도 yfinance에 당일 종가가 없어 관심종목 7개
-        전부가 "데이터 미도착"으로 리포트에서 빠졌다. 아침 브리핑도 미국장 마감
-        4시간 뒤(09:13 실행)에 NVDA·QQQ 같은 초대형주조차 전일 데이터가 없었다
-        (13:30 재조회 시점엔 이미 올라와 있었다 — 코드 결함이 아니라 발표 지연이다).
-
-        지수에 KIS를 쓴 것과 같은 이유로 개별 종목에도 KIS를 쓴다. 증권사 자체
-        체결 데이터라 제3자 집계 지연이 없다. prev_close는 추정하지 않고 API가
-        함께 주는 직전 거래일 행에서 그대로 가져온다.
-
-        target_date("YYYY-MM-DD")를 주면 그 거래일 행만 채택한다 — 오늘 자리의
-        행은 장중이면 미확정 값이라 반드시 걸러야 한다(지수 조회에서 겪은 것과
-        같은 함정).
-
-        실패 시 예외를 던져 호출부가 yfinance로 폴백하게 한다.
-        반환: {"value", "prev_close", "change_pct", "volume", "data_date"}
-        """
+    def _daily_price_rows(self, ticker: str, retries: int = 3) -> list[dict]:
+        """inquire-daily-price 원본 행(최신순, 최대 30거래일). 장중이면 첫 행은 미확정."""
         token = self.get_token()
         if not token:
             raise RuntimeError("KIS 토큰 발급 실패")
@@ -336,8 +315,32 @@ class KISCollector:
                     time.sleep(1.5)
         if last_exc is not None or data is None:
             raise last_exc or RuntimeError("KIS 종목시세 조회 실패")
+        return data.get("output") or []
 
-        rows = data.get("output") or []
+    def fetch_stock_price(
+        self, ticker: str, target_date: str | None = None, retries: int = 3
+    ) -> dict:
+        """국내 개별 종목의 종가를 KIS 공식 API(체결 데이터)로 직접 조회한다.
+
+        yfinance의 국내 종목 종가 발표가 수 시간~다음날까지 늦어지는 사례가 반복
+        관측됐다. 실측(2026-09-14~18, 5거래일 연속): 저녁 결산이 한국장 마감
+        **9시간 뒤**(00:38 실행)에도 yfinance에 당일 종가가 없어 관심종목 7개
+        전부가 "데이터 미도착"으로 리포트에서 빠졌다. 아침 브리핑도 미국장 마감
+        4시간 뒤(09:13 실행)에 NVDA·QQQ 같은 초대형주조차 전일 데이터가 없었다
+        (13:30 재조회 시점엔 이미 올라와 있었다 — 코드 결함이 아니라 발표 지연이다).
+
+        지수에 KIS를 쓴 것과 같은 이유로 개별 종목에도 KIS를 쓴다. 증권사 자체
+        체결 데이터라 제3자 집계 지연이 없다. prev_close는 추정하지 않고 API가
+        함께 주는 직전 거래일 행에서 그대로 가져온다.
+
+        target_date("YYYY-MM-DD")를 주면 그 거래일 행만 채택한다 — 오늘 자리의
+        행은 장중이면 미확정 값이라 반드시 걸러야 한다(지수 조회에서 겪은 것과
+        같은 함정).
+
+        실패 시 예외를 던져 호출부가 yfinance로 폴백하게 한다.
+        반환: {"value", "prev_close", "change_pct", "volume", "data_date"}
+        """
+        rows = self._daily_price_rows(ticker, retries)
         for i, row in enumerate(rows):
             raw_date = str(row.get("stck_bsop_date", ""))
             if len(raw_date) != 8:
@@ -383,3 +386,47 @@ class KISCollector:
                 "data_date": bar_date,
             }
         raise ValueError(f"{ticker}: {target_date or '완료된'} 거래일 데이터를 찾지 못함")
+
+    def fetch_daily_bars(
+        self, ticker: str, through_date: str, retries: int = 3
+    ) -> list[dict]:
+        """국내 종목의 최근 일봉(최대 30거래일)을 확정치로 반환 — 오래된 것부터.
+
+        through_date("YYYY-MM-DD") 이후의 행은 버린다. 그 행은 진행 중인 세션이라
+        종가가 아니다(계약 C2). 시가·고가·저가·종가 중 하나라도 0 이하인 행도
+        버린다 — 개장 전 자리표시자 행이다.
+
+        왜 대상일 하루가 아니라 30일인가: yfinance는 국내 종목의 최근 종가를
+        장 마감 동시호가 전 체결가로 잡아 두고 나중에 고친다. 실측(2026-10-17,
+        10/16 종가): 삼성전자 KIS 217,000 vs yfinance 215,500, SK하이닉스
+        1,265,000 vs 1,272,000, LG전자·LS ELECTRIC도 어긋났다(그 이전 29일과
+        고가·저가는 일치). 대상일 한 봉만 KIS로 바꾸면 그 앞 봉은 고쳐지기 전
+        값일 수 있고, 차트는 통째로 yfinance라 본문 숫자와 마지막 봉이 달랐다.
+
+        수정주가 기준(FID_ORG_ADJ_PRC=0)은 액면분할 등만 반영하고 배당은 반영하지
+        않는다 — 국내 HTS·포털 차트와 같은 기준이다. 이어 붙이는 yfinance 쪽도
+        auto_adjust=False(배당 미반영)로 받아야 이음매에 단차가 생기지 않는다.
+        """
+        bars: list[dict] = []
+        for row in self._daily_price_rows(ticker, retries):
+            raw_date = str(row.get("stck_bsop_date", ""))
+            if len(raw_date) != 8:
+                continue
+            bar_date = f"{raw_date[:4]}-{raw_date[4:6]}-{raw_date[6:]}"
+            if bar_date > through_date:
+                continue
+            try:
+                o, h, l, c = (float(row[k]) for k in ("stck_oprc", "stck_hgpr", "stck_lwpr", "stck_clpr"))
+            except (KeyError, TypeError, ValueError):
+                continue
+            if min(o, h, l, c) <= 0:
+                continue
+            bars.append({
+                "date": bar_date, "open": o, "high": h, "low": l, "close": c,
+                "volume": int(float(row.get("acml_vol", 0) or 0)),
+                "change_pct": round(float(row.get("prdy_ctrt", 0) or 0), 2),
+            })
+        bars.sort(key=lambda b: b["date"])
+        if not bars:
+            raise ValueError(f"{ticker}: {through_date}까지의 확정 일봉이 없음")
+        return bars

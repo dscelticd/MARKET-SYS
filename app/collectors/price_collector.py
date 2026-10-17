@@ -146,15 +146,35 @@ def _official_close_from_info(ticker_obj, target_date: str, prior_close: float |
     }
 
 
-def _kis_bar_to_series_row(kis: dict) -> dict:
-    """KIS fetch_stock_price() 결과를 yfinance hist 행과 같은 열 이름으로 변환."""
-    return {
-        "Open": kis.get("open", kis["value"]),
-        "High": kis.get("high", kis["value"]),
-        "Low":  kis.get("low",  kis["value"]),
-        "Close": kis["value"],
-        "Volume": kis.get("volume", 0),
-    }
+def overlay_kis_bars(hist, bars: list[dict]):
+    """yfinance 일봉 위에 KIS 확정 일봉(fetch_daily_bars 결과)을 덮어쓴다.
+
+    KIS가 준 날짜의 행은 KIS 값으로 바꾸고, yfinance에 없던 날짜는 추가한다.
+    그보다 오래된 구간(KIS는 최근 30거래일만 준다)은 yfinance를 그대로 둔다.
+
+    인덱스 시간대를 원본에 맞춘다. yfinance 인덱스는 거래소 시간대가 붙어
+    있는데 시간대 없는 날짜를 섞으면 정렬 자체가 실패한다.
+    """
+    if not bars:
+        return hist
+    import pandas as pd   # 이 모듈은 pandas를 수집 시점에만 불러온다
+
+    tz = getattr(hist.index, "tz", None)
+
+    def _ts(d: str):
+        t = pd.Timestamp(d)
+        return t.tz_localize(tz) if tz is not None else t
+
+    kis_dates = {b["date"] for b in bars}
+    keep = [_extract_bar_date(ix) not in kis_dates for ix in hist.index]
+    kis_df = pd.DataFrame(
+        [{"Open": b["open"], "High": b["high"], "Low": b["low"],
+          "Close": b["close"], "Volume": b["volume"]} for b in bars],
+        index=pd.DatetimeIndex([_ts(b["date"]) for b in bars]),
+    )
+    cols = ["Open", "High", "Low", "Close", "Volume"]
+    base = hist[keep][cols] if len(hist) else hist.reindex(columns=cols)
+    return pd.concat([base, kis_df]).sort_index()
 
 
 def _market_of(stock_id: str) -> str:
@@ -596,8 +616,13 @@ class PriceCollector:
             display_ticker = sym.replace(".KS", "").replace(".KQ", "")
             try:
                 ticker = yf.Ticker(sym)
-                # 90일 히스토리 -> 기술적 지표(MA60, RSI14, MACD) 계산에 충분
-                hist_full = ticker.history(period="90d", auto_adjust=True)
+                # 90일 히스토리 -> 기술적 지표(MA60, RSI14, MACD) 계산에 충분.
+                # 국내 종목은 배당 미반영(auto_adjust=False)으로 받는다 — 위에
+                # 덮어쓸 KIS 일봉이 배당을 반영하지 않는 수정주가(국내 HTS·포털
+                # 차트 기준)라, 기준을 맞추지 않으면 이음매에 단차가 생긴다.
+                hist_full = ticker.history(
+                    period="90d", auto_adjust=not sid.startswith("KR_"),
+                )
                 hist = hist_full
 
                 # 계약 C2 - 대상 거래일 이후의 봉을 잘라낸다.
@@ -631,7 +656,6 @@ class PriceCollector:
                 # 당일 개장 중인 날짜가 넘어오면 KIS의 "당일 행"은 아직
                 # 확정 종가가 아니라 실시간 체결가다 — 그걸 확정 종가로
                 # 받아들이면 LG전자 사고와 같은 성격의 오염이 재발한다.
-                kis_bar = None
                 # 이 종목의 대상일 종가가 실제로 어디서 왔는지 — 실행 이력 주석과
                 # 품질 알림이 이 값을 집계한다(kis / info / yfinance / stale)
                 price_source = "yfinance"
@@ -645,30 +669,32 @@ class PriceCollector:
                         sid, target_date, market_session_state("KR"),
                     )
                 elif target_date and sid.startswith("KR_") and _kis_collector.is_configured():
+                    # 대상일 한 봉이 아니라 최근 30거래일을 통째로 KIS로 바꾼다.
+                    # yfinance는 최근 종가를 동시호가 전 체결가로 잡아 두고
+                    # 나중에 고친다(실측 10/16: 삼성전자 215,500 vs KIS 217,000,
+                    # 7종목 중 4종목). 대상일 직전 봉이 고쳐지기 전 값이면
+                    # 이동평균·RSI·캔들 판정이 그 값을 쓴다.
                     try:
-                        kis = _kis_collector.fetch_stock_price(
-                            display_ticker, target_date=target_date
+                        kis_bars = _kis_collector.fetch_daily_bars(
+                            display_ticker, through_date=target_date
                         )
-                        kis_bar = _kis_bar_to_series_row(kis)
-                        # None(추출 실패) 행이 섞이면 <target_date 비교가
-                        # TypeError를 낸다 — 먼저 걸러낸다.
-                        older_mask = [
-                            (d := _extract_bar_date(ix)) is not None and d < target_date
-                            for ix in hist_full.index
-                        ]
-                        older = hist_full[older_mask]
-                        hist = pd.concat([
-                            older,
-                            pd.DataFrame([kis_bar], index=[pd.Timestamp(target_date)]),
-                        ])
+                        hist_full = overlay_kis_bars(hist_full, kis_bars)
+                        hist = _truncate_to_target(hist_full, target_date)
                         close_s = hist["Close"].dropna()
-                        latest_bar = target_date
-                        price_source = "kis"
-                        logger.info(
-                            "%s: KIS 확정 종가로 대상 거래일 %s 값 사용", sid, target_date,
-                        )
+                        latest_bar = _extract_bar_date(close_s.index[-1]) if len(close_s) else None
+                        if kis_bars[-1]["date"] == target_date:
+                            price_source = "kis"
+                            logger.info(
+                                "%s: KIS 확정 일봉 %d개로 대상 거래일 %s까지 교체",
+                                sid, len(kis_bars), target_date,
+                            )
+                        else:
+                            logger.info(
+                                "%s: KIS에 대상일 %s 일봉이 아직 없음 — 직전 %d개만 교체",
+                                sid, target_date, len(kis_bars),
+                            )
                     except Exception as e:
-                        logger.debug("%s: KIS 종목시세 조회 실패 → yfinance 값 사용: %s", sid, e)
+                        logger.debug("%s: KIS 일봉 조회 실패 → yfinance 값 사용: %s", sid, e)
 
                 if target_date and latest_bar != target_date:
                     # KIS도 실패(또는 시도 안 함)했고 yfinance도 대상일 종가가
@@ -740,22 +766,14 @@ class PriceCollector:
                     raise ValueError("종가 데이터 부족")
                 vol_s = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
-                if kis_bar is not None and kis.get("prev_close"):
-                    # KIS 값을 채택했다면 등락률도 KIS 응답에서 직접 가져온다.
-                    # close_s.iloc[-2](=yfinance가 준 직전 거래일 종가)로 재계산하면
-                    # KIS의 확정 종가를 KIS가 아닌 다른 소스의 전일 종가와 섞어
-                    # 등락률을 재구성하게 된다 — 두 소스가 반올림·수정주가 처리
-                    # 방식에서 미세하게 어긋나면 등락률이 틀어진다. KIS 응답 자체가
-                    # 이미 종가·직전종가·등락률을 정합성 있게 함께 준다.
-                    price      = float(kis["value"])
-                    prev_close = float(kis["prev_close"])
-                    change     = price - prev_close
-                    change_pct = float(kis["change_pct"])
-                else:
-                    price      = float(close_s.iloc[-1])
-                    prev_close = float(close_s.iloc[-2])
-                    change     = price - prev_close
-                    change_pct = round((change / prev_close) * 100, 2) if prev_close else 0.0
+                # KIS를 쓴 국내 종목은 최근 30거래일이 이미 KIS 확정 일봉이라
+                # 종가와 직전 종가가 같은 소스에서 나온다. 예전에는 대상일 한
+                # 봉만 KIS로 바꿔서, 직전 종가(yfinance)와 섞이지 않도록 등락률을
+                # KIS 응답에서 따로 가져와야 했다 — 그 분기는 이제 필요 없다.
+                price      = float(close_s.iloc[-1])
+                prev_close = float(close_s.iloc[-2])
+                change     = price - prev_close
+                change_pct = round((change / prev_close) * 100, 2) if prev_close else 0.0
 
                 # 이 가격이 "실제로 언제 종가인지" — 주말·휴장일에 금요일 종가를
                 # 당일 등락률로 오인해 보고하던 문제의 핵심 수정점. yfinance 인덱스가

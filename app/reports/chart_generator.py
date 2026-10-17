@@ -25,9 +25,14 @@ matplotlib.use("Agg")
 
 import pandas as pd
 
-from app.collectors.price_collector import YFINANCE_MAP
+from app.collectors.kis_collector import KISCollector
+from app.collectors.price_collector import YFINANCE_MAP, overlay_kis_bars
 
 logger = logging.getLogger(__name__)
+
+# 국내 종목 차트의 최근 구간을 KIS 확정 일봉으로 교체하기 위한 수집기.
+# 토큰은 파일 캐시를 공유하므로 새로 발급하지 않는다.
+_kis_collector = KISCollector()
 
 # 한글 폰트 후보(NanumGothic 등) 중 시스템에 없는 것들에 대해 matplotlib이
 # "Font family 'X' not found" 경고를 폰트 후보 개수만큼 반복 출력 — 정상 동작이므로
@@ -178,11 +183,25 @@ def fetch_chart_history(
     target_date를 주면 그날까지만 그린다. 안 그러면 본문은 9월 1일 종가 기준인데
     차트 마지막 봉만 9월 2일 장중인 상태가 되어, 같은 메일 안에서 숫자와 그림이
     어긋난다.
+
+    국내 종목은 최근 30거래일을 KIS 확정 일봉으로 바꿔 그린다. 본문 종가는 KIS
+    값인데 차트가 yfinance 그대로면 마지막 봉이 본문과 다르다(실측 10/16 삼성전자:
+    본문 217,000 / yfinance 215,500). 배당 미반영 기준(auto_adjust=False)으로
+    받아야 KIS 일봉과 이음매가 맞는다 — 국내 HTS·포털 차트와 같은 기준이다.
     """
+    is_kr = sym.endswith((".KS", ".KQ"))
     try:
         import yfinance as yf
-        hist = yf.Ticker(sym).history(period=period, auto_adjust=True)
+        hist = yf.Ticker(sym).history(period=period, auto_adjust=not is_kr)
         hist = hist[["Open", "High", "Low", "Close", "Volume"]].dropna()
+        if is_kr and target_date and _kis_collector.is_configured():
+            try:
+                bars = _kis_collector.fetch_daily_bars(
+                    sym.split(".")[0], through_date=target_date
+                )
+                hist = overlay_kis_bars(hist, bars)
+            except Exception as e:
+                logger.debug("차트용 KIS 일봉 조회 실패 (%s) — yfinance 값으로 그림: %s", sym, e)
         if target_date:
             hist = _truncate_to(hist, target_date)
         return hist if len(hist) >= 20 else None

@@ -44,6 +44,16 @@ def _hist(dates: list[str], closes: list[float]) -> "pd.DataFrame":
     )
 
 
+@pytest.fixture(autouse=True)
+def _no_network_investor_flow():
+    """국내 종목 수집은 수급(KIS → 네이버)도 함께 조회한다. KIS를 '설정됨'으로
+    패치한 테스트에서 이걸 막지 않으면 실제 서버에 토큰을 요청하게 된다."""
+    with patch("app.collectors.price_collector._kis_collector.fetch_investor_flow",
+               side_effect=RuntimeError("테스트 — 네트워크 차단")),          patch("app.collectors.price_collector._fetch_investor_flow",
+               side_effect=RuntimeError("테스트 — 네트워크 차단")):
+        yield
+
+
 # ── 시장 판정 ────────────────────────────────────────────────────────────────
 
 def test_market_of_splits_kr_and_us():
@@ -139,14 +149,19 @@ def test_no_target_keeps_legacy_behaviour():
 # 2026-09-14~18, 5거래일 연속). 국내 종목은 KIS(증권사 직접 데이터)로 재시도해
 # 지연을 흡수한다.
 
+def _bar(date: str, close: float, change_pct: float, volume: int = 1_000_000) -> dict:
+    """KISCollector.fetch_daily_bars()가 돌려주는 일봉 한 개."""
+    return {"date": date, "open": close, "high": close * 1.01, "low": close * 0.99,
+            "close": close, "volume": volume, "change_pct": change_pct}
+
+
 def test_kis_fallback_fills_in_the_target_date_when_yfinance_is_behind(monkeypatch):
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])   # 9/2가 없음
-    kis_quote = {"value": 250_500.0, "prev_close": 261_000.0,
-                 "change_pct": -4.02, "volume": 12_345_678, "data_date": "2026-09-02"}
+    kis_quote = [_bar("2026-09-01", 261_000.0, 0.38), _bar("2026-09-02", 250_500.0, -4.02)]
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price", return_value=kis_quote), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars", return_value=kis_quote), \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
         c = PriceCollector(); c.use_mock = False
         row = c.collect(["KR_005930"], target={"KR": "2026-09-02", "US": "2026-09-02"})["KR_005930"]
@@ -163,7 +178,7 @@ def test_kis_fallback_is_not_attempted_for_us_stocks(monkeypatch):
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [200.0, 210.0])
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price") as kis_call:
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars") as kis_call:
         c = PriceCollector(); c.use_mock = False
         c.collect(["US_NVDA"], target={"KR": "2026-09-02", "US": "2026-09-02"})
     kis_call.assert_not_called()
@@ -177,7 +192,7 @@ def test_kis_fallback_is_skipped_while_korean_market_is_still_open(monkeypatch):
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector.now_kst") as nk, \
          _patch("app.collectors.price_collector.market_session_state", return_value="개장중"), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price") as kis_call:
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars") as kis_call:
         nk.return_value.strftime.return_value = "2026-09-02"
         nk.return_value.isoformat.return_value = "2026-09-02T10:00:00"
         c = PriceCollector(); c.use_mock = False
@@ -192,7 +207,7 @@ def test_kis_failure_falls_back_to_honest_stale_data(monkeypatch):
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price",
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars",
                 side_effect=TimeoutError("read timed out")), \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
         c = PriceCollector(); c.use_mock = False
@@ -212,11 +227,10 @@ def test_kis_overrides_yfinance_even_when_the_date_already_matches(monkeypatch):
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 259_750.0])  # 9/1 = 정산 전 값
     # KIS 응답은 자체적으로 정합성 있는 종가·직전종가·등락률 묶음이다.
     # 261,000 / 252,500 = +3.37% — 테스트 값도 이 정합성을 지켜야 한다.
-    kis_quote = {"value": 261_000.0, "prev_close": 252_500.0,
-                 "change_pct": 3.37, "volume": 14_657_812, "data_date": "2026-09-01"}
+    kis_quote = [_bar("2026-08-31", 252_500.0, 0.0), _bar("2026-09-01", 261_000.0, 3.37)]
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price", return_value=kis_quote), \
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars", return_value=kis_quote), \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
         c = PriceCollector(); c.use_mock = False
         row = c.collect(["KR_005930"], target={"KR": "2026-09-01", "US": "2026-09-01"})["KR_005930"]
@@ -230,11 +244,10 @@ def test_kis_attempt_happens_regardless_of_yfinance_freshness(monkeypatch):
     안 된다 — 위 시나리오처럼 날짜는 맞지만 값이 틀린 경우를 놓친다."""
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 259_750.0])
-    kis_quote = {"value": 261_000.0, "prev_close": 260_000.0,
-                 "change_pct": 3.37, "volume": 1, "data_date": "2026-09-01"}
+    kis_quote = [_bar("2026-08-31", 252_500.0, 0.0), _bar("2026-09-01", 261_000.0, 3.37)]
     with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
-         _patch("app.collectors.price_collector._kis_collector.fetch_stock_price",
+         _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars",
                 return_value=kis_quote) as kis_call, \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
         c = PriceCollector(); c.use_mock = False
