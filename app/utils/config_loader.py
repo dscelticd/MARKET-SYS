@@ -159,3 +159,36 @@ def save_display_order(order: list[str]) -> None:
     with open(path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
     _config = None
+
+
+# ── 보유 단가 (비공개) ───────────────────────────────────────────────────────
+# 평균 매수 단가는 config/holdings.json에 따로 둔다. watchlist.json은 저장소에
+# 함께 올라가는데 이 저장소는 공개 상태라, 단가를 거기 넣으면 누구나 볼 수 있다.
+# holdings.json은 .gitignore 대상이고, 클라우드 실행에는 GitHub Secret
+# HOLDINGS_JSON으로 전달돼 워크플로가 이 파일을 만든다.
+_HOLDINGS_PATH = _CONFIG_DIR / "holdings.json"
+
+
+def load_holdings() -> dict[str, dict]:
+    """{stock_id: {"avg_cost": float}}. 파일이 없거나 깨졌으면 빈 dict."""
+    try:
+        data = json.loads(_HOLDINGS_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    out: dict[str, dict] = {}
+    for sid, v in (data.get("holdings") or {}).items():
+        try:
+            cost = float((v or {}).get("avg_cost"))
+        except (TypeError, ValueError):
+            continue
+        if cost > 0:
+            out[sid] = {"avg_cost": cost}
+    return out
+
+
+def save_holdings(holdings: dict[str, float | None]) -> str:
+    """{stock_id: 평균 단가}를 저장하고, GitHub Secret에 붙여 넣을 한 줄 JSON을 반환."""
+    clean = {sid: {"avg_cost": float(c)} for sid, c in holdings.items() if c and float(c) > 0}
+    payload = {"holdings": clean}
+    _HOLDINGS_PATH.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))

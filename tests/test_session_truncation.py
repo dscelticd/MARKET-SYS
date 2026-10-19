@@ -159,7 +159,7 @@ def test_kis_fallback_fills_in_the_target_date_when_yfinance_is_behind(monkeypat
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])   # 9/2가 없음
     kis_quote = [_bar("2026-09-01", 261_000.0, 0.38), _bar("2026-09-02", 250_500.0, -4.02)]
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars", return_value=kis_quote), \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
@@ -177,7 +177,7 @@ def test_kis_fallback_is_not_attempted_for_us_stocks(monkeypatch):
     안 해야 불필요한 지연·오류가 없다."""
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [200.0, 210.0])
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars") as kis_call:
         c = PriceCollector(); c.use_mock = False
         c.collect(["US_NVDA"], target={"KR": "2026-09-02", "US": "2026-09-02"})
@@ -189,7 +189,7 @@ def test_kis_fallback_is_skipped_while_korean_market_is_still_open(monkeypatch):
     — 확정 종가인 척 쓰면 LG전자 사고와 같은 오염이 재발한다."""
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector.now_kst") as nk, \
          _patch("app.collectors.price_collector.market_session_state", return_value="개장중"), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars") as kis_call:
@@ -205,7 +205,7 @@ def test_kis_failure_falls_back_to_honest_stale_data(monkeypatch):
     종가를 정직한 날짜로 사용한다."""
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 261_000.0])
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars",
                 side_effect=TimeoutError("read timed out")), \
@@ -228,7 +228,7 @@ def test_kis_overrides_yfinance_even_when_the_date_already_matches(monkeypatch):
     # KIS 응답은 자체적으로 정합성 있는 종가·직전종가·등락률 묶음이다.
     # 261,000 / 252,500 = +3.37% — 테스트 값도 이 정합성을 지켜야 한다.
     kis_quote = [_bar("2026-08-31", 252_500.0, 0.0), _bar("2026-09-01", 261_000.0, 3.37)]
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars", return_value=kis_quote), \
          _patch("app.collectors.price_collector.market_session_state", return_value="마감"):
@@ -245,7 +245,7 @@ def test_kis_attempt_happens_regardless_of_yfinance_freshness(monkeypatch):
     from unittest.mock import patch as _patch
     hist = _hist(["2026-08-31", "2026-09-01"], [260_000.0, 259_750.0])
     kis_quote = [_bar("2026-08-31", 252_500.0, 0.0), _bar("2026-09-01", 261_000.0, 3.37)]
-    with _patch("sys.modules", {**sys.modules, "yfinance": _stub_yfinance(hist)}), \
+    with _patch.dict(sys.modules, {"yfinance": _stub_yfinance(hist)}), \
          _patch("app.collectors.price_collector._kis_collector.is_configured", return_value=True), \
          _patch("app.collectors.price_collector._kis_collector.fetch_daily_bars",
                 return_value=kis_quote) as kis_call, \

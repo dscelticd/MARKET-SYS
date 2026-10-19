@@ -40,7 +40,7 @@ try:
 except ImportError:
     pass  # python-dotenv 미설치 시 환경변수는 시스템 레벨에서 주입
 
-from app.utils.config_loader import get_config
+from app.utils.config_loader import get_config, load_holdings
 from app.utils.data_validator import DataValidator
 from app.utils.telegram_notifier import TelegramNotifier
 from app.collectors.price_collector import PriceCollector
@@ -51,11 +51,14 @@ from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
+from app.engine.trade_levels import build_trade_levels
+from app.engine.trade_level_tracker import TradeLevelTracker
 from app.collectors.theme_scanner import scan_theme_strength
 from app.collectors.calendar_collector import build_event_calendar
 from app.utils.market_calendar import summarize_data_freshness
 from app.reports.report_builder import (
     ReportBuilder,
+    format_trade_levels_section,
     save_report,
     verify_forbidden_expressions,
 )
@@ -587,6 +590,30 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         logger.info("등급 적중률 집계 완료 — %s",
                      {d: s["overall_hit_rate"] for d, s in accuracy_report.items()})
 
+        # ── Step 4-2-2: 참고 가격대 · 청산 점검 + 지난 가격대 검증 ──
+        # 보조 기능이라 실패해도 리포트는 나간다. 순서가 중요하다 — 지난 기록을
+        # 이번 일봉으로 먼저 평가한 뒤 새 가격대를 기록해야, 오늘 낸 가격대가
+        # 오늘 일봉으로 곧바로 "진입·손절"됐다고 잘못 집계되지 않는다.
+        trade_levels: dict = {}
+        trade_summary: dict = {}
+        try:
+            lv_tracker = TradeLevelTracker()
+            evaluated = lv_tracker.update(price_data)
+            trade_levels = build_trade_levels(stocks, price_data, changes, load_holdings(), target)
+            lv_tracker.annotate_signals(trade_levels)
+            issued = lv_tracker.issue(trade_levels)
+            lv_tracker.save()
+            trade_summary = lv_tracker.summary()
+            n_entry = sum(1 for v in trade_levels.values() if v["kind"] == "entry" and v.get("available"))
+            n_alert = sum(1 for v in trade_levels.values()
+                          if v["kind"] == "exit" and v.get("new_signal_keys"))
+            print(f"  참고 가격대: 진입 구간 {n_entry}종목 · 신규 청산 점검 신호 {n_alert}종목 "
+                  f"(기록 {issued}건 추가 · 지난 기록 {evaluated}건 평가)")
+            logger.info("참고 가격대 — 진입 %d · 청산신호 %d · 추가 %d · 평가 %d",
+                        n_entry, n_alert, issued, evaluated)
+        except Exception as e:
+            logger.warning("[TRADE_LEVELS_ERROR] 참고 가격대 산출 실패 (무시하고 계속): %s", e)
+
         # ── Step 4-3: 텔레그램 알림 (치명적 오류 + 등급 변화 + 품질 급락) ──
         if notifier.is_configured():
             try:
@@ -668,6 +695,12 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         except Exception as e:
             logger.error("[CLAUDE_API_ERROR] 리포트 생성 실패: %s", e)
             raise
+
+        # 참고 가격대 표는 계산값 그대로 붙인다 (금지 표현 검증 전에 붙여 함께 검사)
+        try:
+            report_content += format_trade_levels_section(trade_levels, trade_summary)
+        except Exception as e:
+            logger.warning("[TRADE_LEVELS_ERROR] 참고 가격대 섹션 작성 실패 (무시하고 계속): %s", e)
 
         # ── Step 5-1: 금지 표현 사후 검증 ──
         # config의 forbidden_expressions가 정의만 되어 있고 아무도 호출하지 않아,

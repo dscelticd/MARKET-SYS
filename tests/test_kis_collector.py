@@ -210,7 +210,8 @@ def test_fetch_stock_price_retries_transient_failures(tmp_path, monkeypatch):
     token_response = MagicMock()
     token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
     token_response.raise_for_status.return_value = None
-    rows = [_price_row("20260917", 252500, -0.39, 11_827_514),
+    rows = [_price_row("20260918", 260500, 3.17, 100),   # 다음 거래일 행 — 있어야 9/17이 확정치
+            _price_row("20260917", 252500, -0.39, 11_827_514),
             _price_row("20260916", 253500, 2.01, 11_757_106)]
 
     calls = {"n": 0}
@@ -247,7 +248,8 @@ def test_fetch_stock_price_returns_ohlc_for_the_candle(tmp_path, monkeypatch):
     token_response = MagicMock()
     token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
     token_response.raise_for_status.return_value = None
-    rows = [_price_row("20260917", 252500, -0.39, 11_827_514,
+    rows = [_price_row("20260918", 260500, 3.17, 100),   # 다음 거래일 행 — 있어야 9/17이 확정치
+            _price_row("20260917", 252500, -0.39, 11_827_514,
                        open_=257000, high=259000, low=251500)]
     with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
          patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
@@ -264,7 +266,8 @@ def test_fetch_stock_price_ohlc_is_none_when_missing_from_response(tmp_path, mon
     token_response = MagicMock()
     token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
     token_response.raise_for_status.return_value = None
-    rows = [_price_row("20260917", 252500, -0.39, 11_827_514)]   # open/high/low 없음
+    rows = [_price_row("20260918", 260500, 3.17, 100),   # 다음 거래일 행 — 있어야 9/17이 확정치
+            _price_row("20260917", 252500, -0.39, 11_827_514)]   # open/high/low 없음
     with patch("app.collectors.kis_collector.requests.post", return_value=token_response), \
          patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
         result = collector.fetch_stock_price("005930", target_date="2026-09-17")
@@ -322,3 +325,22 @@ def test_legacy_cache_without_env_is_treated_as_demo(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     assert collector._read_cached_token() == "old"
+
+
+# ── 가장 최근 행은 종가로 쓰지 않는다 ────────────────────────────────────────
+
+def test_the_most_recent_row_is_never_taken_as_a_close(tmp_path, monkeypatch):
+    """실측(2026-10-17 토): KIS가 10/16 삼성전자 종가를 217,000(+3.33%)으로 줬다.
+    다음 거래일(10/19)에 215,500(+2.62%)으로 바뀌었다 — 시간외 단일가가 섞인
+    현재가였다. 시가·고가·저가·거래량은 그대로였다. 다음 거래일 행이 생기기 전까지
+    가장 최근 행은 정규장 종가가 아니다."""
+    collector = _make_collector(tmp_path, monkeypatch)
+    token_response = MagicMock()
+    token_response.json.return_value = {"access_token": "abc123", "expires_in": 86400}
+    token_response.raise_for_status.return_value = None
+    rows = [_price_row("20261016", 217000, 3.33, 18_908_560),
+            _price_row("20261015", 210000, -9.48, 34_330_565)]
+    with patch("app.collectors.kis_collector.requests.post", return_value=token_response),          patch("app.collectors.kis_collector.requests.get", return_value=_daily_price_response(rows)):
+        with pytest.raises(ValueError):
+            collector.fetch_stock_price("005930", target_date="2026-10-16")
+        assert collector.fetch_stock_price("005930", target_date="2026-10-15")["value"] == 210000.0

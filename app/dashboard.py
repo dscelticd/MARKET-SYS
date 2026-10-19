@@ -29,6 +29,7 @@ except ImportError:
 from app.utils.config_loader import (
     get_config, save_report_times,
     save_watchlist, save_themes, save_display_order,
+    load_holdings, save_holdings,
 )
 from app.engine.rating_analyzer import apply_grade_cap
 
@@ -1257,8 +1258,9 @@ _STATUSES  = ["보유", "관찰", "예정", "매도완료"]
 _MACRO_SENS = ["high", "medium", "low"]
 
 
-def _wl_to_df(stocks: list[dict]) -> pd.DataFrame:
-    """watchlist 리스트 → 편집용 DataFrame"""
+def _wl_to_df(stocks: list[dict], holdings: dict | None = None) -> pd.DataFrame:
+    """watchlist 리스트 → 편집용 DataFrame (평균 단가는 비공개 파일 holdings.json에서)"""
+    holdings = holdings or {}
     return pd.DataFrame([{
         "ID":    s["id"],
         "종목명": s["name"],
@@ -1271,6 +1273,7 @@ def _wl_to_df(stocks: list[dict]) -> pd.DataFrame:
         "관심도": int(s.get("interest_level", 3)),
         "상태":  s.get("status", "관찰"),
         "메모":  s.get("memo", ""),
+        "평균 단가": (holdings.get(s["id"]) or {}).get("avg_cost"),
     } for s in stocks])
 
 
@@ -1304,6 +1307,8 @@ def _df_to_wl(edited: pd.DataFrame, original: list[dict]) -> list[dict]:
             "interest_level": max(1, min(5, int(row.get("관심도", 3)))),
             "status": str(row.get("상태", "관찰")).strip(),
             "memo":   str(row.get("메모", "")).strip(),
+            # 저장 직전에 떼어내 holdings.json으로 따로 보낸다 — watchlist.json(공개)에는 남기지 않음
+            "_avg_cost": row.get("평균 단가"),
         })
     return result
 
@@ -1383,6 +1388,17 @@ def _render_watchlist_manager() -> None:
     # ── 섹션 1: 관심종목 편집 ─────────────────────────────────────────────────
     stocks = cfg.watchlist.stocks
 
+    # 평균 단가는 로컬 파일에만 저장된다. 클라우드(GitHub Actions) 리포트에도
+    # 반영하려면 같은 값을 Secret에 넣어야 한다 — 저장 직후 붙여 넣을 값을 보여준다.
+    secret_json = st.session_state.get("holdings_secret")
+    if secret_json:
+        st.info(
+            "💾 평균 단가를 저장했습니다. 이메일 리포트(GitHub Actions)에도 반영하려면 아래 값을 "
+            "저장소 **Settings → Secrets and variables → Actions**의 `HOLDINGS_JSON`에 붙여 넣으세요. "
+            "이 값은 공개 저장소에 올라가지 않습니다."
+        )
+        st.code(secret_json, language="json")
+
     # 여기서 종목을 추가해도 수집 심볼 매핑(YFINANCE_MAP)은 자동으로 생기지 않는다.
     # 빠뜨리면 그 종목이 매 리포트에서 결측되므로 편집하는 바로 이 자리에서 알린다
     # (저장 직후 st.rerun()으로 다시 그려질 때도 계속 보이도록 매번 점검).
@@ -1400,8 +1416,15 @@ def _render_watchlist_manager() -> None:
         )
 
     edited_wdf = st.data_editor(
-        _wl_to_df(stocks),
+        _wl_to_df(stocks, load_holdings()),
         column_config={
+            "평균 단가": st.column_config.NumberColumn(
+                label="평균 단가",
+                min_value=0,
+                width="small",
+                help="보유 종목의 평균 매수 단가 — 청산 점검에서 '평단 대비'를 계산합니다. "
+                     "공개 저장소에 올라가지 않는 config/holdings.json에 따로 저장됩니다.",
+            ),
             "ID": st.column_config.TextColumn(
                 label="ID",
                 disabled=True,
@@ -1488,8 +1511,10 @@ def _render_watchlist_manager() -> None:
         if not new_stocks:
             st.error("❌ 저장할 종목이 없습니다. 종목명과 티커를 입력해 주세요.")
         else:
+            holdings = {s["id"]: s.pop("_avg_cost", None) for s in new_stocks}
             save_watchlist(new_stocks)
             save_display_order([s["id"] for s in new_stocks])
+            st.session_state["holdings_secret"] = save_holdings(holdings)
             # 대시보드 데이터 초기화 → 다음 실행 시 새 종목 반영
             st.session_state.pop("dashboard_data", None)
             _invalidate_config()

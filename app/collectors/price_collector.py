@@ -263,6 +263,24 @@ def _calc_technicals(closes, price: float) -> dict:
     }
 
 
+def _calc_volatility(hist, atr_window: int = 14, high_window: int = 22) -> dict:
+    """ATR(평균 실제 변동폭)과 최근 고가 — 참고 가격대(trade_levels)의 손절폭·
+    추적 손절선 계산에 쓴다. 이력이 부족하면 None."""
+    try:
+        h = hist[["High", "Low", "Close"]].dropna()
+        if len(h) < atr_window + 1:
+            return {"atr14": None, "high_22d": None}
+        prev_close = h["Close"].shift(1)
+        tr = (h["High"] - h["Low"]).combine(
+            (h["High"] - prev_close).abs(), max).combine((h["Low"] - prev_close).abs(), max)
+        atr = float(tr.iloc[-atr_window:].mean())
+        high = float(h["High"].iloc[-high_window:].max())
+        return {"atr14": round(atr, 4), "high_22d": round(high, 4)}
+    except Exception as e:
+        logger.debug("변동성 계산 실패: %s", e)
+        return {"atr14": None, "high_22d": None}
+
+
 def _classify_candle(open_: float, high: float, low: float, close: float) -> dict:
     """당일 캔들 모양(장대양봉/장대음봉/도지/망치형/유성형/일반형) 자동 판별.
     body_ratio = 몸통 / 전체 변동폭. 그림자 비교는 몸통 대비 배수로 판단.
@@ -669,11 +687,14 @@ class PriceCollector:
                         sid, target_date, market_session_state("KR"),
                     )
                 elif target_date and sid.startswith("KR_") and _kis_collector.is_configured():
-                    # 대상일 한 봉이 아니라 최근 30거래일을 통째로 KIS로 바꾼다.
-                    # yfinance는 최근 종가를 동시호가 전 체결가로 잡아 두고
-                    # 나중에 고친다(실측 10/16: 삼성전자 215,500 vs KIS 217,000,
-                    # 7종목 중 4종목). 대상일 직전 봉이 고쳐지기 전 값이면
-                    # 이동평균·RSI·캔들 판정이 그 값을 쓴다.
+                    # KIS 확정 일봉(가장 최근 행 제외)으로 과거 구간을 채운다.
+                    # KIS의 가장 최근 행은 종가 자리에 현재가 — 장 마감 뒤엔
+                    # 시간외 단일가 — 가 들어 있어 쓰지 않는다(실측 10/16 삼성전자:
+                    # 토요일 KIS 217,000 → 월요일 215,500, yfinance는 처음부터
+                    # 215,500). 그래서 대상일이 KIS의 가장 최근 행이면(저녁 결산 등)
+                    # 대상일 봉은 아래로 이어지는 yfinance 정규장 종가 → 공식 종가
+                    # (info) → 지연 순서로 채워진다. 다음 거래일이 시작돼 대상일
+                    # 행이 확정되면 그때는 KIS 값을 쓴다.
                     try:
                         kis_bars = _kis_collector.fetch_daily_bars(
                             display_ticker, through_date=target_date
@@ -690,7 +711,8 @@ class PriceCollector:
                             )
                         else:
                             logger.info(
-                                "%s: KIS에 대상일 %s 일봉이 아직 없음 — 직전 %d개만 교체",
+                                "%s: 대상일 %s은 KIS에서 아직 미확정(시간외 반영 가능) — "
+                                "직전 확정 일봉 %d개만 교체, 대상일은 정규장 종가 소스 사용",
                                 sid, target_date, len(kis_bars),
                             )
                     except Exception as e:
@@ -766,10 +788,8 @@ class PriceCollector:
                     raise ValueError("종가 데이터 부족")
                 vol_s = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
-                # KIS를 쓴 국내 종목은 최근 30거래일이 이미 KIS 확정 일봉이라
-                # 종가와 직전 종가가 같은 소스에서 나온다. 예전에는 대상일 한
-                # 봉만 KIS로 바꿔서, 직전 종가(yfinance)와 섞이지 않도록 등락률을
-                # KIS 응답에서 따로 가져와야 했다 — 그 분기는 이제 필요 없다.
+                # 종가·직전 종가는 모두 정규장 확정치다 — KIS 확정 일봉이거나,
+                # 둘이 일치함을 확인한 yfinance 정규장 종가다(29거래일 대조).
                 price      = float(close_s.iloc[-1])
                 prev_close = float(close_s.iloc[-2])
                 change     = price - prev_close
@@ -798,13 +818,18 @@ class PriceCollector:
 
                 # 기술적 지표 (RSI·MA·MACD)
                 technical = _calc_technicals(close_s, price)
+                technical.update(_calc_volatility(hist))
 
                 # 지지/저항 박스 + 손익비 (스윙 고점/저점 클러스터링)
                 support_resistance = _calc_support_resistance(hist, price)
 
                 # 당일 캔들 패턴 (장대양봉/도지/일반형 등)
+                day_ohlc: dict = {}
                 try:
                     last_row = hist.iloc[-1]
+                    # 참고 가격대 검증(trade_level_tracker)이 "그날 진입 구간·손절·목표에
+                    # 닿았는가"를 판정하는 데 쓴다 — 종가만으로는 장중 터치를 알 수 없다
+                    day_ohlc = {k.lower(): float(last_row[k]) for k in ("Open", "High", "Low", "Close")}
                     candle_pattern = _classify_candle(
                         float(last_row["Open"]), float(last_row["High"]),
                         float(last_row["Low"]), float(last_row["Close"]),
@@ -860,6 +885,7 @@ class PriceCollector:
                     "support_resistance": support_resistance,
                     "investor_flow": investor_flow,
                     "candle_pattern": candle_pattern,
+                    "day_ohlc":      day_ohlc,
                 }
             except Exception as e:
                 # Mock 폴백은 지어낸 값을 실제 리포트에 넣는다 (계약 C3).

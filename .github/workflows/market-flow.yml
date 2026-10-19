@@ -125,6 +125,27 @@ jobs:
             echo "REPORT_LANGUAGE=ko"
           } > .env
 
+      # ── 4-1. 보유 단가 파일 생성 (Secret → config/holdings.json) ────────────
+      # 평균 매수 단가는 개인 정보라 공개 저장소에 두지 않는다. 대시보드
+      # '종목 관리' 탭이 Secret에 붙여 넣을 값을 보여준다. 없으면 건너뛴다 —
+      # 청산 점검은 단가 없이도 차트 기준으로 동작한다.
+      - name: 보유 단가 파일 생성
+        env:
+          HOLDINGS_JSON: ${{ secrets.HOLDINGS_JSON }}
+        run: |
+          if [ -n "$HOLDINGS_JSON" ]; then
+            printf '%s' "$HOLDINGS_JSON" > config/holdings.json
+            # 형식이 깨졌다고 리포트 전체를 막지는 않는다 — 경고만 남기고 단가 없이 진행
+            if n=$(python -c "import json;print(len(json.load(open('config/holdings.json'))['holdings']))" 2>/dev/null); then
+              echo "보유 단가 ${n}종목 반영"
+            else
+              echo "::warning::HOLDINGS_JSON 형식 오류 — 평균 단가 없이 진행"
+              rm -f config/holdings.json
+            fi
+          else
+            echo "HOLDINGS_JSON 미설정 — 평균 단가 없이 진행"
+          fi
+
       # ── 5. 데이터 디렉토리 생성 ─────────────────────────────────────────────
       - name: 데이터 디렉토리 생성
         run: mkdir -p data/reports data/history data/logs data/cache

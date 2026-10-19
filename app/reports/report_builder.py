@@ -1535,3 +1535,118 @@ def save_report(
     filepath = save_dir / filename
     filepath.write_text(content, encoding="utf-8")
     return filepath
+
+
+# ── 참고 가격대 · 청산 점검 섹션 ─────────────────────────────────────────────
+# Claude에게 서술을 맡기지 않고 계산 결과를 그대로 표로 붙인다. 가격은 한 자리만
+# 틀려도 의미가 달라지는데, 생성 모델은 숫자를 옮겨 적다 바꿀 수 있다.
+
+def _won(v: float | None, cur: str | None) -> str:
+    if v is None:
+        return "—"
+    return f"{v:,.0f}원" if cur == "KRW" else f"${v:,.2f}"
+
+
+def _verification_line(summary: dict) -> str:
+    e, x = summary.get("entry", {}), summary.get("exit", {})
+    if e.get("enough") or x.get("enough"):
+        parts = []
+        if e.get("decided"):
+            avg = f", 평균 {e['avg_r']:+.2f}R" if e.get("avg_r") is not None else ""
+            parts.append(f"진입 구간 {e['decided']}건 중 목표 선도달 {e['wins']}건"
+                         f"(승률 {e['win_rate']}%{avg})")
+        if x.get("decided"):
+            parts.append(f"청산 신호 {x['decided']}건 중 10거래일 뒤 하락 {x['hits']}건")
+        return "> **검증 결과** — " + " · ".join(parts)
+    decided = e.get("decided", 0)
+    detail = (f"진입 구간 결과 {decided}건(목표 선도달 {e.get('wins', 0)} · 손절 선도달 {e.get('losses', 0)})"
+              f" · 진행 중 {e.get('pending', 0) + e.get('active', 0)}건"
+              f" · 청산 신호 결과 {x.get('decided', 0)}건")
+    return (f"> **검증 중** — {detail}. 결과가 20건 쌓이기 전에는 이 가격대의 신뢰도를"
+            " 판단할 근거가 없습니다.")
+
+
+def _signal_cell(lv: dict) -> str:
+    """신규 신호는 굵게 앞에, 이어지는 신호는 시작일과 함께 뒤에."""
+    if not lv.get("signals"):
+        return "유지 조건 충족"
+    keys = lv.get("signal_keys") or [None] * len(lv["signals"])
+    new = set(lv.get("new_signal_keys", keys))
+    since = lv.get("signal_since") or {}
+    fresh = [t for k, t in zip(keys, lv["signals"]) if k in new]
+    ongoing = []
+    for k, t in zip(keys, lv["signals"]):
+        if k in new:
+            continue
+        d = since.get(k)
+        ongoing.append(f"{t} ({d[5:].replace('-', '/')}~)" if d else t)
+    parts = []
+    if fresh:
+        parts.append("⚠️ **신규** " + " · ".join(fresh))
+    if ongoing:
+        parts.append("지속: " + " · ".join(ongoing))
+    return " / ".join(parts)
+
+
+def format_trade_levels_section(levels: dict[str, dict], summary: dict) -> str:
+    """trade_levels.build_trade_levels() 결과 → 리포트 끝에 붙일 마크다운."""
+    if not levels:
+        return ""
+    entries = [(sid, lv) for sid, lv in levels.items() if lv["kind"] == "entry"]
+    exits = [(sid, lv) for sid, lv in levels.items() if lv["kind"] == "exit"]
+    out = [
+        "", "---", "", "## 📐 참고 가격대 · 청산 점검", "",
+        "> 지지·저항 구간과 변동성(ATR)으로 계산한 **기술적 참고 가격**입니다. 매매 지시가 아니며,"
+        " 실제 판단은 본문의 등급·뉴스·거시 흐름과 함께 하세요.",
+        _verification_line(summary), "",
+    ]
+
+    ok = [(sid, lv) for sid, lv in entries if lv.get("available")]
+    na = [(sid, lv) for sid, lv in entries if not lv.get("available")]
+    if entries:
+        out += ["### 관찰 종목 — 참고 진입 구간", ""]
+    if ok:
+        out += ["| 종목 | 현재가 | 참고 진입 구간 | 손절 기준 | 목표 구간 | 손익비 |",
+                "|---|---|---|---|---|---|"]
+        for _sid, lv in ok:
+            cur = lv.get("currency")
+            band = (f"{_won(lv['entry_low'], cur)} ~ {_won(lv['entry_high'], cur)}"
+                    f" ({lv['distance_pct']:+.1f}%)")
+            targets = " · ".join(_won(t, cur) for t in lv["targets"])
+            if lv.get("target_basis") != "저항 구간":
+                targets += " (손절폭 2배)"
+            rr = f"{lv['risk_reward']:.1f}" + (" ✅" if lv.get("meets_bar") else " (근거 약함)")
+            out.append(f"| {lv['name']} | {_won(lv['price'], cur)} | {band} | "
+                       f"{_won(lv['stop'], cur)} | {targets} | {rr} |")
+        out.append("")
+    if na:
+        out.append("- 산출하지 않음: " + ", ".join(f"{lv['name']}({lv['reason']})" for _s, lv in na))
+        out.append("")
+
+    if exits:
+        has_cost = any(lv.get("avg_cost") for _s, lv in exits)
+        out += ["### 보유 종목 — 청산 점검", ""]
+        head = "| 종목 | 현재가 | " + ("평단 대비 | " if has_cost else "") + "추적 손절선 | 점검 신호 |"
+        out += [head, "|---|---|" + ("---|" if has_cost else "") + "---|---|"]
+        for _sid, lv in exits:
+            cur = lv.get("currency")
+            trail = _won(lv.get("trailing_stop"), cur)
+            if lv.get("trail_vs_cost_pct") is not None:
+                trail += f" (평단 {lv['trail_vs_cost_pct']:+.1f}%)"
+            sig = _signal_cell(lv)
+            cost = ""
+            if has_cost:
+                cost = (f"{lv['pnl_pct']:+.1f}% | " if lv.get("pnl_pct") is not None else "— | ")
+            out.append(f"| {lv['name']} | {_won(lv['price'], cur)} | {cost}{trail} | {sig} |")
+        out.append("")
+
+    out.append(
+        "- 계산 방식: 진입 구간 = 현재가 아래 가장 가까운 지지 구간, 손절 = 구간 하단 − ATR(14),"
+        " 목표 = 위쪽 저항 구간(없으면 손절폭의 2배), 손익비 2.0 미만은 근거 약함."
+        " 추적 손절선 = 최근 22거래일 고가 − ATR(14)×3."
+    )
+    out.append(
+        "- 검증 방식: 진입 구간은 제시 후 20거래일 안에 목표와 손절 중 어디에 먼저 닿았는지,"
+        " 청산 신호는 10거래일 뒤 종가가 신호 당일보다 낮았는지로 집계합니다."
+    )
+    return "\n".join(out) + "\n"

@@ -317,6 +317,17 @@ class KISCollector:
             raise last_exc or RuntimeError("KIS 종목시세 조회 실패")
         return data.get("output") or []
 
+    # ── 가장 최근 행은 종가가 아니다 ──────────────────────────────────────────
+    # inquire-daily-price의 첫 행(가장 최근 날짜)의 종가 자리에는 "현재가"가
+    # 들어 있다. 장중이면 실시간가이고, 장 마감 뒤에는 시간외 단일가(16:00~18:00)
+    # 체결가까지 반영된다. 다음 거래일 행이 생길 때 비로소 정규장 공식 종가로
+    # 바뀐다. 실측(2026-10-17 토 → 10-19 월, 10/16 종가):
+    #     삼성전자   217,000 → 215,500     SK하이닉스 1,265,000 → 1,272,000
+    #     LG전자     170,700 → 169,700     LS ELECTRIC  159,000 →   158,600
+    # 시가·고가·저가·거래량은 그대로였고 종가만 바뀌었다. 바뀐 값은 yfinance의
+    # 정규장 종가와 같다. 그래서 첫 행은 어떤 경우에도 확정 종가로 쓰지 않는다.
+    # 그 아래 행은 확정치다(29거래일 모두 yfinance와 일치).
+
     def fetch_stock_price(
         self, ticker: str, target_date: str | None = None, retries: int = 3
     ) -> dict:
@@ -342,6 +353,8 @@ class KISCollector:
         """
         rows = self._daily_price_rows(ticker, retries)
         for i, row in enumerate(rows):
+            if i == 0:
+                continue   # 가장 최근 행 — 현재가·시간외 가격이 섞인 자리 (위 설명)
             raw_date = str(row.get("stck_bsop_date", ""))
             if len(raw_date) != 8:
                 continue
@@ -390,25 +403,23 @@ class KISCollector:
     def fetch_daily_bars(
         self, ticker: str, through_date: str, retries: int = 3
     ) -> list[dict]:
-        """국내 종목의 최근 일봉(최대 30거래일)을 확정치로 반환 — 오래된 것부터.
+        """국내 종목의 최근 확정 일봉(최대 29거래일)을 반환 — 오래된 것부터.
 
-        through_date("YYYY-MM-DD") 이후의 행은 버린다. 그 행은 진행 중인 세션이라
-        종가가 아니다(계약 C2). 시가·고가·저가·종가 중 하나라도 0 이하인 행도
-        버린다 — 개장 전 자리표시자 행이다.
+        가장 최근 행은 버린다 — 종가 자리에 현재가·시간외 단일가가 섞여 있다
+        (fetch_stock_price 위 설명). through_date("YYYY-MM-DD") 이후의 행과
+        시가·고가·저가·종가 중 하나라도 0 이하인 자리표시자 행도 버린다.
 
-        왜 대상일 하루가 아니라 30일인가: yfinance는 국내 종목의 최근 종가를
-        장 마감 동시호가 전 체결가로 잡아 두고 나중에 고친다. 실측(2026-10-17,
-        10/16 종가): 삼성전자 KIS 217,000 vs yfinance 215,500, SK하이닉스
-        1,265,000 vs 1,272,000, LG전자·LS ELECTRIC도 어긋났다(그 이전 29일과
-        고가·저가는 일치). 대상일 한 봉만 KIS로 바꾸면 그 앞 봉은 고쳐지기 전
-        값일 수 있고, 차트는 통째로 yfinance라 본문 숫자와 마지막 봉이 달랐다.
+        그래서 대상일이 KIS의 가장 최근 행이면(저녁 결산, 다음 거래일 시작 전의
+        아침 브리핑) 대상일 봉은 여기 없다. 호출부가 yfinance 정규장 종가 →
+        공식 종가(info) → 지연 순으로 채운다. 이 함수가 주는 것은 그 앞 구간의
+        확정치다 — yfinance 발표가 늦어 비어 있는 봉을 메우는 데 쓴다.
 
         수정주가 기준(FID_ORG_ADJ_PRC=0)은 액면분할 등만 반영하고 배당은 반영하지
         않는다 — 국내 HTS·포털 차트와 같은 기준이다. 이어 붙이는 yfinance 쪽도
         auto_adjust=False(배당 미반영)로 받아야 이음매에 단차가 생기지 않는다.
         """
         bars: list[dict] = []
-        for row in self._daily_price_rows(ticker, retries):
+        for row in self._daily_price_rows(ticker, retries)[1:]:   # 가장 최근 행 제외
             raw_date = str(row.get("stck_bsop_date", ""))
             if len(raw_date) != 8:
                 continue

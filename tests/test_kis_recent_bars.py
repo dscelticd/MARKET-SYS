@@ -1,17 +1,17 @@
 """
-국내 종목 최근 일봉을 KIS 확정치로 교체 — 수집 경로와 차트 경로
+국내 종목 최근 일봉을 KIS 확정치로 채우기 — 수집 경로와 차트 경로
 
-실측(2026-10-17, 10/16 종가를 KIS 실전 30거래일과 대조):
-  삼성전자   KIS 217,000   vs yfinance 215,500  (-0.69%)
-  SK하이닉스 KIS 1,265,000 vs yfinance 1,272,000 (+0.55%)
-  LG전자     KIS 170,700   vs yfinance 169,700  (-0.59%)
-  LS ELECTRIC KIS 159,000  vs yfinance 158,600  (-0.25%)
-그 이전 29일과 고가·저가는 모두 일치했다. yfinance가 최근 종가를 장 마감
-동시호가 전 체결가로 잡아 두고 나중에 고치는 패턴이다.
+KIS inquire-daily-price는 최근 30거래일을 한 번에 준다. 그중 **가장 최근 행은 쓰지
+않는다** — 종가 자리에 현재가가 들어 있어 장 마감 뒤에는 시간외 단일가까지
+반영된다. 실측(2026-10-17 토 → 10-19 월, 10/16 종가):
+  삼성전자   217,000 → 215,500     SK하이닉스 1,265,000 → 1,272,000
+  LG전자     170,700 → 169,700     LS ELECTRIC  159,000 →   158,600
+바뀐 값은 yfinance 정규장 종가와 같았다. 그 아래 행(확정치)은 29거래일 모두
+yfinance와 일치했다.
 
-대상일 한 봉만 KIS로 바꾸던 방식에서는 (1) 대상일 직전 봉이 아직 고쳐지기 전
-값이면 이동평균·RSI·전일 대비가 그 값을 썼고, (2) 차트는 통째로 yfinance라
-본문 종가와 차트 마지막 봉이 달랐다.
+그래서 KIS 일봉은 yfinance 발표가 늦어 비어 있는 과거 봉을 메우는 데 쓰고,
+대상일이 KIS의 가장 최근 행이면 대상일 봉은 yfinance 정규장 종가 → 공식 종가(info)
+→ 지연 순으로 채운다.
 """
 from __future__ import annotations
 
@@ -146,6 +146,21 @@ def _row(d, o, h, l, c, v="100", ctrt="0.00"):
             "stck_clpr": c, "acml_vol": v, "prdy_ctrt": ctrt}
 
 
+def test_fetch_daily_bars_never_returns_the_most_recent_row(tmp_path, monkeypatch):
+    """다음 거래일 행이 없으면 대상일 행도 확정치가 아니다(시간외 단일가 반영)."""
+    monkeypatch.setenv("KIS_APP_KEY", "k"); monkeypatch.setenv("KIS_APP_SECRET", "s")
+    import app.collectors.kis_collector as mod
+    monkeypatch.setattr(mod, "_TOKEN_CACHE_FILE", tmp_path / "t.json")
+    k = KISCollector()
+    rows = [_row("20261016", "215000", "222500", "210500", "217000", ctrt="3.33"),
+            _row("20261015", "216500", "221500", "204500", "210000")]
+    resp = MagicMock(); resp.raise_for_status.return_value = None
+    resp.json.return_value = {"rt_cd": "0", "output": rows}
+    with patch.object(k, "get_token", return_value="t"),          patch("app.collectors.kis_collector.requests.get", return_value=resp):
+        bars = k.fetch_daily_bars("005930", through_date="2026-10-16")
+    assert [b["date"] for b in bars] == ["2026-10-15"]
+
+
 def test_fetch_daily_bars_drops_sessions_after_the_target_and_placeholders(tmp_path, monkeypatch):
     monkeypatch.setenv("KIS_APP_KEY", "k"); monkeypatch.setenv("KIS_APP_SECRET", "s")
     monkeypatch.setenv("KIS_ENV", "real")
@@ -171,15 +186,15 @@ def test_fetch_daily_bars_drops_sessions_after_the_target_and_placeholders(tmp_p
     assert [b["date"] for b in bars] == ["2026-10-15"]                  # 대상일 이후는 버림
 
 
-def test_fetch_daily_bars_drops_a_placeholder_row_on_the_target_date(tmp_path, monkeypatch):
-    """개장 전에는 당일 자리에 0으로 채운 행이 먼저 생긴다. 대상일이 그날로
-    잘못 넘어와도 이 행을 확정 일봉으로 받아들이면 안 된다."""
+def test_fetch_daily_bars_drops_zero_filled_rows(tmp_path, monkeypatch):
+    """거래정지일처럼 시가·고가·저가가 0으로 채워진 행은 일봉이 아니다."""
     monkeypatch.setenv("KIS_APP_KEY", "k"); monkeypatch.setenv("KIS_APP_SECRET", "s")
     import app.collectors.kis_collector as mod
     monkeypatch.setattr(mod, "_TOKEN_CACHE_FILE", tmp_path / "t.json")
     k = KISCollector()
-    rows = [_row("20261019", "0", "0", "0", "217000"),
-            _row("20261016", "215000", "222500", "210500", "217000")]
+    rows = [_row("20261020", "216000", "218000", "214000", "217000"),
+            _row("20261019", "0", "0", "0", "215500"),
+            _row("20261016", "215000", "222500", "210500", "215500")]
     resp = MagicMock(); resp.raise_for_status.return_value = None
     resp.json.return_value = {"rt_cd": "0", "output": rows}
     with patch.object(k, "get_token", return_value="t"),          patch("app.collectors.kis_collector.requests.get", return_value=resp):
