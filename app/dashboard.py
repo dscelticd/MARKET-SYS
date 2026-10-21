@@ -2308,25 +2308,40 @@ def main():
             # ── 수급 동향 (외국인/기관/개인 추정 순매매, KR 종목만) ────────────
             _flow = (_pi or {}).get("investor_flow") or {}
             if _flow:
+                # 개인 순매수는 소스마다 키가 다르다 — KIS는 실측(individual_net_Nd),
+                # 네이버는 외국인·기관 합산의 잔차 추정(individual_net_Nd_est).
+                # 예전엔 _est만 찾아서, KIS 실전 키로 바꾼 뒤 None과 비교하다 대시보드
+                # 전체가 TypeError로 멈췄다(2026-10-21).
+                _is_kis = _flow.get("_source") == "kis"
                 st.divider()
                 st.markdown(
                     '**💹 수급 동향** '
                     '<span style="font-size:0.75em;color:#9ca3af;">'
-                    '(참고용 — 개인은 외국인·기관 합산 잔차 추정치)</span>',
+                    + ('(KIS 공식 — 개인 포함 실측치)' if _is_kis
+                       else '(참고용 — 개인은 외국인·기관 합산 잔차 추정치)')
+                    + '</span>',
                     unsafe_allow_html=True,
                 )
+
+                def _flow_line(label: str, v) -> str:
+                    if v is None:
+                        return f"{label} —"
+                    return f"{label} {'🔵' if v >= 0 else '🔴'} {v:+,}주"
+
                 fc_a, fc_b = st.columns(2)
                 for _col, _days in ((fc_a, 5), (fc_b, 20)):
                     _frgn  = _flow.get(f"foreign_net_{_days}d")
                     _inst  = _flow.get(f"institution_net_{_days}d")
-                    _indiv = _flow.get(f"individual_net_{_days}d_est")
+                    _indiv = _flow.get(f"individual_net_{_days}d")
+                    if _indiv is None:
+                        _indiv = _flow.get(f"individual_net_{_days}d_est")
                     if _frgn is None:
                         continue
                     _col.markdown(f"**{_days}일 누적**")
                     _col.markdown(
-                        f"외국인 {'🔵' if _frgn >= 0 else '🔴'} {_frgn:+,}주  \n"
-                        f"기관 {'🔵' if _inst >= 0 else '🔴'} {_inst:+,}주  \n"
-                        f"개인(추정) {'🔵' if _indiv >= 0 else '🔴'} {_indiv:+,}주"
+                        _flow_line("외국인", _frgn) + "  \n"
+                        + _flow_line("기관", _inst) + "  \n"
+                        + _flow_line("개인" if _is_kis else "개인(추정)", _indiv)
                     )
 
             st.divider()
