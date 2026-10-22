@@ -544,6 +544,8 @@ YFINANCE_MAP: dict[str, tuple[str, str, str]] = {
     "KR_015760": ("015760.KS", "한국전력",      "KRW"),
     "KR_066570": ("066570.KS", "LG전자",        "KRW"),
     "KR_138080": ("138080.KQ", "오이솔루션",    "KRW"),   # 광통신 (KOSDAQ)
+    "KR_042700": ("042700.KS", "한미반도체",    "KRW"),   # 반도체 후공정 장비 (KOSPI)
+    "KR_319660": ("319660.KQ", "피에스케이",    "KRW"),   # 반도체 전공정 장비 (KOSDAQ)
     # ── 미국 ────────────────────────────────────────────────────────────────
     "US_NVDA":   ("NVDA",  "NVIDIA",              "USD"),
     "US_QQQ":    ("QQQ",   "Invesco QQQ",         "USD"),
@@ -569,6 +571,8 @@ _BASE_PRICES: dict[str, dict] = {
     "KR_015760": {"ticker": "015760", "name": "한국전력",     "base": 22000,   "currency": "KRW", "market_cap_b": 14000},
     "KR_066570": {"ticker": "066570", "name": "LG전자",       "base": 95000,   "currency": "KRW", "market_cap_b": 15500},
     "KR_138080": {"ticker": "138080", "name": "오이솔루션",   "base": 53000,   "currency": "KRW", "market_cap_b": 2100},
+    "KR_042700": {"ticker": "042700", "name": "한미반도체",   "base": 199000,  "currency": "KRW", "market_cap_b": 19000},
+    "KR_319660": {"ticker": "319660", "name": "피에스케이",   "base": 120000,  "currency": "KRW", "market_cap_b": 1700},
     # ── 미국 ────────────────────────────────────────────────────────────────
     "US_NVDA":   {"ticker": "NVDA",  "name": "NVIDIA",              "base": 135.0,  "currency": "USD", "market_cap_b": 3310},
     "US_QQQ":    {"ticker": "QQQ",   "name": "Invesco QQQ",         "base": 490.0,  "currency": "USD", "market_cap_b": 310},

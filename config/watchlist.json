@@ -624,6 +624,74 @@
       "interest_level": 5,
       "status": "관찰",
       "memo": "Starlink 가입자 성장 및 Falcon 9·Starship 발사 수주 모니터링"
+    },
+    {
+      "id": "KR_042700",
+      "name": "한미반도체",
+      "ticker": "042700",
+      "country": "KR",
+      "market": "KOSPI",
+      "currency": "KRW",
+      "sector": "반도체 장비",
+      "industry": "반도체 후공정 장비 (HBM용 TC 본더 등)",
+      "themes": [
+        "반도체",
+        "HBM",
+        "AI",
+        "반도체 장비"
+      ],
+      "related_markets": [
+        "KOSPI",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "SK하이닉스",
+        "Micron",
+        "삼성전자",
+        "NVIDIA"
+      ],
+      "macro_variables": [
+        "HBM 생산능력 투자",
+        "메모리 CapEx 사이클",
+        "AI 서버 수요",
+        "달러/원 환율"
+      ],
+      "interest_level": 4,
+      "status": "관찰",
+      "memo": "HBM 적층용 TC 본더 공급 — 고객사 HBM 증설 일정과 수주 공시 모니터링"
+    },
+    {
+      "id": "KR_319660",
+      "name": "피에스케이",
+      "ticker": "319660",
+      "country": "KR",
+      "market": "KOSDAQ",
+      "currency": "KRW",
+      "sector": "반도체 장비",
+      "industry": "반도체 전공정 장비 (PR 스트립·드라이클리닝 등)",
+      "themes": [
+        "반도체",
+        "반도체 장비",
+        "메모리 투자"
+      ],
+      "related_markets": [
+        "KOSDAQ",
+        "PHLX SOX"
+      ],
+      "related_companies": [
+        "삼성전자",
+        "SK하이닉스",
+        "Lam Research",
+        "Applied Materials"
+      ],
+      "macro_variables": [
+        "메모리 CapEx 사이클",
+        "미중 반도체 장비 수출 규제",
+        "달러/원 환율"
+      ],
+      "interest_level": 3,
+      "status": "관찰",
+      "memo": "전공정 스트립 장비 — 메모리 설비투자 재개 강도와 중국 매출 비중 모니터링"
     }
   ]
 }
