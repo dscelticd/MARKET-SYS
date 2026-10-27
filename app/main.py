@@ -53,6 +53,7 @@ from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.engine.trade_levels import build_trade_levels
 from app.engine.trade_level_tracker import TradeLevelTracker
+from app.engine.accuracy_audit import audit, summary_lines
 from app.collectors.theme_scanner import scan_theme_strength
 from app.collectors.calendar_collector import build_event_calendar
 from app.utils.market_calendar import summarize_data_freshness
@@ -589,6 +590,17 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
                 print(f"  등급 적중률({days}일 전 기준): 데이터 부족")
         logger.info("등급 적중률 집계 완료 — %s",
                      {d: s["overall_hit_rate"] for d, s in accuracy_report.items()})
+
+        # 정확도 점검 — 누적 이력 전체를 더 엄격한 기준(초과수익·허용오차 없음·
+        # 순위 상관)으로 재집계해 실행 기록에 남긴다. 이력은 실행 캐시 안에만 있어
+        # 이렇게 꺼내 두지 않으면 밖에서 확인할 방법이 없다. 리포트 본문에는 싣지 않는다.
+        try:
+            for line in summary_lines(audit(tracker.get_all_history(days=3650))):
+                print(f"  {line}")
+                logger.info("[ACCURACY_AUDIT] %s", line)
+                _gh_annotation("notice", line)
+        except Exception as e:
+            logger.warning("[ACCURACY_AUDIT_ERROR] 정확도 점검 실패 (무시하고 계속): %s", e)
 
         # ── Step 4-2-2: 참고 가격대 · 청산 점검 + 지난 가격대 검증 ──
         # 보조 기능이라 실패해도 리포트는 나간다. 순서가 중요하다 — 지난 기록을
