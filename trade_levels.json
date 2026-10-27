@@ -1,0 +1,567 @@
+{
+  "records": [
+    {
+      "stock_id": "KR_010120",
+      "name": "LS ELECTRIC",
+      "kind": "entry",
+      "issued_on": "2026-10-19",
+      "entry_low": 148000.0,
+      "entry_high": 153500.0,
+      "stop": 136900.0,
+      "target1": 214000.0,
+      "risk_reward": 4.57,
+      "status": "active",
+      "age": 5,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-20",
+      "fill_price": 153500.0
+    },
+    {
+      "stock_id": "KR_066570",
+      "name": "LG전자",
+      "kind": "entry",
+      "issued_on": "2026-10-19",
+      "entry_low": 141900.0,
+      "entry_high": 147700.0,
+      "stop": 130200.0,
+      "target1": 208500.0,
+      "risk_reward": 4.36,
+      "status": "pending",
+      "age": 5,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_QTUM",
+      "name": "Defiance Quantum ETF",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 137.11,
+      "entry_high": 137.14,
+      "stop": 133.77,
+      "target1": 150.07,
+      "risk_reward": 3.86,
+      "status": "active",
+      "age": 6,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-20",
+      "fill_price": 137.14
+    },
+    {
+      "stock_id": "US_SNDK",
+      "name": "SanDisk",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 998.19,
+      "entry_high": 1040.51,
+      "stop": 913.54,
+      "target1": 1446.62,
+      "risk_reward": 4.04,
+      "status": "pending",
+      "age": 6,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_COHR",
+      "name": "Coherent Corp",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 220.68,
+      "entry_high": 232.44,
+      "stop": 197.15,
+      "target1": 307.49,
+      "risk_reward": 2.75,
+      "status": "active",
+      "age": 6,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-19",
+      "fill_price": 232.44
+    },
+    {
+      "stock_id": "US_CIEN",
+      "name": "Ciena",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 323.29,
+      "entry_high": 332.73,
+      "stop": 294.53,
+      "target1": 376.74,
+      "risk_reward": 1.46,
+      "status": "active",
+      "age": 6,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-20",
+      "fill_price": 332.73
+    },
+    {
+      "stock_id": "KR_138080",
+      "name": "오이솔루션",
+      "kind": "entry",
+      "issued_on": "2026-10-19",
+      "entry_low": 20700.0,
+      "entry_high": 22200.0,
+      "stop": 17690.0,
+      "target1": 30400.0,
+      "risk_reward": 2.38,
+      "status": "pending",
+      "age": 5,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-10-19",
+      "price_at_signal": 718.36,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.4%)"
+      ],
+      "status": "pending",
+      "age": 5,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-19",
+      "price_at_signal": 704.6,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.9%)"
+      ],
+      "status": "pending",
+      "age": 5,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-10-20",
+      "entry_low": 27800.0,
+      "entry_high": 28200.0,
+      "stop": 26950.0,
+      "target1": 30550.0,
+      "risk_reward": 2.43,
+      "status": "active",
+      "age": 4,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-23",
+      "fill_price": 28200.0
+    },
+    {
+      "stock_id": "KR_005930",
+      "name": "삼성전자",
+      "kind": "exit",
+      "issued_on": "2026-10-20",
+      "price_at_signal": 211500.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 4,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-10-20",
+      "price_at_signal": 1223000.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 4,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-20",
+      "price_at_signal": 34.69,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.7%)"
+      ],
+      "status": "pending",
+      "age": 4,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_NVDA",
+      "name": "NVIDIA",
+      "kind": "exit",
+      "issued_on": "2026-10-20",
+      "price_at_signal": 216.47,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 4,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_SPCX",
+      "name": "SpaceX",
+      "kind": "entry",
+      "issued_on": "2026-10-21",
+      "entry_low": 145.36,
+      "entry_high": 149.49,
+      "stop": 137.1,
+      "target1": 172.4,
+      "risk_reward": 2.42,
+      "status": "active",
+      "age": 3,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-22",
+      "fill_price": 149.49
+    },
+    {
+      "stock_id": "KR_005930",
+      "name": "삼성전자",
+      "kind": "exit",
+      "issued_on": "2026-10-22",
+      "price_at_signal": 214500.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 2,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-10-22",
+      "price_at_signal": 1223000.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 2,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_069500",
+      "name": "KODEX 200",
+      "kind": "exit",
+      "issued_on": "2026-10-22",
+      "price_at_signal": 86525.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 2,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_042700",
+      "name": "한미반도체",
+      "kind": "entry",
+      "issued_on": "2026-10-22",
+      "entry_low": 187500.0,
+      "entry_high": 191200.0,
+      "stop": 170500.0,
+      "target1": 217000.0,
+      "risk_reward": 1.47,
+      "status": "active",
+      "age": 2,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-23",
+      "fill_price": 187000.0
+    },
+    {
+      "stock_id": "KR_319660",
+      "name": "피에스케이",
+      "kind": "entry",
+      "issued_on": "2026-10-22",
+      "entry_low": 115000.0,
+      "entry_high": 117200.0,
+      "stop": 101900.0,
+      "target1": 135800.0,
+      "risk_reward": 1.39,
+      "status": "active",
+      "age": 2,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-23",
+      "fill_price": 112100.0
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-22",
+      "price_at_signal": 702.3,
+      "signals": [
+        "20일선($708.44) 아래 마감"
+      ],
+      "status": "pending",
+      "age": 2,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_NVDA",
+      "name": "NVIDIA",
+      "kind": "exit",
+      "issued_on": "2026-10-22",
+      "price_at_signal": 212.21,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.9%)",
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 2,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-23",
+      "price_at_signal": 698.58,
+      "signals": [
+        "추적 손절선($698.65) 이탈"
+      ],
+      "status": "pending",
+      "age": 1,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-10-23",
+      "entry_low": 133.44,
+      "entry_high": 138.4,
+      "stop": 123.51,
+      "target1": 149.93,
+      "risk_reward": 1.13,
+      "status": "pending",
+      "age": 1,
+      "last_eval": "2026-10-26"
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-10-26",
+      "price_at_signal": 1275000.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "TW_TSM",
+      "name": "TSMC",
+      "kind": "entry",
+      "issued_on": "2026-10-26",
+      "entry_low": 418.07,
+      "entry_high": 424.37,
+      "stop": 404.06,
+      "target1": 428.49,
+      "risk_reward": 0.42,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "TW_TSM",
+      "name": "TSMC",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 404.07,
+      "entry_high": 411.45,
+      "stop": 391.48,
+      "target1": 428.49,
+      "risk_reward": 1.27,
+      "status": "win",
+      "age": 6,
+      "last_eval": "2026-10-26",
+      "filled_on": "2026-10-22",
+      "fill_price": 411.45,
+      "resolved_on": "2026-10-26",
+      "exit_price": 428.49,
+      "r_multiple": 0.85
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-10-21",
+      "entry_low": 147.9,
+      "entry_high": 152.61,
+      "stop": 138.49,
+      "target1": 156.73,
+      "risk_reward": 0.55,
+      "status": "loss",
+      "age": 2,
+      "last_eval": "2026-10-23",
+      "filled_on": "2026-10-22",
+      "fill_price": 152.61,
+      "resolved_on": "2026-10-23",
+      "exit_price": 138.49,
+      "r_multiple": -1.0
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 147.9,
+      "entry_high": 152.02,
+      "stop": 138.82,
+      "target1": 154.65,
+      "risk_reward": 0.42,
+      "status": "win",
+      "age": 3,
+      "last_eval": "2026-10-21",
+      "filled_on": "2026-10-19",
+      "fill_price": 152.02,
+      "resolved_on": "2026-10-21",
+      "exit_price": 154.65,
+      "r_multiple": 0.2
+    },
+    {
+      "stock_id": "US_SPCX",
+      "name": "SpaceX",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 145.36,
+      "entry_high": 146.03,
+      "stop": 137.93,
+      "target1": 149.8,
+      "risk_reward": 0.53,
+      "status": "win",
+      "age": 3,
+      "last_eval": "2026-10-21",
+      "filled_on": "2026-10-20",
+      "fill_price": 146.03,
+      "resolved_on": "2026-10-21",
+      "exit_price": 160.55999755859375,
+      "r_multiple": 1.79
+    }
+  ],
+  "signal_state": {
+    "KR_005930": {
+      "date": "2026-10-26",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
+      }
+    },
+    "KR_000660": {
+      "date": "2026-10-26",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
+      }
+    },
+    "KR_069500": {
+      "date": "2026-10-26",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
+      }
+    },
+    "US_QQQ": {
+      "date": "2026-10-26",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
+      }
+    },
+    "US_VOO": {
+      "date": "2026-10-26",
+      "keys": [
+        "ma20"
+      ],
+      "since": {
+        "ma20": "2026-10-22"
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": "2026-10-23",
+        "ma20": "2026-10-22"
+      }
+    },
+    "US_SCHD": {
+      "date": "2026-10-26",
+      "keys": [],
+      "since": {},
+      "prev": [],
+      "prev_since": {}
+    },
+    "US_NVDA": {
+      "date": "2026-10-26",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
+      }
+    }
+  }
+}
