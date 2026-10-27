@@ -53,7 +53,7 @@ def now_kst() -> datetime:
 
 _HOLIDAYS_PATH = Path(__file__).resolve().parents[2] / "config" / "market_holidays.json"
 _holidays_cache: dict | None = None
-_gap_warned: set[int] = set()
+_gap_warned: set[tuple[str, int]] = set()
 
 
 def _holidays() -> dict:
@@ -73,15 +73,43 @@ def _holidays() -> dict:
     return _holidays_cache
 
 
+def covered_years(market: str) -> list[int]:
+    """market의 휴장일이 등록된 연도. 예전 형식(시장 공통 목록)도 읽는다.
+
+    시장별로 따로 둔 이유: 미국 2027년만 먼저 등록하면, 공통 목록에서는 한국
+    2027년도 등록된 것으로 간주돼 누락 경고가 사라진다.
+    """
+    cov = _holidays().get("covered_years") or []
+    if isinstance(cov, dict):
+        return list(cov.get(market) or [])
+    return list(cov)
+
+
+def calendar_gaps(today: date, within_days: int = 45) -> list[tuple[str, int]]:
+    """within_days 안에 시작되는 연도 중 휴장일이 미등록인 (시장, 연도).
+
+    누락은 [HOLIDAY_CALENDAR_GAP] 로그로만 남아 연초에 실제로 리포트가 비고 나서야
+    드러난다. 연말이 다가오면 미리 알리기 위해 쓴다.
+    """
+    gaps = []
+    horizon = today + timedelta(days=within_days)
+    for market in ("KR", "US"):
+        cov = covered_years(market)
+        for year in range(today.year, horizon.year + 1):
+            if cov and year not in cov:
+                gaps.append((market, year))
+    return gaps
+
+
 def is_market_holiday(d: date, market: str) -> bool:
     """d가 해당 시장의 휴장일인지 (주말 제외 — 주말은 is_trading_day가 본다)."""
     cal = _holidays()
-    covered = cal.get("covered_years") or []
-    if covered and d.year not in covered and d.year not in _gap_warned:
-        _gap_warned.add(d.year)
+    covered = covered_years(market)
+    if covered and d.year not in covered and (market, d.year) not in _gap_warned:
+        _gap_warned.add((market, d.year))
         _logger.warning(
-            "[HOLIDAY_CALENDAR_GAP] %d년 휴장일이 config/market_holidays.json에 "
-            "없습니다 — 주말만 휴장으로 간주합니다. KRX 공식 공고로 갱신하세요.", d.year,
+            "[HOLIDAY_CALENDAR_GAP] %s %d년 휴장일이 config/market_holidays.json에 "
+            "없습니다 — 주말만 휴장으로 간주합니다. 공식 공고로 갱신하세요.", market, d.year,
         )
     return d.isoformat() in (cal.get("markets", {}).get(market) or {})
 

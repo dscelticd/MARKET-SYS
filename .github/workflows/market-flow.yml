@@ -60,6 +60,10 @@ jobs:
     # 패키지(fonts-nanum)·Python 빌드·폰트 렌더링이 예고 없이 달라질 수 있어, 버전을
     # 고정하고 올릴 시점을 직접 정한다. 올릴 때는 수동 실행(dry_run 체크)으로 먼저 시험.
     runs-on: ubuntu-24.04
+    # contents: write — 등급 이력을 data-backup 브랜치에 백업하기 위해 필요하다.
+    # 권한을 명시하면 나머지는 기본으로 막히므로 실제 쓰는 범위만 연다.
+    permissions:
+      contents: write
     timeout-minutes: 15
 
     steps:
@@ -73,11 +77,15 @@ jobs:
         with:
           python-version: '3.11'
           cache: 'pip'
-          cache-dependency-path: 'requirements-cloud.txt'
+          cache-dependency-path: |
+            requirements-cloud.txt
+            requirements-cloud.lock
 
       # ── 3. 의존성 설치 (클라우드 전용 — Dashboard 제외) ─────────────────────
       - name: 의존성 설치
-        run: pip install --upgrade pip && pip install -r requirements-cloud.txt
+        # 고정 목록(-c)으로 설치한다 — 매 실행이 그날의 최신판을 받던 것을 멈춘다.
+        # 갱신 방법은 requirements-cloud.lock 머리말 참고.
+        run: pip install --upgrade pip && pip install -r requirements-cloud.txt -c requirements-cloud.lock
 
       # ── 3-1. 한글 폰트 설치 (캔들차트 이미지 한글 렌더링용) ───────────────────
       - name: 한글 폰트 설치
@@ -182,12 +190,19 @@ jobs:
       # 실제와 같은 리포트가 나오지만, 그 결과를 이력에 남기면 같은 거래일
       # 스냅샷을 덮어써 등급 변화·적중률 통계가 오염된다.
       - name: 등급 이력 복원
+        id: history
         uses: actions/cache/restore@v5
         with:
           path: data/history
           key: ratings-history-${{ github.run_id }}
           restore-keys: |
             ratings-history-
+
+      # 캐시가 비었으면(7일 이상 미사용·정리) 백업 브랜치에서 되살린다.
+      # 이게 없으면 등급 이력·참고 가격대 검증·발송 기록이 처음부터 다시 쌓인다.
+      - name: 등급 이력 복원 (캐시가 비었을 때 백업에서)
+        if: steps.history.outputs.cache-matched-key == ''
+        run: bash .github/scripts/history_backup.sh restore
 
       # ── 6. 리포트 유형 결정 ─────────────────────────────────────────────────
       # 어느 크론이 발동했는지로 판정한다. 이전에는 "실행된 시각"(date -u +%H)으로
@@ -230,6 +245,13 @@ jobs:
         with:
           path: data/history
           key: ratings-history-${{ github.run_id }}
+
+      # 캐시 한 곳에만 두지 않는다 — data-backup 브랜치에 사본을 남긴다(내용이
+      # 바뀐 실행만 커밋). 백업 실패가 리포트 실행을 실패로 만들지는 않는다.
+      - name: 등급 이력 백업 (data-backup 브랜치)
+        if: ${{ !inputs.dry_run }}
+        continue-on-error: true
+        run: bash .github/scripts/history_backup.sh backup
 
       # ── 8. 실패 시 Telegram 오류 알림 ─────────────────────────────────────
       - name: 오류 알림 (실패 시)

@@ -65,7 +65,9 @@ from app.reports.report_builder import (
 )
 from app.reports.chart_generator import generate_report_charts
 from app.delivery.email_sender import EmailSender
-from app.utils.market_calendar import now_kst, resolve_target_session, stock_market, index_market
+from app.utils.market_calendar import (
+    calendar_gaps, now_kst, resolve_target_session, stock_market, index_market,
+)
 from app.utils import delivery_log
 from app.utils.watchlist_check import validate_watchlist
 
@@ -256,6 +258,27 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
     print(f"   대상 거래일: 한국 {target['kr_date']}  |  미국 {target['us_date']}")
 
     notifier = TelegramNotifier()
+
+    # ── 휴장일 달력 누락 경고 — 연말 45일 전부터 ──
+    # 다음 해 휴장일이 없으면 연초 공휴일에 리포트가 비거나 지연으로 나간다.
+    # 로그 경고만으로는 그날이 와야 드러나서, 미리 실행 기록·텔레그램으로 알린다.
+    try:
+        gaps = calendar_gaps(now_kst().date())
+    except Exception as e:
+        logger.warning("[HOLIDAY_CALENDAR_ERROR] 달력 점검 실패: %s", e)
+        gaps = []
+    if gaps:
+        names = {"KR": "한국", "US": "미국"}
+        msg = ("휴장일 미등록: " + ", ".join(f"{names.get(m, m)} {y}년" for m, y in gaps)
+               + " — config/market_holidays.json에 공식 공고 기준으로 추가 필요")
+        print(f"  ⚠️ {msg}")
+        logger.warning("[HOLIDAY_CALENDAR_GAP] %s", msg)
+        _gh_annotation("warning", msg)
+        if send_email and notifier.is_configured():
+            try:
+                notifier.notify_calendar_gap(msg)
+            except Exception as e:
+                logger.error("[TELEGRAM_NOTIFY_ERROR] 휴장일 누락 알림 실패: %s", e)
 
     # ── 발송 기록 점검 — 중복 방지·누락 감지 ──
     # 이메일을 보내는 실행에서만 한다. 발송하지 않는 로컬 생성까지 막을 이유는 없다.

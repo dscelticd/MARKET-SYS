@@ -33,8 +33,8 @@ _ROOT = pathlib.Path(__file__).resolve().parents[1]
 def test_calendar_has_both_markets_for_2026():
     cal = json.loads((_ROOT / "config" / "market_holidays.json").read_text(encoding="utf-8"))
     assert len(cal["markets"]["KR"]) == 17    # KRX 2026 공고 기준
-    assert len(cal["markets"]["US"]) == 10
-    assert 2026 in cal["covered_years"]
+    assert len([d for d in cal["markets"]["US"] if d.startswith("2026")]) == 10
+    assert 2026 in cal["covered_years"]["KR"] and 2026 in cal["covered_years"]["US"]
 
 
 def test_chuseok_and_labor_day_are_registered():
@@ -120,3 +120,34 @@ def test_holiday_name_lookup():
     assert holiday_name(date(2026, 9, 25), "KR") == "추석"
     assert holiday_name(date(2026, 9, 7), "US") == "Labor Day"
     assert holiday_name(date(2026, 9, 8), "US") is None
+
+
+# ── 시장별 등록 연도 · 연말 경고 ─────────────────────────────────────────────
+
+def test_us_2027_holidays_are_registered_from_the_nyse_calendar():
+    from app.utils.market_calendar import is_trading_day
+    for d in ("2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31",
+              "2027-06-18", "2027-07-05", "2027-09-06", "2027-11-25", "2027-12-24"):
+        assert is_market_holiday(date.fromisoformat(d), "US"), d
+    assert is_trading_day(date(2027, 11, 26), "US")     # 추수감사절 다음날은 조기폐장일 뿐 거래일
+
+
+def test_coverage_is_tracked_per_market():
+    """미국 2027만 등록했다고 한국 2027까지 등록된 것으로 보면 누락 경고가 사라진다."""
+    from app.utils.market_calendar import covered_years
+    assert 2027 in covered_years("US")
+    assert 2027 not in covered_years("KR")
+
+
+def test_missing_kr_year_still_logs_a_gap_warning(caplog):
+    import app.utils.market_calendar as mc
+    mc._gap_warned.clear()
+    with caplog.at_level("WARNING"):
+        is_market_holiday(date(2027, 2, 8), "KR")
+    assert "HOLIDAY_CALENDAR_GAP" in caplog.text and "KR 2027" in caplog.text
+
+
+def test_year_end_warning_window():
+    from app.utils.market_calendar import calendar_gaps
+    assert calendar_gaps(date(2026, 10, 27)) == []                 # 아직 45일 밖
+    assert calendar_gaps(date(2026, 11, 20)) == [("KR", 2027)]     # 미국은 등록됨

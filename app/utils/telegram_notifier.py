@@ -243,6 +243,12 @@ class TelegramNotifier:
         lines += ["", "_리포트는 발송되며, 해당 종목은 본문에 결측·지연으로 표시됩니다\\._"]
         return self._send("\n".join(lines))
 
+    def notify_calendar_gap(self, message: str) -> bool:
+        """다음 해 휴장일이 등록되지 않았을 때 — 연말 45일 전부터 실행마다."""
+        if not self.is_configured():
+            return False
+        return self._send("📅 *Market Flow 휴장일 달력 갱신 필요*\n" + _escape(message))
+
     def notify_missed_reports(self, missed: list[tuple[str, str]]) -> bool:
         """발송 기록이 없는 회차를 알린다.
 
