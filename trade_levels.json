@@ -11,8 +11,8 @@
       "target1": 214000.0,
       "risk_reward": 4.57,
       "status": "active",
-      "age": 6,
-      "last_eval": "2026-10-27",
+      "age": 7,
+      "last_eval": "2026-10-28",
       "filled_on": "2026-10-20",
       "fill_price": 153500.0
     },
@@ -27,8 +27,8 @@
       "target1": 208500.0,
       "risk_reward": 4.36,
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-27"
+      "age": 7,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "US_QTUM",
@@ -103,8 +103,8 @@
       "target1": 30400.0,
       "risk_reward": 2.38,
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-27"
+      "age": 7,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "US_QQQ",
@@ -143,8 +143,8 @@
       "target1": 30550.0,
       "risk_reward": 2.43,
       "status": "active",
-      "age": 5,
-      "last_eval": "2026-10-27",
+      "age": 6,
+      "last_eval": "2026-10-28",
       "filled_on": "2026-10-23",
       "fill_price": 28200.0
     },
@@ -158,8 +158,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-10-27"
+      "age": 6,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "KR_000660",
@@ -171,8 +171,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-10-27"
+      "age": 6,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "US_SCHD",
@@ -226,8 +226,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-27"
+      "age": 4,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "KR_000660",
@@ -239,8 +239,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-27"
+      "age": 4,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "KR_069500",
@@ -252,8 +252,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-27"
+      "age": 4,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "KR_042700",
@@ -266,8 +266,8 @@
       "target1": 217000.0,
       "risk_reward": 1.47,
       "status": "active",
-      "age": 3,
-      "last_eval": "2026-10-27",
+      "age": 4,
+      "last_eval": "2026-10-28",
       "filled_on": "2026-10-23",
       "fill_price": 187000.0
     },
@@ -282,8 +282,8 @@
       "target1": 135800.0,
       "risk_reward": 1.39,
       "status": "active",
-      "age": 3,
-      "last_eval": "2026-10-27",
+      "age": 4,
+      "last_eval": "2026-10-28",
       "filled_on": "2026-10-23",
       "fill_price": 112100.0
     },
@@ -351,8 +351,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-10-27"
+      "age": 2,
+      "last_eval": "2026-10-28"
     },
     {
       "stock_id": "TW_TSM",
@@ -483,14 +483,12 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-10-27",
+      "date": "2026-10-28",
       "keys": [
-        "trail",
-        "ma20"
+        "trail"
       ],
       "since": {
-        "trail": null,
-        "ma20": null
+        "trail": null
       },
       "prev": [
         "trail",
@@ -502,7 +500,7 @@
       }
     },
     "KR_000660": {
-      "date": "2026-10-27",
+      "date": "2026-10-28",
       "keys": [
         "trail",
         "ma20"
@@ -521,7 +519,7 @@
       }
     },
     "KR_069500": {
-      "date": "2026-10-27",
+      "date": "2026-10-28",
       "keys": [
         "trail",
         "ma20"
