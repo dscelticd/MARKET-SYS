@@ -11,8 +11,8 @@
       "target1": 214000.0,
       "risk_reward": 4.57,
       "status": "active",
-      "age": 7,
-      "last_eval": "2026-10-28",
+      "age": 8,
+      "last_eval": "2026-10-29",
       "filled_on": "2026-10-20",
       "fill_price": 153500.0
     },
@@ -27,8 +27,8 @@
       "target1": 208500.0,
       "risk_reward": 4.36,
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-10-28"
+      "age": 8,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "US_QTUM",
@@ -103,8 +103,8 @@
       "target1": 30400.0,
       "risk_reward": 2.38,
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-10-28"
+      "age": 8,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "US_QQQ",
@@ -143,8 +143,8 @@
       "target1": 30550.0,
       "risk_reward": 2.43,
       "status": "active",
-      "age": 6,
-      "last_eval": "2026-10-28",
+      "age": 7,
+      "last_eval": "2026-10-29",
       "filled_on": "2026-10-23",
       "fill_price": 28200.0
     },
@@ -158,8 +158,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-28"
+      "age": 7,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "KR_000660",
@@ -171,8 +171,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-28"
+      "age": 7,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "US_SCHD",
@@ -226,8 +226,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-10-28"
+      "age": 5,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "KR_000660",
@@ -239,8 +239,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-10-28"
+      "age": 5,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "KR_069500",
@@ -252,8 +252,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-10-28"
+      "age": 5,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "KR_042700",
@@ -266,8 +266,8 @@
       "target1": 217000.0,
       "risk_reward": 1.47,
       "status": "active",
-      "age": 4,
-      "last_eval": "2026-10-28",
+      "age": 5,
+      "last_eval": "2026-10-29",
       "filled_on": "2026-10-23",
       "fill_price": 187000.0
     },
@@ -282,8 +282,8 @@
       "target1": 135800.0,
       "risk_reward": 1.39,
       "status": "active",
-      "age": 4,
-      "last_eval": "2026-10-28",
+      "age": 5,
+      "last_eval": "2026-10-29",
       "filled_on": "2026-10-23",
       "fill_price": 112100.0
     },
@@ -351,8 +351,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-10-28"
+      "age": 3,
+      "last_eval": "2026-10-29"
     },
     {
       "stock_id": "TW_TSM",
@@ -425,6 +425,31 @@
       "kind": "exit",
       "issued_on": "2026-10-28",
       "price_at_signal": 215.38,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_005930",
+      "name": "삼성전자",
+      "kind": "exit",
+      "issued_on": "2026-10-29",
+      "price_at_signal": 232000.0,
+      "signals": [
+        "20일선(238,000원) 아래 마감",
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_069500",
+      "name": "KODEX 200",
+      "kind": "exit",
+      "issued_on": "2026-10-29",
+      "price_at_signal": 94465.0,
       "signals": [
         "등급 하락(안전→보통)"
       ],
@@ -510,7 +535,26 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-10-28",
+      "date": "2026-10-29",
+      "keys": [
+        "trail",
+        "ma20",
+        "grade"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": "2026-10-29",
+        "grade": "2026-10-29"
+      },
+      "prev": [
+        "trail"
+      ],
+      "prev_since": {
+        "trail": null
+      }
+    },
+    "KR_000660": {
+      "date": "2026-10-29",
       "keys": [
         "trail"
       ],
@@ -526,34 +570,17 @@
         "ma20": null
       }
     },
-    "KR_000660": {
-      "date": "2026-10-28",
-      "keys": [
-        "trail",
-        "ma20"
-      ],
-      "since": {
-        "trail": null,
-        "ma20": null
-      },
-      "prev": [
-        "trail",
-        "ma20"
-      ],
-      "prev_since": {
-        "trail": null,
-        "ma20": null
-      }
-    },
     "KR_069500": {
-      "date": "2026-10-28",
+      "date": "2026-10-29",
       "keys": [
         "trail",
-        "ma20"
+        "ma20",
+        "grade"
       ],
       "since": {
         "trail": null,
-        "ma20": null
+        "ma20": null,
+        "grade": "2026-10-29"
       },
       "prev": [
         "trail",
