@@ -37170,9 +37170,9 @@
   "2026-10-30_morning": {
     "schema_version": "1.4",
     "date": "2026-10-30",
-    "run_date": "2026-10-31",
+    "run_date": "2026-11-02",
     "report_type": "morning",
-    "generated_at": "2026-10-31T07:12:05.933596",
+    "generated_at": "2026-11-02T07:11:49.140569",
     "is_trading_day": true,
     "data_date": "2026-10-30",
     "grades": {
@@ -37277,9 +37277,9 @@
       "US_QTUM": 32.6,
       "US_VST": 48.3,
       "US_SCHD": 50.0,
-      "TW_TSM": 36.4,
+      "TW_TSM": 36.3,
       "US_SNDK": 34.8,
-      "US_NVDA": 35.9,
+      "US_NVDA": 35.8,
       "US_COHR": 41.1,
       "US_CIEN": 41.3,
       "KR_138080": 40.3,
@@ -37363,7 +37363,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 40.0,
         "sector_strength": 50.0,
-        "volume_signal": 18.0,
+        "volume_signal": 17.8,
         "technical_signal": 55.0,
         "analyst_signal": 50.0
       },
@@ -37408,7 +37408,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 28.0,
         "sector_strength": 50.0,
-        "volume_signal": 21.2,
+        "volume_signal": 21.0,
         "technical_signal": 47.0,
         "analyst_signal": 80.0
       },
@@ -37426,7 +37426,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 28.0,
         "sector_strength": 50.0,
-        "volume_signal": 31.0,
+        "volume_signal": 30.6,
         "technical_signal": 37.0,
         "analyst_signal": 80.0
       },
@@ -37435,7 +37435,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 40.0,
         "sector_strength": 65.0,
-        "volume_signal": 36.2,
+        "volume_signal": 36.0,
         "technical_signal": 45.0,
         "analyst_signal": 75.0
       },
@@ -37562,18 +37562,18 @@
       "KR_010120": 513769,
       "KR_015760": 892775,
       "KR_066570": 723230,
-      "US_QQQ": 84754440,
-      "US_VOO": 9939777,
-      "US_QTUM": 625461,
-      "US_VST": 5264572,
-      "US_SCHD": 27716045,
-      "TW_TSM": 21771463,
-      "US_SNDK": 17340103,
-      "US_NVDA": 165923799,
-      "US_COHR": 11906618,
-      "US_CIEN": 3097244,
+      "US_QQQ": 85108900,
+      "US_VOO": 9959200,
+      "US_QTUM": 625800,
+      "US_VST": 5270200,
+      "US_SCHD": 27764500,
+      "TW_TSM": 21907500,
+      "US_SNDK": 17378500,
+      "US_NVDA": 168039400,
+      "US_COHR": 11949200,
+      "US_CIEN": 3099000,
       "KR_138080": 158647,
-      "US_SPCX": 121658895,
+      "US_SPCX": 121979900,
       "KR_042700": 939379,
       "KR_319660": 189421
     },
@@ -37712,7 +37712,7 @@
         ],
         "critical_data_error": false,
         "critical_error_reasons": [],
-        "generated_at": "2026-10-31T07:12:05.921085"
+        "generated_at": "2026-11-02T07:11:49.127560"
       }
     }
   }
