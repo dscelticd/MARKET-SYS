@@ -43,8 +43,8 @@
       "target1": 1446.62,
       "risk_reward": 4.04,
       "status": "pending",
-      "age": 10,
-      "last_eval": "2026-10-30"
+      "age": 11,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_COHR",
@@ -57,26 +57,10 @@
       "target1": 307.49,
       "risk_reward": 2.75,
       "status": "active",
-      "age": 10,
-      "last_eval": "2026-10-30",
+      "age": 11,
+      "last_eval": "2026-11-02",
       "filled_on": "2026-10-19",
       "fill_price": 232.44
-    },
-    {
-      "stock_id": "US_CIEN",
-      "name": "Ciena",
-      "kind": "entry",
-      "issued_on": "2026-10-16",
-      "entry_low": 323.29,
-      "entry_high": 332.73,
-      "stop": 294.53,
-      "target1": 376.74,
-      "risk_reward": 1.46,
-      "status": "active",
-      "age": 10,
-      "last_eval": "2026-10-30",
-      "filled_on": "2026-10-20",
-      "fill_price": 332.73
     },
     {
       "stock_id": "KR_138080",
@@ -91,32 +75,6 @@
       "status": "pending",
       "age": 10,
       "last_eval": "2026-11-02"
-    },
-    {
-      "stock_id": "US_QQQ",
-      "name": "Invesco QQQ",
-      "kind": "exit",
-      "issued_on": "2026-10-19",
-      "price_at_signal": 718.36,
-      "signals": [
-        "저항 구간 도달(남은 여력 +0.4%)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-10-30"
-    },
-    {
-      "stock_id": "US_VOO",
-      "name": "Vanguard S&P500 ETF",
-      "kind": "exit",
-      "issued_on": "2026-10-19",
-      "price_at_signal": 704.6,
-      "signals": [
-        "저항 구간 도달(남은 여력 +0.9%)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-10-30"
     },
     {
       "stock_id": "KR_015760",
@@ -170,8 +128,8 @@
         "저항 구간 도달(남은 여력 +0.7%)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-10-30"
+      "age": 9,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_NVDA",
@@ -183,8 +141,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-10-30"
+      "age": 9,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "KR_005930",
@@ -267,8 +225,8 @@
         "20일선($708.44) 아래 마감"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-30"
+      "age": 7,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_NVDA",
@@ -281,8 +239,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-10-30"
+      "age": 7,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_VOO",
@@ -294,8 +252,8 @@
         "추적 손절선($698.65) 이탈"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-10-30"
+      "age": 6,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_VST",
@@ -308,8 +266,8 @@
       "target1": 149.93,
       "risk_reward": 1.13,
       "status": "active",
-      "age": 5,
-      "last_eval": "2026-10-30",
+      "age": 6,
+      "last_eval": "2026-11-02",
       "filled_on": "2026-10-30",
       "fill_price": 136.9499969482422
     },
@@ -336,8 +294,8 @@
         "저항 구간 도달(남은 여력 +0.3%)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-30"
+      "age": 4,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_VOO",
@@ -349,8 +307,8 @@
         "저항 구간 도달(남은 여력 +0.5%)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-30"
+      "age": 4,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_SCHD",
@@ -362,8 +320,8 @@
         "RSI 과열(84)에서 음봉"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-10-30"
+      "age": 4,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_QQQ",
@@ -375,8 +333,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-10-30"
+      "age": 3,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_NVDA",
@@ -388,8 +346,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-10-30"
+      "age": 3,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "KR_005930",
@@ -441,8 +399,8 @@
         "20일선($708.86) 아래 마감"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-10-30"
+      "age": 2,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_NVDA",
@@ -454,8 +412,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-10-30"
+      "age": 2,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "KR_000660",
@@ -480,7 +438,8 @@
         "추적 손절선($695.60) 이탈"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "US_QTUM",
@@ -492,8 +451,11 @@
       "stop": 127.3,
       "target1": 150.07,
       "risk_reward": 3.17,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-02",
+      "filled_on": "2026-11-02",
+      "fill_price": 133.83
     },
     {
       "stock_id": "US_SCHD",
@@ -505,7 +467,8 @@
         "RSI 과열(86)에서 음봉"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-02"
     },
     {
       "stock_id": "TW_TSM",
@@ -517,8 +480,11 @@
       "stop": 389.66,
       "target1": 428.49,
       "risk_reward": 1.51,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-02",
+      "filled_on": "2026-11-02",
+      "fill_price": 406.13
     },
     {
       "stock_id": "US_SPCX",
@@ -531,7 +497,69 @@
       "target1": 149.8,
       "risk_reward": 1.76,
       "status": "pending",
+      "age": 1,
+      "last_eval": "2026-11-02"
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-02",
+      "price_at_signal": 691.32,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.2%)"
+      ],
+      "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "US_CIEN",
+      "name": "Ciena",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 323.29,
+      "entry_high": 332.73,
+      "stop": 294.53,
+      "target1": 376.74,
+      "risk_reward": 1.46,
+      "status": "loss",
+      "age": 11,
+      "last_eval": "2026-11-02",
+      "filled_on": "2026-10-20",
+      "fill_price": 332.73,
+      "resolved_on": "2026-11-02",
+      "exit_price": 294.53,
+      "r_multiple": -1.0
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-10-19",
+      "price_at_signal": 718.36,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.4%)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-02",
+      "resolved_on": "2026-11-02",
+      "change_pct": -5.19
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-19",
+      "price_at_signal": 704.6,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.9%)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-02",
+      "resolved_on": "2026-11-02",
+      "change_pct": -1.88
     },
     {
       "stock_id": "US_QTUM",
@@ -724,7 +752,7 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-10-30",
+      "date": "2026-11-02",
       "keys": [
         "trail",
         "ma20"
@@ -735,47 +763,47 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "resistance"
+        "ma20"
       ],
       "prev_since": {
         "trail": null,
-        "ma20": null,
-        "resistance": "2026-10-27"
+        "ma20": null
       }
     },
     "US_VOO": {
-      "date": "2026-10-30",
+      "date": "2026-11-02",
       "keys": [
         "trail",
-        "ma20"
-      ],
-      "since": {
-        "trail": "2026-10-30",
-        "ma20": "2026-10-29"
-      },
-      "prev": [
         "ma20",
         "resistance"
       ],
-      "prev_since": {
+      "since": {
+        "trail": "2026-10-30",
         "ma20": "2026-10-29",
-        "resistance": "2026-10-27"
+        "resistance": "2026-11-02"
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": "2026-10-30",
+        "ma20": "2026-10-29"
       }
     },
     "US_SCHD": {
-      "date": "2026-10-30",
-      "keys": [
+      "date": "2026-11-02",
+      "keys": [],
+      "since": {},
+      "prev": [
         "rsi_hot"
       ],
-      "since": {
+      "prev_since": {
         "rsi_hot": "2026-10-30"
-      },
-      "prev": [],
-      "prev_since": {}
+      }
     },
     "US_NVDA": {
-      "date": "2026-10-30",
+      "date": "2026-11-02",
       "keys": [
         "trail",
         "ma20"
@@ -786,13 +814,11 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "resistance"
+        "ma20"
       ],
       "prev_since": {
         "trail": null,
-        "ma20": null,
-        "resistance": "2026-10-29"
+        "ma20": null
       }
     }
   }
