@@ -42,25 +42,11 @@
       "stop": 913.54,
       "target1": 1446.62,
       "risk_reward": 4.04,
-      "status": "pending",
-      "age": 12,
-      "last_eval": "2026-11-03"
-    },
-    {
-      "stock_id": "US_COHR",
-      "name": "Coherent Corp",
-      "kind": "entry",
-      "issued_on": "2026-10-16",
-      "entry_low": 220.68,
-      "entry_high": 232.44,
-      "stop": 197.15,
-      "target1": 307.49,
-      "risk_reward": 2.75,
       "status": "active",
-      "age": 12,
-      "last_eval": "2026-11-03",
-      "filled_on": "2026-10-19",
-      "fill_price": 232.44
+      "age": 13,
+      "last_eval": "2026-11-04",
+      "filled_on": "2026-11-04",
+      "fill_price": 1040.51
     },
     {
       "stock_id": "KR_138080",
@@ -157,8 +143,8 @@
         "20일선($708.44) 아래 마감"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-03"
+      "age": 9,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_NVDA",
@@ -171,8 +157,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-03"
+      "age": 9,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_VOO",
@@ -184,24 +170,8 @@
         "추적 손절선($698.65) 이탈"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-03"
-    },
-    {
-      "stock_id": "US_VST",
-      "name": "Vistra Energy",
-      "kind": "entry",
-      "issued_on": "2026-10-23",
-      "entry_low": 133.44,
-      "entry_high": 138.4,
-      "stop": 123.51,
-      "target1": 149.93,
-      "risk_reward": 1.13,
-      "status": "active",
-      "age": 7,
-      "last_eval": "2026-11-03",
-      "filled_on": "2026-10-30",
-      "fill_price": 136.9499969482422
+      "age": 8,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_000660",
@@ -226,8 +196,8 @@
         "저항 구간 도달(남은 여력 +0.3%)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-03"
+      "age": 6,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_VOO",
@@ -239,8 +209,8 @@
         "저항 구간 도달(남은 여력 +0.5%)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-03"
+      "age": 6,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_SCHD",
@@ -252,8 +222,8 @@
         "RSI 과열(84)에서 음봉"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-03"
+      "age": 6,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_QQQ",
@@ -265,8 +235,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-03"
+      "age": 5,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_NVDA",
@@ -278,8 +248,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-03"
+      "age": 5,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_005930",
@@ -331,8 +301,8 @@
         "20일선($708.86) 아래 마감"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-03"
+      "age": 4,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_NVDA",
@@ -344,8 +314,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-03"
+      "age": 4,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_000660",
@@ -370,8 +340,8 @@
         "추적 손절선($695.60) 이탈"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-03"
+      "age": 3,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_QTUM",
@@ -384,8 +354,8 @@
       "target1": 150.07,
       "risk_reward": 3.17,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-03",
+      "age": 3,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-11-02",
       "fill_price": 133.83
     },
@@ -399,8 +369,8 @@
         "RSI 과열(86)에서 음봉"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-03"
+      "age": 3,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "TW_TSM",
@@ -413,8 +383,8 @@
       "target1": 428.49,
       "risk_reward": 1.51,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-03",
+      "age": 3,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-11-02",
       "fill_price": 406.13
     },
@@ -428,9 +398,11 @@
       "stop": 122.46,
       "target1": 149.8,
       "risk_reward": 1.76,
-      "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-03"
+      "status": "active",
+      "age": 3,
+      "last_eval": "2026-11-04",
+      "filled_on": "2026-11-04",
+      "fill_price": 133.24000549316406
     },
     {
       "stock_id": "US_VOO",
@@ -442,8 +414,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-03"
+      "age": 2,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_000660",
@@ -469,7 +441,8 @@
         "RSI 과열(76)에서 음봉"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_015760",
@@ -483,6 +456,68 @@
       "risk_reward": 0.11,
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-04",
+      "price_at_signal": 704.78,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.9%)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_NVDA",
+      "name": "NVIDIA",
+      "kind": "exit",
+      "issued_on": "2026-11-04",
+      "price_at_signal": 200.13,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_COHR",
+      "name": "Coherent Corp",
+      "kind": "entry",
+      "issued_on": "2026-10-16",
+      "entry_low": 220.68,
+      "entry_high": 232.44,
+      "stop": 197.15,
+      "target1": 307.49,
+      "risk_reward": 2.75,
+      "status": "loss",
+      "age": 13,
+      "last_eval": "2026-11-04",
+      "filled_on": "2026-10-19",
+      "fill_price": 232.44,
+      "resolved_on": "2026-11-04",
+      "exit_price": 197.15,
+      "r_multiple": -1.0
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-10-23",
+      "entry_low": 133.44,
+      "entry_high": 138.4,
+      "stop": 123.51,
+      "target1": 149.93,
+      "risk_reward": 1.13,
+      "status": "loss",
+      "age": 8,
+      "last_eval": "2026-11-04",
+      "filled_on": "2026-10-30",
+      "fill_price": 136.9499969482422,
+      "resolved_on": "2026-11-04",
+      "exit_price": 123.51,
+      "r_multiple": -1.0
     },
     {
       "stock_id": "KR_015760",
@@ -807,7 +842,7 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-03",
+      "date": "2026-11-04",
       "keys": [
         "trail",
         "ma20"
@@ -826,46 +861,46 @@
       }
     },
     "US_VOO": {
-      "date": "2026-11-03",
+      "date": "2026-11-04",
       "keys": [
-        "trail",
-        "ma20"
-      ],
-      "since": {
-        "trail": "2026-10-30",
-        "ma20": "2026-10-29"
-      },
-      "prev": [
-        "trail",
         "ma20",
         "resistance"
       ],
-      "prev_since": {
-        "trail": "2026-10-30",
-        "ma20": "2026-10-29",
-        "resistance": "2026-11-02"
-      }
-    },
-    "US_SCHD": {
-      "date": "2026-11-03",
-      "keys": [
-        "rsi_hot"
-      ],
       "since": {
-        "rsi_hot": "2026-11-03"
+        "ma20": "2026-10-29",
+        "resistance": "2026-11-04"
       },
-      "prev": [],
-      "prev_since": {}
-    },
-    "US_NVDA": {
-      "date": "2026-11-03",
-      "keys": [
+      "prev": [
         "trail",
         "ma20"
       ],
+      "prev_since": {
+        "trail": "2026-10-30",
+        "ma20": "2026-10-29"
+      }
+    },
+    "US_SCHD": {
+      "date": "2026-11-04",
+      "keys": [],
+      "since": {},
+      "prev": [
+        "rsi_hot"
+      ],
+      "prev_since": {
+        "rsi_hot": "2026-11-03"
+      }
+    },
+    "US_NVDA": {
+      "date": "2026-11-04",
+      "keys": [
+        "trail",
+        "ma20",
+        "grade"
+      ],
       "since": {
         "trail": null,
-        "ma20": null
+        "ma20": null,
+        "grade": "2026-11-04"
       },
       "prev": [
         "trail",
