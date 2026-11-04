@@ -11,8 +11,8 @@
       "target1": 214000.0,
       "risk_reward": 4.57,
       "status": "active",
-      "age": 11,
-      "last_eval": "2026-11-03",
+      "age": 12,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-10-20",
       "fill_price": 153500.0
     },
@@ -27,8 +27,8 @@
       "target1": 208500.0,
       "risk_reward": 4.36,
       "status": "active",
-      "age": 11,
-      "last_eval": "2026-11-03",
+      "age": 12,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-11-02",
       "fill_price": 146600.0
     },
@@ -73,24 +73,8 @@
       "target1": 30400.0,
       "risk_reward": 2.38,
       "status": "pending",
-      "age": 11,
-      "last_eval": "2026-11-03"
-    },
-    {
-      "stock_id": "KR_015760",
-      "name": "한국전력",
-      "kind": "entry",
-      "issued_on": "2026-10-20",
-      "entry_low": 27800.0,
-      "entry_high": 28200.0,
-      "stop": 26950.0,
-      "target1": 30550.0,
-      "risk_reward": 2.43,
-      "status": "active",
-      "age": 10,
-      "last_eval": "2026-11-03",
-      "filled_on": "2026-10-23",
-      "fill_price": 28200.0
+      "age": 12,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_005930",
@@ -102,8 +86,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-03"
+      "age": 9,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_000660",
@@ -115,8 +99,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-03"
+      "age": 9,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_069500",
@@ -128,8 +112,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-03"
+      "age": 9,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_042700",
@@ -142,8 +126,8 @@
       "target1": 217000.0,
       "risk_reward": 1.47,
       "status": "active",
-      "age": 8,
-      "last_eval": "2026-11-03",
+      "age": 9,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-10-23",
       "fill_price": 187000.0
     },
@@ -158,8 +142,8 @@
       "target1": 135800.0,
       "risk_reward": 1.39,
       "status": "active",
-      "age": 8,
-      "last_eval": "2026-11-03",
+      "age": 9,
+      "last_eval": "2026-11-04",
       "filled_on": "2026-10-23",
       "fill_price": 112100.0
     },
@@ -229,8 +213,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-03"
+      "age": 7,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_QQQ",
@@ -308,8 +292,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-03"
+      "age": 4,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_069500",
@@ -321,8 +305,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-03"
+      "age": 4,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "KR_000660",
@@ -334,8 +318,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-03"
+      "age": 4,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_VOO",
@@ -373,8 +357,8 @@
         "20일선(1,460,000원) 아래 마감"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-03"
+      "age": 3,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_VOO",
@@ -472,7 +456,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-04"
     },
     {
       "stock_id": "US_SCHD",
@@ -485,6 +470,38 @@
       ],
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-11-04",
+      "entry_low": 30400.0,
+      "entry_high": 30450.0,
+      "stop": 29300.0,
+      "target1": 30550.0,
+      "risk_reward": 0.11,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-10-20",
+      "entry_low": 27800.0,
+      "entry_high": 28200.0,
+      "stop": 26950.0,
+      "target1": 30550.0,
+      "risk_reward": 2.43,
+      "status": "win",
+      "age": 11,
+      "last_eval": "2026-11-04",
+      "filled_on": "2026-10-23",
+      "fill_price": 28200.0,
+      "resolved_on": "2026-11-04",
+      "exit_price": 30550.0,
+      "r_multiple": 1.88
     },
     {
       "stock_id": "US_SCHD",
@@ -731,7 +748,7 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-03",
+      "date": "2026-11-04",
       "keys": [
         "trail",
         "ma20"
@@ -750,26 +767,28 @@
       }
     },
     "KR_000660": {
-      "date": "2026-11-03",
+      "date": "2026-11-04",
       "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": "2026-11-03"
+      },
+      "prev": [
         "trail",
         "ma20",
         "grade"
       ],
-      "since": {
+      "prev_since": {
         "trail": null,
         "ma20": "2026-11-03",
         "grade": "2026-11-03"
-      },
-      "prev": [
-        "trail"
-      ],
-      "prev_since": {
-        "trail": null
       }
     },
     "KR_069500": {
-      "date": "2026-11-03",
+      "date": "2026-11-04",
       "keys": [
         "trail",
         "ma20"
