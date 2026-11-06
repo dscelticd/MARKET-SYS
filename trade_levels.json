@@ -1,22 +1,6 @@
 {
   "records": [
     {
-      "stock_id": "KR_066570",
-      "name": "LG전자",
-      "kind": "entry",
-      "issued_on": "2026-10-19",
-      "entry_low": 141900.0,
-      "entry_high": 147700.0,
-      "stop": 130200.0,
-      "target1": 208500.0,
-      "risk_reward": 4.36,
-      "status": "active",
-      "age": 13,
-      "last_eval": "2026-11-05",
-      "filled_on": "2026-11-02",
-      "fill_price": 146600.0
-    },
-    {
       "stock_id": "KR_138080",
       "name": "오이솔루션",
       "kind": "entry",
@@ -27,8 +11,8 @@
       "target1": 30400.0,
       "risk_reward": 2.38,
       "status": "active",
-      "age": 13,
-      "last_eval": "2026-11-05",
+      "age": 14,
+      "last_eval": "2026-11-06",
       "filled_on": "2026-11-05",
       "fill_price": 22200.0
     },
@@ -55,8 +39,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-05"
+      "age": 9,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "US_QQQ",
@@ -134,8 +118,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-05"
+      "age": 6,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "KR_069500",
@@ -147,8 +131,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-05"
+      "age": 6,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "KR_000660",
@@ -160,8 +144,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-05"
+      "age": 6,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "US_VOO",
@@ -199,8 +183,8 @@
         "20일선(1,460,000원) 아래 마감"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-05"
+      "age": 5,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "US_VOO",
@@ -252,8 +236,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-05"
+      "age": 3,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "US_SCHD",
@@ -266,20 +250,6 @@
       ],
       "status": "pending",
       "age": 2,
-      "last_eval": "2026-11-05"
-    },
-    {
-      "stock_id": "KR_015760",
-      "name": "한국전력",
-      "kind": "entry",
-      "issued_on": "2026-11-04",
-      "entry_low": 30400.0,
-      "entry_high": 30450.0,
-      "stop": 29300.0,
-      "target1": 30550.0,
-      "risk_reward": 0.11,
-      "status": "pending",
-      "age": 1,
       "last_eval": "2026-11-05"
     },
     {
@@ -318,7 +288,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "KR_000660",
@@ -330,7 +301,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-06"
     },
     {
       "stock_id": "KR_042700",
@@ -342,8 +314,11 @@
       "stop": 135800.0,
       "target1": 217000.0,
       "risk_reward": 3.97,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-06",
+      "filled_on": "2026-11-06",
+      "fill_price": 148000.0
     },
     {
       "stock_id": "US_QQQ",
@@ -382,6 +357,69 @@
       "risk_reward": 4.06,
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-11-06",
+      "price_at_signal": 1132000.0,
+      "signals": [
+        "등급 하락(보통→주의)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-11-06",
+      "entry_low": 27550.0,
+      "entry_high": 28150.0,
+      "stop": 26350.0,
+      "target1": 30550.0,
+      "risk_reward": 1.8,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_066570",
+      "name": "LG전자",
+      "kind": "entry",
+      "issued_on": "2026-10-19",
+      "entry_low": 141900.0,
+      "entry_high": 147700.0,
+      "stop": 130200.0,
+      "target1": 208500.0,
+      "risk_reward": 4.36,
+      "status": "loss",
+      "age": 14,
+      "last_eval": "2026-11-06",
+      "filled_on": "2026-11-02",
+      "fill_price": 146600.0,
+      "resolved_on": "2026-11-06",
+      "exit_price": 130200.0,
+      "r_multiple": -1.0
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-11-04",
+      "entry_low": 30400.0,
+      "entry_high": 30450.0,
+      "stop": 29300.0,
+      "target1": 30550.0,
+      "risk_reward": 0.11,
+      "status": "loss",
+      "age": 2,
+      "last_eval": "2026-11-06",
+      "filled_on": "2026-11-06",
+      "fill_price": 29600.0,
+      "resolved_on": "2026-11-06",
+      "exit_price": 29300.0,
+      "r_multiple": -1.0
     },
     {
       "stock_id": "US_SNDK",
@@ -894,7 +932,28 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-05",
+      "date": "2026-11-06",
+      "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": "2026-10-29"
+      },
+      "prev": [
+        "trail",
+        "ma20",
+        "grade"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": "2026-10-29",
+        "grade": "2026-11-05"
+      }
+    },
+    "KR_000660": {
+      "date": "2026-11-06",
       "keys": [
         "trail",
         "ma20",
@@ -902,27 +961,8 @@
       ],
       "since": {
         "trail": null,
-        "ma20": "2026-10-29",
-        "grade": "2026-11-05"
-      },
-      "prev": [
-        "trail",
-        "ma20"
-      ],
-      "prev_since": {
-        "trail": null,
-        "ma20": "2026-10-29"
-      }
-    },
-    "KR_000660": {
-      "date": "2026-11-05",
-      "keys": [
-        "trail",
-        "ma20"
-      ],
-      "since": {
-        "trail": null,
-        "ma20": "2026-11-03"
+        "ma20": "2026-11-03",
+        "grade": "2026-11-06"
       },
       "prev": [
         "trail",
@@ -934,7 +974,7 @@
       }
     },
     "KR_069500": {
-      "date": "2026-11-05",
+      "date": "2026-11-06",
       "keys": [
         "trail",
         "ma20"
