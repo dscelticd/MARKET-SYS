@@ -42663,9 +42663,9 @@
   "2026-11-06_morning": {
     "schema_version": "1.4",
     "date": "2026-11-06",
-    "run_date": "2026-11-07",
+    "run_date": "2026-11-09",
     "report_type": "morning",
-    "generated_at": "2026-11-07T07:17:06.453782",
+    "generated_at": "2026-11-09T07:11:58.068004",
     "is_trading_day": true,
     "data_date": "2026-11-06",
     "grades": {
@@ -42771,9 +42771,9 @@
       "US_VST": 63.9,
       "US_SCHD": 48.8,
       "TW_TSM": 66.3,
-      "US_SNDK": 65.9,
+      "US_SNDK": 66.4,
       "US_NVDA": 66.0,
-      "US_COHR": 63.8,
+      "US_COHR": 64.3,
       "US_CIEN": 63.8,
       "KR_138080": 43.0,
       "US_SPCX": 60.5
@@ -42912,7 +42912,7 @@
         "sector_strength": 68.0,
         "volume_signal": 50.0,
         "technical_signal": 45.0,
-        "analyst_signal": 75.0
+        "analyst_signal": 80.0
       },
       "US_NVDA": {
         "price_momentum": 84.8,
@@ -42930,7 +42930,7 @@
         "sector_strength": 65.0,
         "volume_signal": 50.0,
         "technical_signal": 37.0,
-        "analyst_signal": 75.0
+        "analyst_signal": 80.0
       },
       "US_CIEN": {
         "price_momentum": 100,
@@ -43055,18 +43055,18 @@
       "KR_010120": 1344482,
       "KR_015760": 1843558,
       "KR_066570": 712909,
-      "US_QQQ": 70114544,
-      "US_VOO": 11752586,
-      "US_QTUM": 690901,
-      "US_VST": 12501439,
-      "US_SCHD": 28404502,
-      "TW_TSM": 23765177,
-      "US_SNDK": 17644533,
-      "US_NVDA": 179308722,
-      "US_COHR": 16198854,
-      "US_CIEN": 4716463,
+      "US_QQQ": 70469100,
+      "US_VOO": 11772500,
+      "US_QTUM": 691200,
+      "US_VST": 12511500,
+      "US_SCHD": 28432000,
+      "TW_TSM": 23801300,
+      "US_SNDK": 17692600,
+      "US_NVDA": 179722400,
+      "US_COHR": 16226300,
+      "US_CIEN": 4717400,
       "KR_138080": 220306,
-      "US_SPCX": 114507519,
+      "US_SPCX": 114807000,
       "KR_042700": 1279037,
       "KR_319660": 550828
     },
@@ -43206,7 +43206,7 @@
         ],
         "critical_data_error": false,
         "critical_error_reasons": [],
-        "generated_at": "2026-11-07T07:17:06.442956"
+        "generated_at": "2026-11-09T07:11:58.053412"
       }
     }
   }
