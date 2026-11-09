@@ -26,8 +26,8 @@
         "저항 구간 도달(남은 여력 +0.3%)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-06"
+      "age": 9,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_VOO",
@@ -39,8 +39,8 @@
         "저항 구간 도달(남은 여력 +0.5%)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-06"
+      "age": 9,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_SCHD",
@@ -52,8 +52,8 @@
         "RSI 과열(84)에서 음봉"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-06"
+      "age": 9,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_QQQ",
@@ -65,8 +65,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-06"
+      "age": 8,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_NVDA",
@@ -78,8 +78,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-06"
+      "age": 8,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "KR_005930",
@@ -131,8 +131,8 @@
         "20일선($708.86) 아래 마감"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-06"
+      "age": 7,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_NVDA",
@@ -144,8 +144,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-06"
+      "age": 7,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "KR_000660",
@@ -170,8 +170,8 @@
         "추적 손절선($695.60) 이탈"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-06"
+      "age": 6,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_SCHD",
@@ -183,8 +183,8 @@
         "RSI 과열(86)에서 음봉"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-06"
+      "age": 6,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_VOO",
@@ -196,8 +196,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-06"
+      "age": 5,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "KR_000660",
@@ -223,8 +223,8 @@
         "RSI 과열(76)에서 음봉"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-06"
+      "age": 4,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_VOO",
@@ -236,8 +236,8 @@
         "저항 구간 도달(남은 여력 +0.9%)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-06"
+      "age": 3,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_NVDA",
@@ -249,8 +249,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-06"
+      "age": 3,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "KR_005930",
@@ -304,8 +304,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-06"
+      "age": 2,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_VOO",
@@ -318,8 +318,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-06"
+      "age": 2,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "US_SPCX",
@@ -332,8 +332,8 @@
       "target1": 149.8,
       "risk_reward": 4.06,
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-06"
+      "age": 2,
+      "last_eval": "2026-11-09"
     },
     {
       "stock_id": "KR_000660",
@@ -372,6 +372,57 @@
       "stop": 354.23,
       "target1": 428.49,
       "risk_reward": 2.84,
+      "status": "pending",
+      "age": 1,
+      "last_eval": "2026-11-09"
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-09",
+      "price_at_signal": 691.87,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.1%)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-11-09",
+      "entry_low": 133.44,
+      "entry_high": 133.92,
+      "stop": 124.51,
+      "target1": 149.93,
+      "risk_reward": 1.77,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_NVDA",
+      "name": "NVIDIA",
+      "kind": "exit",
+      "issued_on": "2026-11-09",
+      "price_at_signal": 178.67,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_COHR",
+      "name": "Coherent Corp",
+      "kind": "entry",
+      "issued_on": "2026-11-09",
+      "entry_low": 220.68,
+      "entry_high": 225.19,
+      "stop": 199.11,
+      "target1": 246.9,
+      "risk_reward": 1.01,
       "status": "pending",
       "age": 0
     },
@@ -1011,7 +1062,7 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-06",
+      "date": "2026-11-09",
       "keys": [
         "trail",
         "ma20"
@@ -1022,62 +1073,58 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": null,
-        "ma20": null,
-        "grade": "2026-11-05"
+        "ma20": null
       }
     },
     "US_VOO": {
-      "date": "2026-11-06",
+      "date": "2026-11-09",
       "keys": [
-        "trail",
-        "ma20"
+        "ma20",
+        "resistance"
       ],
       "since": {
-        "trail": "2026-11-05",
-        "ma20": "2026-10-29"
+        "ma20": "2026-10-29",
+        "resistance": "2026-11-09"
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": "2026-11-05",
-        "ma20": "2026-10-29",
-        "grade": "2026-11-05"
+        "ma20": "2026-10-29"
       }
     },
     "US_SCHD": {
-      "date": "2026-11-06",
+      "date": "2026-11-09",
       "keys": [],
       "since": {},
       "prev": [],
       "prev_since": {}
     },
     "US_NVDA": {
-      "date": "2026-11-06",
+      "date": "2026-11-09",
       "keys": [
-        "trail",
-        "ma20"
-      ],
-      "since": {
-        "trail": null,
-        "ma20": null
-      },
-      "prev": [
         "trail",
         "ma20",
         "grade"
       ],
-      "prev_since": {
+      "since": {
         "trail": null,
         "ma20": null,
-        "grade": "2026-11-04"
+        "grade": "2026-11-09"
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": null,
+        "ma20": null
       }
     }
   }
