@@ -20,53 +20,14 @@
       "stock_id": "US_QQQ",
       "name": "Invesco QQQ",
       "kind": "exit",
-      "issued_on": "2026-10-27",
-      "price_at_signal": 721.25,
-      "signals": [
-        "저항 구간 도달(남은 여력 +0.3%)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-09"
-    },
-    {
-      "stock_id": "US_VOO",
-      "name": "Vanguard S&P500 ETF",
-      "kind": "exit",
-      "issued_on": "2026-10-27",
-      "price_at_signal": 707.52,
-      "signals": [
-        "저항 구간 도달(남은 여력 +0.5%)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-09"
-    },
-    {
-      "stock_id": "US_SCHD",
-      "name": "Schwab US Dividend ETF",
-      "kind": "exit",
-      "issued_on": "2026-10-27",
-      "price_at_signal": 35.12,
-      "signals": [
-        "RSI 과열(84)에서 음봉"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-09"
-    },
-    {
-      "stock_id": "US_QQQ",
-      "name": "Invesco QQQ",
-      "kind": "exit",
       "issued_on": "2026-10-28",
       "price_at_signal": 725.61,
       "signals": [
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-09"
+      "age": 9,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_NVDA",
@@ -78,8 +39,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-09"
+      "age": 9,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "KR_005930",
@@ -131,8 +92,8 @@
         "20일선($708.86) 아래 마감"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-09"
+      "age": 8,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_NVDA",
@@ -144,8 +105,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-09"
+      "age": 8,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "KR_000660",
@@ -170,8 +131,8 @@
         "추적 손절선($695.60) 이탈"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-09"
+      "age": 7,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_SCHD",
@@ -183,8 +144,8 @@
         "RSI 과열(86)에서 음봉"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-09"
+      "age": 7,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_VOO",
@@ -196,8 +157,8 @@
         "저항 구간 도달(남은 여력 +0.2%)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-09"
+      "age": 6,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "KR_000660",
@@ -223,8 +184,8 @@
         "RSI 과열(76)에서 음봉"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-09"
+      "age": 5,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_VOO",
@@ -236,8 +197,8 @@
         "저항 구간 도달(남은 여력 +0.9%)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-09"
+      "age": 4,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_NVDA",
@@ -249,8 +210,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-09"
+      "age": 4,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "KR_005930",
@@ -304,8 +265,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-09"
+      "age": 3,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_VOO",
@@ -318,8 +279,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-09"
+      "age": 3,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_SPCX",
@@ -332,8 +293,8 @@
       "target1": 149.8,
       "risk_reward": 4.06,
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-09"
+      "age": 3,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "KR_000660",
@@ -373,8 +334,8 @@
       "target1": 428.49,
       "risk_reward": 2.84,
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-09"
+      "age": 2,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_VOO",
@@ -386,7 +347,8 @@
         "저항 구간 도달(남은 여력 +0.1%)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_VST",
@@ -398,8 +360,11 @@
       "stop": 124.51,
       "target1": 149.93,
       "risk_reward": 1.77,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-10",
+      "filled_on": "2026-11-10",
+      "fill_price": 130.90499877929688
     },
     {
       "stock_id": "US_NVDA",
@@ -411,7 +376,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-10"
     },
     {
       "stock_id": "US_COHR",
@@ -423,8 +389,80 @@
       "stop": 199.11,
       "target1": 246.9,
       "risk_reward": 1.01,
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-10",
+      "filled_on": "2026-11-10",
+      "fill_price": 214.91000366210938
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-11-10",
+      "price_at_signal": 674.76,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-10",
+      "price_at_signal": 35.83,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-10-27",
+      "price_at_signal": 721.25,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.3%)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-10",
+      "resolved_on": "2026-11-10",
+      "change_pct": -6.45
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-27",
+      "price_at_signal": 707.52,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.5%)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-10",
+      "resolved_on": "2026-11-10",
+      "change_pct": -2.55
+    },
+    {
+      "stock_id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "kind": "exit",
+      "issued_on": "2026-10-27",
+      "price_at_signal": 35.12,
+      "signals": [
+        "RSI 과열(84)에서 음봉"
+      ],
+      "status": "exit_miss",
+      "age": 10,
+      "last_eval": "2026-11-10",
+      "resolved_on": "2026-11-10",
+      "change_pct": 2.02
     },
     {
       "stock_id": "KR_000660",
@@ -1062,14 +1100,16 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-09",
+      "date": "2026-11-10",
       "keys": [
         "trail",
-        "ma20"
+        "ma20",
+        "grade"
       ],
       "since": {
         "trail": null,
-        "ma20": null
+        "ma20": null,
+        "grade": "2026-11-10"
       },
       "prev": [
         "trail",
@@ -1081,7 +1121,7 @@
       }
     },
     "US_VOO": {
-      "date": "2026-11-09",
+      "date": "2026-11-10",
       "keys": [
         "ma20",
         "resistance"
@@ -1091,40 +1131,44 @@
         "resistance": "2026-11-09"
       },
       "prev": [
-        "trail",
-        "ma20"
+        "ma20",
+        "resistance"
       ],
       "prev_since": {
-        "trail": "2026-11-05",
-        "ma20": "2026-10-29"
+        "ma20": "2026-10-29",
+        "resistance": "2026-11-09"
       }
     },
     "US_SCHD": {
-      "date": "2026-11-09",
-      "keys": [],
-      "since": {},
+      "date": "2026-11-10",
+      "keys": [
+        "grade"
+      ],
+      "since": {
+        "grade": "2026-11-10"
+      },
       "prev": [],
       "prev_since": {}
     },
     "US_NVDA": {
-      "date": "2026-11-09",
+      "date": "2026-11-10",
       "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": null,
+        "ma20": null
+      },
+      "prev": [
         "trail",
         "ma20",
         "grade"
       ],
-      "since": {
+      "prev_since": {
         "trail": null,
         "ma20": null,
         "grade": "2026-11-09"
-      },
-      "prev": [
-        "trail",
-        "ma20"
-      ],
-      "prev_since": {
-        "trail": null,
-        "ma20": null
       }
     }
   }
