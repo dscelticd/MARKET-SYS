@@ -11,50 +11,10 @@
       "target1": 30400.0,
       "risk_reward": 2.38,
       "status": "active",
-      "age": 17,
-      "last_eval": "2026-11-11",
+      "age": 18,
+      "last_eval": "2026-11-12",
       "filled_on": "2026-11-05",
       "fill_price": 22200.0
-    },
-    {
-      "stock_id": "KR_005930",
-      "name": "삼성전자",
-      "kind": "exit",
-      "issued_on": "2026-10-29",
-      "price_at_signal": 232000.0,
-      "signals": [
-        "20일선(238,000원) 아래 마감",
-        "등급 하락(안전→보통)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-11"
-    },
-    {
-      "stock_id": "KR_069500",
-      "name": "KODEX 200",
-      "kind": "exit",
-      "issued_on": "2026-10-29",
-      "price_at_signal": 94465.0,
-      "signals": [
-        "등급 하락(안전→보통)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-11"
-    },
-    {
-      "stock_id": "KR_000660",
-      "name": "SK하이닉스",
-      "kind": "exit",
-      "issued_on": "2026-10-29",
-      "price_at_signal": 1526000.0,
-      "signals": [
-        "등급 하락(안전→보통)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-11"
     },
     {
       "stock_id": "US_VOO",
@@ -92,8 +52,8 @@
         "20일선(1,460,000원) 아래 마감"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-11"
+      "age": 9,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "US_VOO",
@@ -145,8 +105,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-11"
+      "age": 7,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "US_SCHD",
@@ -197,8 +157,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-11"
+      "age": 5,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "KR_000660",
@@ -210,8 +170,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-11"
+      "age": 5,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "KR_042700",
@@ -224,8 +184,8 @@
       "target1": 217000.0,
       "risk_reward": 3.97,
       "status": "active",
-      "age": 4,
-      "last_eval": "2026-11-11",
+      "age": 5,
+      "last_eval": "2026-11-12",
       "filled_on": "2026-11-06",
       "fill_price": 148000.0
     },
@@ -280,8 +240,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-11"
+      "age": 4,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "KR_015760",
@@ -294,8 +254,8 @@
       "target1": 30550.0,
       "risk_reward": 1.8,
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-11"
+      "age": 4,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "TW_TSM",
@@ -405,7 +365,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "KR_000660",
@@ -417,7 +378,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "KR_069500",
@@ -429,7 +391,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-12"
     },
     {
       "stock_id": "US_QTUM",
@@ -443,6 +406,52 @@
       "risk_reward": 1.73,
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_005930",
+      "name": "삼성전자",
+      "kind": "exit",
+      "issued_on": "2026-10-29",
+      "price_at_signal": 232000.0,
+      "signals": [
+        "20일선(238,000원) 아래 마감",
+        "등급 하락(안전→보통)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-12",
+      "resolved_on": "2026-11-12",
+      "change_pct": -10.34
+    },
+    {
+      "stock_id": "KR_069500",
+      "name": "KODEX 200",
+      "kind": "exit",
+      "issued_on": "2026-10-29",
+      "price_at_signal": 94465.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-12",
+      "resolved_on": "2026-11-12",
+      "change_pct": -10.82
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-10-29",
+      "price_at_signal": 1526000.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-12",
+      "resolved_on": "2026-11-12",
+      "change_pct": -17.82
     },
     {
       "stock_id": "US_QQQ",
@@ -1098,7 +1107,7 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-11",
+      "date": "2026-11-12",
       "keys": [
         "ma20"
       ],
@@ -1106,16 +1115,14 @@
         "ma20": "2026-10-29"
       },
       "prev": [
-        "trail",
         "ma20"
       ],
       "prev_since": {
-        "trail": null,
         "ma20": "2026-10-29"
       }
     },
     "KR_000660": {
-      "date": "2026-11-11",
+      "date": "2026-11-12",
       "keys": [
         "ma20"
       ],
@@ -1123,31 +1130,27 @@
         "ma20": "2026-11-03"
       },
       "prev": [
-        "trail",
         "ma20"
       ],
       "prev_since": {
-        "trail": null,
         "ma20": "2026-11-03"
       }
     },
     "KR_069500": {
-      "date": "2026-11-11",
+      "date": "2026-11-12",
       "keys": [
+        "ma20"
+      ],
+      "since": {
+        "ma20": null
+      },
+      "prev": [
         "ma20",
         "grade"
       ],
-      "since": {
+      "prev_since": {
         "ma20": null,
         "grade": "2026-11-11"
-      },
-      "prev": [
-        "trail",
-        "ma20"
-      ],
-      "prev_since": {
-        "trail": null,
-        "ma20": null
       }
     },
     "US_QQQ": {
