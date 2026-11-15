@@ -48154,9 +48154,9 @@
   "2026-11-13_morning": {
     "schema_version": "1.4",
     "date": "2026-11-13",
-    "run_date": "2026-11-14",
+    "run_date": "2026-11-16",
     "report_type": "morning",
-    "generated_at": "2026-11-14T07:11:54.583702",
+    "generated_at": "2026-11-16T07:11:59.006999",
     "is_trading_day": true,
     "data_date": "2026-11-13",
     "grades": {
@@ -48546,18 +48546,18 @@
       "KR_010120": 467845,
       "KR_015760": 5075534,
       "KR_066570": 465607,
-      "US_QQQ": 41257813,
-      "US_VOO": 5556262,
-      "US_QTUM": 219904,
-      "US_VST": 3199219,
-      "US_SCHD": 20920565,
-      "TW_TSM": 10677055,
-      "US_SNDK": 12114432,
-      "US_NVDA": 362490337,
-      "US_COHR": 9662230,
-      "US_CIEN": 2149271,
+      "US_QQQ": 41798500,
+      "US_VOO": 5590700,
+      "US_QTUM": 220200,
+      "US_VST": 3208700,
+      "US_SCHD": 21002800,
+      "TW_TSM": 10712000,
+      "US_SNDK": 12170100,
+      "US_NVDA": 363819700,
+      "US_COHR": 9705800,
+      "US_CIEN": 2151600,
       "KR_138080": 93904,
-      "US_SPCX": 76195975,
+      "US_SPCX": 77314900,
       "KR_042700": 503592,
       "KR_319660": 431258
     },
@@ -48696,7 +48696,7 @@
         ],
         "critical_data_error": false,
         "critical_error_reasons": [],
-        "generated_at": "2026-11-14T07:11:54.571271"
+        "generated_at": "2026-11-16T07:11:58.991486"
       }
     }
   }
