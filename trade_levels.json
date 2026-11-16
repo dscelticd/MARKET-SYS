@@ -1,19 +1,6 @@
 {
   "records": [
     {
-      "stock_id": "US_VOO",
-      "name": "Vanguard S&P500 ETF",
-      "kind": "exit",
-      "issued_on": "2026-11-02",
-      "price_at_signal": 691.32,
-      "signals": [
-        "저항 구간 도달(남은 여력 +0.2%)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-13"
-    },
-    {
       "stock_id": "KR_000660",
       "name": "SK하이닉스",
       "kind": "exit",
@@ -37,8 +24,8 @@
         "RSI 과열(76)에서 음봉"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-13"
+      "age": 9,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_VOO",
@@ -50,8 +37,8 @@
         "저항 구간 도달(남은 여력 +0.9%)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-13"
+      "age": 8,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_NVDA",
@@ -63,8 +50,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-13"
+      "age": 8,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_005930",
@@ -118,8 +105,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-13"
+      "age": 7,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_VOO",
@@ -132,8 +119,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-13"
+      "age": 7,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_SPCX",
@@ -146,8 +133,8 @@
       "target1": 149.8,
       "risk_reward": 4.06,
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-13"
+      "age": 7,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_000660",
@@ -172,9 +159,11 @@
       "stop": 354.23,
       "target1": 428.49,
       "risk_reward": 2.84,
-      "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-13"
+      "status": "active",
+      "age": 6,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-16",
+      "fill_price": 375.44
     },
     {
       "stock_id": "US_VOO",
@@ -186,8 +175,8 @@
         "저항 구간 도달(남은 여력 +0.1%)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-13"
+      "age": 5,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_VST",
@@ -200,8 +189,8 @@
       "target1": 149.93,
       "risk_reward": 1.77,
       "status": "active",
-      "age": 4,
-      "last_eval": "2026-11-13",
+      "age": 5,
+      "last_eval": "2026-11-16",
       "filled_on": "2026-11-10",
       "fill_price": 130.90499877929688
     },
@@ -215,24 +204,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-13"
-    },
-    {
-      "stock_id": "US_COHR",
-      "name": "Coherent Corp",
-      "kind": "entry",
-      "issued_on": "2026-11-09",
-      "entry_low": 220.68,
-      "entry_high": 225.19,
-      "stop": 199.11,
-      "target1": 246.9,
-      "risk_reward": 1.01,
-      "status": "active",
-      "age": 4,
-      "last_eval": "2026-11-13",
-      "filled_on": "2026-11-10",
-      "fill_price": 214.91000366210938
+      "age": 5,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_QQQ",
@@ -244,8 +217,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-13"
+      "age": 4,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_SCHD",
@@ -257,8 +230,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-13"
+      "age": 4,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_005930",
@@ -300,22 +273,6 @@
       "last_eval": "2026-11-16"
     },
     {
-      "stock_id": "US_QTUM",
-      "name": "Defiance Quantum ETF",
-      "kind": "entry",
-      "issued_on": "2026-11-11",
-      "entry_low": 131.7,
-      "entry_high": 134.16,
-      "stop": 126.56,
-      "target1": 143.95,
-      "risk_reward": 1.73,
-      "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-13",
-      "filled_on": "2026-11-12",
-      "fill_price": 131.1699981689453
-    },
-    {
       "stock_id": "KR_005930",
       "name": "삼성전자",
       "kind": "exit",
@@ -352,8 +309,8 @@
       "target1": 1446.62,
       "risk_reward": 4.41,
       "status": "active",
-      "age": 1,
-      "last_eval": "2026-11-13",
+      "age": 2,
+      "last_eval": "2026-11-16",
       "filled_on": "2026-11-13",
       "fill_price": 859.79
     },
@@ -367,8 +324,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-13"
+      "age": 2,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_CIEN",
@@ -381,8 +338,8 @@
       "target1": 368.24,
       "risk_reward": 3.87,
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-13"
+      "age": 2,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_000660",
@@ -437,7 +394,8 @@
         "저항 구간 도달(남은 여력 +0.7%)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_005930",
@@ -500,6 +458,97 @@
       "risk_reward": 4.76,
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-11-16",
+      "price_at_signal": 661.75,
+      "signals": [
+        "추적 손절선($670.25) 이탈"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_QTUM",
+      "name": "Defiance Quantum ETF",
+      "kind": "entry",
+      "issued_on": "2026-11-16",
+      "entry_low": 119.01,
+      "entry_high": 121.73,
+      "stop": 113.56,
+      "target1": 143.95,
+      "risk_reward": 3.46,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_COHR",
+      "name": "Coherent Corp",
+      "kind": "entry",
+      "issued_on": "2026-11-16",
+      "entry_low": 160.23,
+      "entry_high": 172.51,
+      "stop": 135.67,
+      "target1": 246.9,
+      "risk_reward": 2.62,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-02",
+      "price_at_signal": 691.32,
+      "signals": [
+        "저항 구간 도달(남은 여력 +0.2%)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-16",
+      "resolved_on": "2026-11-16",
+      "change_pct": -1.6
+    },
+    {
+      "stock_id": "US_COHR",
+      "name": "Coherent Corp",
+      "kind": "entry",
+      "issued_on": "2026-11-09",
+      "entry_low": 220.68,
+      "entry_high": 225.19,
+      "stop": 199.11,
+      "target1": 246.9,
+      "risk_reward": 1.01,
+      "status": "loss",
+      "age": 5,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-10",
+      "fill_price": 214.91000366210938,
+      "resolved_on": "2026-11-16",
+      "exit_price": 199.11,
+      "r_multiple": -1.0
+    },
+    {
+      "stock_id": "US_QTUM",
+      "name": "Defiance Quantum ETF",
+      "kind": "entry",
+      "issued_on": "2026-11-11",
+      "entry_low": 131.7,
+      "entry_high": 134.16,
+      "stop": 126.56,
+      "target1": 143.95,
+      "risk_reward": 1.73,
+      "status": "loss",
+      "age": 3,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-12",
+      "fill_price": 131.1699981689453,
+      "resolved_on": "2026-11-16",
+      "exit_price": 126.18000030517578,
+      "r_multiple": -1.08
     },
     {
       "stock_id": "KR_138080",
@@ -1369,11 +1418,13 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-13",
+      "date": "2026-11-16",
       "keys": [
+        "trail",
         "ma20"
       ],
       "since": {
+        "trail": "2026-11-16",
         "ma20": null
       },
       "prev": [
@@ -1384,7 +1435,7 @@
       }
     },
     "US_VOO": {
-      "date": "2026-11-13",
+      "date": "2026-11-16",
       "keys": [
         "ma20"
       ],
@@ -1399,18 +1450,18 @@
       }
     },
     "US_SCHD": {
-      "date": "2026-11-13",
-      "keys": [
+      "date": "2026-11-16",
+      "keys": [],
+      "since": {},
+      "prev": [
         "resistance"
       ],
-      "since": {
+      "prev_since": {
         "resistance": "2026-11-13"
-      },
-      "prev": [],
-      "prev_since": {}
+      }
     },
     "US_NVDA": {
-      "date": "2026-11-13",
+      "date": "2026-11-16",
       "keys": [
         "trail",
         "ma20"
@@ -1421,13 +1472,11 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": null,
-        "ma20": null,
-        "grade": "2026-11-12"
+        "ma20": null
       }
     }
   }
