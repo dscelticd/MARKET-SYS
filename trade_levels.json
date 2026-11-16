@@ -1,22 +1,6 @@
 {
   "records": [
     {
-      "stock_id": "KR_138080",
-      "name": "오이솔루션",
-      "kind": "entry",
-      "issued_on": "2026-10-19",
-      "entry_low": 20700.0,
-      "entry_high": 22200.0,
-      "stop": 17690.0,
-      "target1": 30400.0,
-      "risk_reward": 2.38,
-      "status": "active",
-      "age": 19,
-      "last_eval": "2026-11-13",
-      "filled_on": "2026-11-05",
-      "fill_price": 22200.0
-    },
-    {
       "stock_id": "US_VOO",
       "name": "Vanguard S&P500 ETF",
       "kind": "exit",
@@ -40,8 +24,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-13"
+      "age": 9,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_SCHD",
@@ -92,8 +76,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-13"
+      "age": 7,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_000660",
@@ -105,8 +89,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-13"
+      "age": 7,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_042700",
@@ -119,8 +103,8 @@
       "target1": 217000.0,
       "risk_reward": 3.97,
       "status": "active",
-      "age": 6,
-      "last_eval": "2026-11-13",
+      "age": 7,
+      "last_eval": "2026-11-16",
       "filled_on": "2026-11-06",
       "fill_price": 148000.0
     },
@@ -175,24 +159,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-13"
-    },
-    {
-      "stock_id": "KR_015760",
-      "name": "한국전력",
-      "kind": "entry",
-      "issued_on": "2026-11-06",
-      "entry_low": 27550.0,
-      "entry_high": 28150.0,
-      "stop": 26350.0,
-      "target1": 30550.0,
-      "risk_reward": 1.8,
-      "status": "active",
-      "age": 5,
-      "last_eval": "2026-11-13",
-      "filled_on": "2026-11-13",
-      "fill_price": 28150.0
+      "age": 6,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "TW_TSM",
@@ -302,8 +270,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-13"
+      "age": 3,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_000660",
@@ -315,8 +283,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-13"
+      "age": 3,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_069500",
@@ -328,8 +296,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-13"
+      "age": 3,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_QTUM",
@@ -357,8 +325,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-13"
+      "age": 2,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_000660",
@@ -370,8 +338,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-13"
+      "age": 2,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "US_SNDK",
@@ -426,7 +394,8 @@
         "추적 손절선(1,229,000원) 이탈"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_010120",
@@ -439,7 +408,8 @@
       "target1": 169200.0,
       "risk_reward": 3.68,
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-16"
     },
     {
       "stock_id": "KR_066570",
@@ -451,8 +421,11 @@
       "stop": 121800.0,
       "target1": 208500.0,
       "risk_reward": 7.34,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-16",
+      "fill_price": 134300.0
     },
     {
       "stock_id": "US_SCHD",
@@ -465,6 +438,106 @@
       ],
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_005930",
+      "name": "삼성전자",
+      "kind": "exit",
+      "issued_on": "2026-11-16",
+      "price_at_signal": 196800.0,
+      "signals": [
+        "추적 손절선(204,000원) 이탈"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-11-16",
+      "price_at_signal": 1120000.0,
+      "signals": [
+        "등급 하락(보통→주의)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_069500",
+      "name": "KODEX 200",
+      "kind": "exit",
+      "issued_on": "2026-11-16",
+      "price_at_signal": 79900.0,
+      "signals": [
+        "추적 손절선(82,400원) 이탈"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_138080",
+      "name": "오이솔루션",
+      "kind": "entry",
+      "issued_on": "2026-11-16",
+      "entry_low": 20700.0,
+      "entry_high": 21350.0,
+      "stop": 18480.0,
+      "target1": 25000.0,
+      "risk_reward": 1.56,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_319660",
+      "name": "피에스케이",
+      "kind": "entry",
+      "issued_on": "2026-11-16",
+      "entry_low": 72500.0,
+      "entry_high": 77600.0,
+      "stop": 62300.0,
+      "target1": 135800.0,
+      "risk_reward": 4.76,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_138080",
+      "name": "오이솔루션",
+      "kind": "entry",
+      "issued_on": "2026-10-19",
+      "entry_low": 20700.0,
+      "entry_high": 22200.0,
+      "stop": 17690.0,
+      "target1": 30400.0,
+      "risk_reward": 2.38,
+      "status": "expired_open",
+      "age": 20,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-05",
+      "fill_price": 22200.0,
+      "resolved_on": "2026-11-16",
+      "exit_price": 21350.0,
+      "r_multiple": -0.19
+    },
+    {
+      "stock_id": "KR_015760",
+      "name": "한국전력",
+      "kind": "entry",
+      "issued_on": "2026-11-06",
+      "entry_low": 27550.0,
+      "entry_high": 28150.0,
+      "stop": 26350.0,
+      "target1": 30550.0,
+      "risk_reward": 1.8,
+      "status": "loss",
+      "age": 6,
+      "last_eval": "2026-11-16",
+      "filled_on": "2026-11-13",
+      "fill_price": 28150.0,
+      "resolved_on": "2026-11-16",
+      "exit_price": 26350.0,
+      "r_multiple": -1.0
     },
     {
       "stock_id": "US_VOO",
@@ -1241,47 +1314,51 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-13",
-      "keys": [
-        "ma20"
-      ],
-      "since": {
-        "ma20": "2026-10-29"
-      },
-      "prev": [
-        "ma20",
-        "grade"
-      ],
-      "prev_since": {
-        "ma20": "2026-10-29",
-        "grade": "2026-11-12"
-      }
-    },
-    "KR_000660": {
-      "date": "2026-11-13",
+      "date": "2026-11-16",
       "keys": [
         "trail",
         "ma20"
       ],
       "since": {
-        "trail": "2026-11-13",
-        "ma20": "2026-11-03"
+        "trail": "2026-11-16",
+        "ma20": "2026-10-29"
       },
       "prev": [
+        "ma20"
+      ],
+      "prev_since": {
+        "ma20": "2026-10-29"
+      }
+    },
+    "KR_000660": {
+      "date": "2026-11-16",
+      "keys": [
+        "trail",
         "ma20",
         "grade"
       ],
-      "prev_since": {
+      "since": {
+        "trail": "2026-11-13",
         "ma20": "2026-11-03",
-        "grade": "2026-11-12"
+        "grade": "2026-11-16"
+      },
+      "prev": [
+        "trail",
+        "ma20"
+      ],
+      "prev_since": {
+        "trail": "2026-11-13",
+        "ma20": "2026-11-03"
       }
     },
     "KR_069500": {
-      "date": "2026-11-13",
+      "date": "2026-11-16",
       "keys": [
+        "trail",
         "ma20"
       ],
       "since": {
+        "trail": "2026-11-16",
         "ma20": null
       },
       "prev": [
