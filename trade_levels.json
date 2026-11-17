@@ -1,19 +1,6 @@
 {
   "records": [
     {
-      "stock_id": "US_SCHD",
-      "name": "Schwab US Dividend ETF",
-      "kind": "exit",
-      "issued_on": "2026-11-03",
-      "price_at_signal": 35.55,
-      "signals": [
-        "RSI 과열(76)에서 음봉"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-16"
-    },
-    {
       "stock_id": "US_VOO",
       "name": "Vanguard S&P500 ETF",
       "kind": "exit",
@@ -23,8 +10,8 @@
         "저항 구간 도달(남은 여력 +0.9%)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-16"
+      "age": 9,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_NVDA",
@@ -36,8 +23,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-16"
+      "age": 9,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "KR_005930",
@@ -91,8 +78,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-16"
+      "age": 8,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_VOO",
@@ -105,8 +92,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-16"
+      "age": 8,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_SPCX",
@@ -119,8 +106,8 @@
       "target1": 149.8,
       "risk_reward": 4.06,
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-16"
+      "age": 8,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "KR_000660",
@@ -136,22 +123,6 @@
       "last_eval": "2026-11-17"
     },
     {
-      "stock_id": "TW_TSM",
-      "name": "TSMC",
-      "kind": "entry",
-      "issued_on": "2026-11-06",
-      "entry_low": 371.72,
-      "entry_high": 375.44,
-      "stop": 354.23,
-      "target1": 428.49,
-      "risk_reward": 2.84,
-      "status": "active",
-      "age": 6,
-      "last_eval": "2026-11-16",
-      "filled_on": "2026-11-16",
-      "fill_price": 375.44
-    },
-    {
       "stock_id": "US_VOO",
       "name": "Vanguard S&P500 ETF",
       "kind": "exit",
@@ -161,8 +132,8 @@
         "저항 구간 도달(남은 여력 +0.1%)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-16"
+      "age": 6,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_VST",
@@ -175,8 +146,8 @@
       "target1": 149.93,
       "risk_reward": 1.77,
       "status": "active",
-      "age": 5,
-      "last_eval": "2026-11-16",
+      "age": 6,
+      "last_eval": "2026-11-17",
       "filled_on": "2026-11-10",
       "fill_price": 130.90499877929688
     },
@@ -190,8 +161,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-16"
+      "age": 6,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_QQQ",
@@ -203,8 +174,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-16"
+      "age": 5,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_SCHD",
@@ -216,8 +187,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-16"
+      "age": 5,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "KR_005930",
@@ -295,8 +266,8 @@
       "target1": 1446.62,
       "risk_reward": 4.41,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-16",
+      "age": 3,
+      "last_eval": "2026-11-17",
       "filled_on": "2026-11-13",
       "fill_price": 859.79
     },
@@ -310,8 +281,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-16"
+      "age": 3,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_CIEN",
@@ -324,8 +295,8 @@
       "target1": 368.24,
       "risk_reward": 3.87,
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-16"
+      "age": 3,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "KR_000660",
@@ -382,8 +353,8 @@
         "저항 구간 도달(남은 여력 +0.7%)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-16"
+      "age": 2,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "KR_005930",
@@ -464,7 +435,8 @@
         "추적 손절선($670.25) 이탈"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-17"
     },
     {
       "stock_id": "US_QTUM",
@@ -476,8 +448,11 @@
       "stop": 113.56,
       "target1": 143.95,
       "risk_reward": 3.46,
-      "status": "pending",
-      "age": 0
+      "status": "active",
+      "age": 1,
+      "last_eval": "2026-11-17",
+      "filled_on": "2026-11-17",
+      "fill_price": 121.73
     },
     {
       "stock_id": "US_COHR",
@@ -490,7 +465,79 @@
       "target1": 246.9,
       "risk_reward": 2.62,
       "status": "pending",
+      "age": 1,
+      "last_eval": "2026-11-17"
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-17",
+      "price_at_signal": 673.19,
+      "signals": [
+        "추적 손절선($674.24) 이탈"
+      ],
+      "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-17",
+      "price_at_signal": 35.31,
+      "signals": [
+        "20일선($35.56) 아래 마감"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "TW_TSM",
+      "name": "TSMC",
+      "kind": "entry",
+      "issued_on": "2026-11-17",
+      "entry_low": 351.19,
+      "entry_high": 359.69,
+      "stop": 330.14,
+      "target1": 428.49,
+      "risk_reward": 2.89,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_SCHD",
+      "name": "Schwab US Dividend ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-03",
+      "price_at_signal": 35.55,
+      "signals": [
+        "RSI 과열(76)에서 음봉"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-17",
+      "resolved_on": "2026-11-17",
+      "change_pct": -0.68
+    },
+    {
+      "stock_id": "TW_TSM",
+      "name": "TSMC",
+      "kind": "entry",
+      "issued_on": "2026-11-06",
+      "entry_low": 371.72,
+      "entry_high": 375.44,
+      "stop": 354.23,
+      "target1": 428.49,
+      "risk_reward": 2.84,
+      "status": "loss",
+      "age": 7,
+      "last_eval": "2026-11-17",
+      "filled_on": "2026-11-16",
+      "fill_price": 375.44,
+      "resolved_on": "2026-11-17",
+      "exit_price": 354.23,
+      "r_multiple": -1.0
     },
     {
       "stock_id": "KR_000660",
@@ -1433,7 +1480,7 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-16",
+      "date": "2026-11-17",
       "keys": [
         "trail",
         "ma20"
@@ -1443,18 +1490,22 @@
         "ma20": null
       },
       "prev": [
+        "trail",
         "ma20"
       ],
       "prev_since": {
+        "trail": "2026-11-16",
         "ma20": null
       }
     },
     "US_VOO": {
-      "date": "2026-11-16",
+      "date": "2026-11-17",
       "keys": [
+        "trail",
         "ma20"
       ],
       "since": {
+        "trail": "2026-11-17",
         "ma20": "2026-10-29"
       },
       "prev": [
@@ -1465,18 +1516,18 @@
       }
     },
     "US_SCHD": {
-      "date": "2026-11-16",
-      "keys": [],
-      "since": {},
-      "prev": [
-        "resistance"
+      "date": "2026-11-17",
+      "keys": [
+        "ma20"
       ],
-      "prev_since": {
-        "resistance": "2026-11-13"
-      }
+      "since": {
+        "ma20": "2026-11-17"
+      },
+      "prev": [],
+      "prev_since": {}
     },
     "US_NVDA": {
-      "date": "2026-11-16",
+      "date": "2026-11-17",
       "keys": [
         "trail",
         "ma20"
