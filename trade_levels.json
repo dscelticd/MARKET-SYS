@@ -36,8 +36,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-17"
+      "age": 9,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_000660",
@@ -49,8 +49,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 8,
-      "last_eval": "2026-11-17"
+      "age": 9,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_042700",
@@ -63,8 +63,8 @@
       "target1": 217000.0,
       "risk_reward": 3.97,
       "status": "active",
-      "age": 8,
-      "last_eval": "2026-11-17",
+      "age": 9,
+      "last_eval": "2026-11-18",
       "filled_on": "2026-11-06",
       "fill_price": 148000.0
     },
@@ -119,8 +119,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-17"
+      "age": 8,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "US_VOO",
@@ -200,8 +200,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-17"
+      "age": 5,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_000660",
@@ -213,8 +213,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-17"
+      "age": 5,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_069500",
@@ -226,8 +226,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-17"
+      "age": 5,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_005930",
@@ -239,8 +239,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-17"
+      "age": 4,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_000660",
@@ -252,8 +252,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-17"
+      "age": 4,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "US_SNDK",
@@ -308,8 +308,8 @@
         "추적 손절선(1,229,000원) 이탈"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-17"
+      "age": 3,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_010120",
@@ -322,8 +322,8 @@
       "target1": 169200.0,
       "risk_reward": 3.68,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-17",
+      "age": 3,
+      "last_eval": "2026-11-18",
       "filled_on": "2026-11-17",
       "fill_price": 114100.0
     },
@@ -338,8 +338,8 @@
       "target1": 208500.0,
       "risk_reward": 7.34,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-17",
+      "age": 3,
+      "last_eval": "2026-11-18",
       "filled_on": "2026-11-16",
       "fill_price": 134300.0
     },
@@ -366,8 +366,8 @@
         "추적 손절선(204,000원) 이탈"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-17"
+      "age": 2,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_000660",
@@ -379,8 +379,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-17"
+      "age": 2,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_069500",
@@ -392,24 +392,8 @@
         "추적 손절선(82,400원) 이탈"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-17"
-    },
-    {
-      "stock_id": "KR_138080",
-      "name": "오이솔루션",
-      "kind": "entry",
-      "issued_on": "2026-11-16",
-      "entry_low": 20700.0,
-      "entry_high": 21350.0,
-      "stop": 18480.0,
-      "target1": 25000.0,
-      "risk_reward": 1.56,
-      "status": "active",
-      "age": 1,
-      "last_eval": "2026-11-17",
-      "filled_on": "2026-11-17",
-      "fill_price": 20900.0
+      "age": 2,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "KR_319660",
@@ -422,8 +406,8 @@
       "target1": 135800.0,
       "risk_reward": 4.76,
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-17"
+      "age": 2,
+      "last_eval": "2026-11-18"
     },
     {
       "stock_id": "US_QQQ",
@@ -504,6 +488,38 @@
       "risk_reward": 2.89,
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_138080",
+      "name": "오이솔루션",
+      "kind": "entry",
+      "issued_on": "2026-11-18",
+      "entry_low": 20700.0,
+      "entry_high": 21900.0,
+      "stop": 18290.0,
+      "target1": 25000.0,
+      "risk_reward": 1.23,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "KR_138080",
+      "name": "오이솔루션",
+      "kind": "entry",
+      "issued_on": "2026-11-16",
+      "entry_low": 20700.0,
+      "entry_high": 21350.0,
+      "stop": 18480.0,
+      "target1": 25000.0,
+      "risk_reward": 1.56,
+      "status": "win",
+      "age": 2,
+      "last_eval": "2026-11-18",
+      "filled_on": "2026-11-17",
+      "fill_price": 20900.0,
+      "resolved_on": "2026-11-18",
+      "exit_price": 25000.0,
+      "r_multiple": 1.69
     },
     {
       "stock_id": "US_SCHD",
@@ -1421,7 +1437,7 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-17",
+      "date": "2026-11-18",
       "keys": [
         "trail",
         "ma20"
@@ -1440,7 +1456,7 @@
       }
     },
     "KR_000660": {
-      "date": "2026-11-17",
+      "date": "2026-11-18",
       "keys": [
         "trail",
         "ma20"
@@ -1451,17 +1467,15 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": "2026-11-13",
-        "ma20": "2026-11-03",
-        "grade": "2026-11-16"
+        "ma20": "2026-11-03"
       }
     },
     "KR_069500": {
-      "date": "2026-11-17",
+      "date": "2026-11-18",
       "keys": [
         "trail",
         "ma20"
