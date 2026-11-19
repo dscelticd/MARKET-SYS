@@ -17,33 +17,6 @@
       "fill_price": 148000.0
     },
     {
-      "stock_id": "US_QQQ",
-      "name": "Invesco QQQ",
-      "kind": "exit",
-      "issued_on": "2026-11-05",
-      "price_at_signal": 647.05,
-      "signals": [
-        "등급 하락(보통→주의)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-18"
-    },
-    {
-      "stock_id": "US_VOO",
-      "name": "Vanguard S&P500 ETF",
-      "kind": "exit",
-      "issued_on": "2026-11-05",
-      "price_at_signal": 673.97,
-      "signals": [
-        "추적 손절선($687.51) 이탈",
-        "등급 하락(보통→주의)"
-      ],
-      "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-18"
-    },
-    {
       "stock_id": "US_SPCX",
       "name": "SpaceX",
       "kind": "entry",
@@ -54,8 +27,8 @@
       "target1": 149.8,
       "risk_reward": 4.06,
       "status": "pending",
-      "age": 9,
-      "last_eval": "2026-11-18"
+      "age": 10,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "KR_000660",
@@ -80,24 +53,8 @@
         "저항 구간 도달(남은 여력 +0.1%)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-18"
-    },
-    {
-      "stock_id": "US_VST",
-      "name": "Vistra Energy",
-      "kind": "entry",
-      "issued_on": "2026-11-09",
-      "entry_low": 133.44,
-      "entry_high": 133.92,
-      "stop": 124.51,
-      "target1": 149.93,
-      "risk_reward": 1.77,
-      "status": "active",
-      "age": 7,
-      "last_eval": "2026-11-18",
-      "filled_on": "2026-11-10",
-      "fill_price": 130.90499877929688
+      "age": 8,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_NVDA",
@@ -109,8 +66,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-18"
+      "age": 8,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_QQQ",
@@ -122,8 +79,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-18"
+      "age": 7,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_SCHD",
@@ -135,8 +92,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-18"
+      "age": 7,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "KR_005930",
@@ -214,8 +171,8 @@
       "target1": 1446.62,
       "risk_reward": 4.41,
       "status": "active",
-      "age": 4,
-      "last_eval": "2026-11-18",
+      "age": 5,
+      "last_eval": "2026-11-19",
       "filled_on": "2026-11-13",
       "fill_price": 859.79
     },
@@ -229,8 +186,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-18"
+      "age": 5,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_CIEN",
@@ -243,8 +200,8 @@
       "target1": 368.24,
       "risk_reward": 3.87,
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-18"
+      "age": 5,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "KR_000660",
@@ -301,8 +258,8 @@
         "저항 구간 도달(남은 여력 +0.7%)"
       ],
       "status": "pending",
-      "age": 3,
-      "last_eval": "2026-11-18"
+      "age": 4,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "KR_005930",
@@ -367,8 +324,8 @@
         "추적 손절선($670.25) 이탈"
       ],
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-18"
+      "age": 3,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_QTUM",
@@ -381,8 +338,8 @@
       "target1": 143.95,
       "risk_reward": 3.46,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-18",
+      "age": 3,
+      "last_eval": "2026-11-19",
       "filled_on": "2026-11-17",
       "fill_price": 121.73
     },
@@ -397,8 +354,8 @@
       "target1": 246.9,
       "risk_reward": 2.62,
       "status": "pending",
-      "age": 2,
-      "last_eval": "2026-11-18"
+      "age": 3,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_VOO",
@@ -410,8 +367,8 @@
         "추적 손절선($674.24) 이탈"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-18"
+      "age": 2,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "US_SCHD",
@@ -423,8 +380,8 @@
         "20일선($35.56) 아래 마감"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-18"
+      "age": 2,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "TW_TSM",
@@ -437,8 +394,8 @@
       "target1": 428.49,
       "risk_reward": 2.89,
       "status": "active",
-      "age": 1,
-      "last_eval": "2026-11-18",
+      "age": 2,
+      "last_eval": "2026-11-19",
       "filled_on": "2026-11-18",
       "fill_price": 359.69
     },
@@ -467,7 +424,8 @@
         "저항 구간 도달(남은 여력 +0.6%)"
       ],
       "status": "pending",
-      "age": 0
+      "age": 1,
+      "last_eval": "2026-11-19"
     },
     {
       "stock_id": "KR_005930",
@@ -480,6 +438,81 @@
       ],
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_000660",
+      "name": "SK하이닉스",
+      "kind": "exit",
+      "issued_on": "2026-11-19",
+      "price_at_signal": 1183000.0,
+      "signals": [
+        "등급 하락(안전→보통)"
+      ],
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-11-19",
+      "entry_low": 110.89,
+      "entry_high": 114.96,
+      "stop": 102.75,
+      "target1": 136.73,
+      "risk_reward": 2.34,
+      "status": "pending",
+      "age": 0
+    },
+    {
+      "stock_id": "US_QQQ",
+      "name": "Invesco QQQ",
+      "kind": "exit",
+      "issued_on": "2026-11-05",
+      "price_at_signal": 647.05,
+      "signals": [
+        "등급 하락(보통→주의)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-19",
+      "resolved_on": "2026-11-19",
+      "change_pct": -0.31
+    },
+    {
+      "stock_id": "US_VOO",
+      "name": "Vanguard S&P500 ETF",
+      "kind": "exit",
+      "issued_on": "2026-11-05",
+      "price_at_signal": 673.97,
+      "signals": [
+        "추적 손절선($687.51) 이탈",
+        "등급 하락(보통→주의)"
+      ],
+      "status": "exit_hit",
+      "age": 10,
+      "last_eval": "2026-11-19",
+      "resolved_on": "2026-11-19",
+      "change_pct": -2.37
+    },
+    {
+      "stock_id": "US_VST",
+      "name": "Vistra Energy",
+      "kind": "entry",
+      "issued_on": "2026-11-09",
+      "entry_low": 133.44,
+      "entry_high": 133.92,
+      "stop": 124.51,
+      "target1": 149.93,
+      "risk_reward": 1.77,
+      "status": "loss",
+      "age": 8,
+      "last_eval": "2026-11-19",
+      "filled_on": "2026-11-10",
+      "fill_price": 130.90499877929688,
+      "resolved_on": "2026-11-19",
+      "exit_price": 124.51,
+      "r_multiple": -1.0
     },
     {
       "stock_id": "KR_005930",
@@ -1500,11 +1533,13 @@
       "date": "2026-11-19",
       "keys": [
         "trail",
-        "ma20"
+        "ma20",
+        "grade"
       ],
       "since": {
         "trail": "2026-11-13",
-        "ma20": "2026-11-03"
+        "ma20": "2026-11-03",
+        "grade": "2026-11-19"
       },
       "prev": [
         "trail",
@@ -1535,7 +1570,7 @@
       }
     },
     "US_QQQ": {
-      "date": "2026-11-18",
+      "date": "2026-11-19",
       "keys": [
         "trail",
         "ma20"
@@ -1554,7 +1589,7 @@
       }
     },
     "US_VOO": {
-      "date": "2026-11-18",
+      "date": "2026-11-19",
       "keys": [
         "trail",
         "ma20"
@@ -1573,26 +1608,28 @@
       }
     },
     "US_SCHD": {
-      "date": "2026-11-18",
+      "date": "2026-11-19",
       "keys": [
+        "trail",
+        "ma20"
+      ],
+      "since": {
+        "trail": "2026-11-18",
+        "ma20": "2026-11-17"
+      },
+      "prev": [
         "trail",
         "ma20",
         "resistance"
       ],
-      "since": {
+      "prev_since": {
         "trail": "2026-11-18",
         "ma20": "2026-11-17",
         "resistance": "2026-11-18"
-      },
-      "prev": [
-        "ma20"
-      ],
-      "prev_since": {
-        "ma20": "2026-11-17"
       }
     },
     "US_NVDA": {
-      "date": "2026-11-18",
+      "date": "2026-11-19",
       "keys": [
         "trail",
         "ma20"

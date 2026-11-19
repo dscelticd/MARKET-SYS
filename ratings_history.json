@@ -52545,5 +52545,554 @@
         "generated_at": "2026-11-19T20:35:31.812199"
       }
     }
+  },
+  "2026-11-19_morning": {
+    "schema_version": "1.4",
+    "date": "2026-11-19",
+    "run_date": "2026-11-20",
+    "report_type": "morning",
+    "generated_at": "2026-11-20T07:11:54.729961",
+    "is_trading_day": true,
+    "data_date": "2026-11-19",
+    "grades": {
+      "KR_005930": "보통",
+      "KR_000660": "보통",
+      "KR_042700": "보통",
+      "KR_319660": "안전",
+      "KR_069500": "보통",
+      "KR_010120": "안전",
+      "KR_015760": "보통",
+      "KR_066570": "보통",
+      "US_QQQ": "보통",
+      "US_VOO": "보통",
+      "US_QTUM": "보통",
+      "US_VST": "보통",
+      "US_SCHD": "보통",
+      "TW_TSM": "보통",
+      "US_SNDK": "보통",
+      "US_NVDA": "보통",
+      "US_COHR": "보통",
+      "US_CIEN": "보통",
+      "KR_138080": "보통",
+      "US_SPCX": "보통"
+    },
+    "raw_grades": {
+      "KR_005930": "보통",
+      "KR_000660": "보통",
+      "KR_042700": "보통",
+      "KR_319660": "안전",
+      "KR_069500": "보통",
+      "KR_010120": "안전",
+      "KR_015760": "보통",
+      "KR_066570": "보통",
+      "US_QQQ": "보통",
+      "US_VOO": "보통",
+      "US_QTUM": "보통",
+      "US_VST": "보통",
+      "US_SCHD": "보통",
+      "TW_TSM": "보통",
+      "US_SNDK": "보통",
+      "US_NVDA": "보통",
+      "US_COHR": "보통",
+      "US_CIEN": "보통",
+      "KR_138080": "보통",
+      "US_SPCX": "보통"
+    },
+    "grade_capped": {
+      "KR_005930": false,
+      "KR_000660": false,
+      "KR_042700": false,
+      "KR_319660": false,
+      "KR_069500": false,
+      "KR_010120": false,
+      "KR_015760": false,
+      "KR_066570": false,
+      "US_QQQ": false,
+      "US_VOO": false,
+      "US_QTUM": false,
+      "US_VST": false,
+      "US_SCHD": false,
+      "TW_TSM": false,
+      "US_SNDK": false,
+      "US_NVDA": false,
+      "US_COHR": false,
+      "US_CIEN": false,
+      "KR_138080": false,
+      "US_SPCX": false
+    },
+    "cap_reasons": {
+      "KR_005930": "",
+      "KR_000660": "",
+      "KR_042700": "",
+      "KR_319660": "",
+      "KR_069500": "",
+      "KR_010120": "",
+      "KR_015760": "",
+      "KR_066570": "",
+      "US_QQQ": "",
+      "US_VOO": "",
+      "US_QTUM": "",
+      "US_VST": "",
+      "US_SCHD": "",
+      "TW_TSM": "",
+      "US_SNDK": "",
+      "US_NVDA": "",
+      "US_COHR": "",
+      "US_CIEN": "",
+      "KR_138080": "",
+      "US_SPCX": ""
+    },
+    "scores": {
+      "KR_005930": 47.9,
+      "KR_000660": 52.1,
+      "KR_042700": 51.0,
+      "KR_319660": 55.0,
+      "KR_069500": 50.7,
+      "KR_010120": 58.6,
+      "KR_015760": 47.6,
+      "KR_066570": 45.6,
+      "US_QQQ": 38.7,
+      "US_VOO": 39.1,
+      "US_QTUM": 38.8,
+      "US_VST": 46.2,
+      "US_SCHD": 42.8,
+      "TW_TSM": 39.3,
+      "US_SNDK": 41.7,
+      "US_NVDA": 39.0,
+      "US_COHR": 54.5,
+      "US_CIEN": 47.9,
+      "KR_138080": 50.1,
+      "US_SPCX": 39.5
+    },
+    "components": {
+      "KR_005930": {
+        "price_momentum": 64.1,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "KR_000660": {
+        "price_momentum": 92.6,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 50.0
+      },
+      "KR_042700": {
+        "price_momentum": 85.0,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_319660": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "KR_069500": {
+        "price_momentum": 69.4,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "KR_010120": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 62.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "KR_015760": {
+        "price_momentum": 57.5,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 62.0,
+        "volume_signal": 40.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 50.0
+      },
+      "KR_066570": {
+        "price_momentum": 40.0,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 55.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "US_QQQ": {
+        "price_momentum": 22.6,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 50.0,
+        "volume_signal": 38.6,
+        "technical_signal": 37.0,
+        "analyst_signal": 50.0
+      },
+      "US_VOO": {
+        "price_momentum": 25.2,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 50.0,
+        "volume_signal": 37.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 50.0
+      },
+      "US_QTUM": {
+        "price_momentum": 17.0,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 50.0
+      },
+      "US_VST": {
+        "price_momentum": 35.8,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 62.0,
+        "volume_signal": 50.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 80.0
+      },
+      "US_SCHD": {
+        "price_momentum": 32.0,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 47.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 50.0
+      },
+      "TW_TSM": {
+        "price_momentum": 13.8,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 80.0
+      },
+      "US_SNDK": {
+        "price_momentum": 16.1,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 80.0
+      },
+      "US_NVDA": {
+        "price_momentum": 8.8,
+        "news_sentiment": 50.0,
+        "macro_alignment": 20.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 45.0,
+        "analyst_signal": 75.0
+      },
+      "US_COHR": {
+        "price_momentum": 62.4,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 65.0,
+        "volume_signal": 50.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 75.0
+      },
+      "US_CIEN": {
+        "price_momentum": 31.6,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 65.0,
+        "volume_signal": 50.0,
+        "technical_signal": 47.0,
+        "analyst_signal": 75.0
+      },
+      "KR_138080": {
+        "price_momentum": 52.8,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 65.0,
+        "volume_signal": 50.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 50.0
+      },
+      "US_SPCX": {
+        "price_momentum": 5.9,
+        "news_sentiment": 50.0,
+        "macro_alignment": 32.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 75.0
+      }
+    },
+    "risk_scores": {
+      "KR_005930": 50.0,
+      "KR_000660": 50.0,
+      "KR_042700": 50.0,
+      "KR_319660": 50.0,
+      "KR_069500": 50.0,
+      "KR_010120": 50.0,
+      "KR_015760": 50.0,
+      "KR_066570": 50.0,
+      "US_QQQ": 60.0,
+      "US_VOO": 60.0,
+      "US_QTUM": 60.0,
+      "US_VST": 50.0,
+      "US_SCHD": 50.0,
+      "TW_TSM": 60.0,
+      "US_SNDK": 60.0,
+      "US_NVDA": 70.0,
+      "US_COHR": 50.0,
+      "US_CIEN": 50.0,
+      "KR_138080": 50.0,
+      "US_SPCX": 70.0
+    },
+    "data_confidence": {
+      "KR_005930": 100,
+      "KR_000660": 100,
+      "KR_042700": 91.0,
+      "KR_319660": 91.0,
+      "KR_069500": 91.0,
+      "KR_010120": 97.0,
+      "KR_015760": 100,
+      "KR_066570": 97.0,
+      "US_QQQ": 97.0,
+      "US_VOO": 97.0,
+      "US_QTUM": 94.0,
+      "US_VST": 97.0,
+      "US_SCHD": 97.0,
+      "TW_TSM": 97.0,
+      "US_SNDK": 97.0,
+      "US_NVDA": 100,
+      "US_COHR": 100,
+      "US_CIEN": 100,
+      "KR_138080": 97.0,
+      "US_SPCX": 100
+    },
+    "closing_prices": {
+      "KR_005930": 196900.0,
+      "KR_000660": 1183000.0,
+      "KR_069500": 80630.0,
+      "KR_010120": 120800.0,
+      "KR_015760": 25250.0,
+      "KR_066570": 135900.0,
+      "US_QQQ": 645.04,
+      "US_VOO": 658.01,
+      "US_QTUM": 119.71,
+      "US_VST": 124.15,
+      "US_SCHD": 34.2,
+      "TW_TSM": 352.09,
+      "US_SNDK": 755.16,
+      "US_NVDA": 145.98,
+      "US_COHR": 214.94,
+      "US_CIEN": 262.63,
+      "KR_138080": 23050.0,
+      "US_SPCX": 138.43,
+      "KR_042700": 172400.0,
+      "KR_319660": 94200.0
+    },
+    "price_changes": {
+      "KR_005930": 1.13,
+      "KR_000660": 3.41,
+      "KR_069500": 1.55,
+      "KR_010120": 4.14,
+      "KR_015760": 0.6,
+      "KR_066570": -0.8,
+      "US_QQQ": -2.19,
+      "US_VOO": -1.98,
+      "US_QTUM": -2.64,
+      "US_VST": -1.14,
+      "US_SCHD": -1.44,
+      "TW_TSM": -2.9,
+      "US_SNDK": -2.71,
+      "US_NVDA": -3.3,
+      "US_COHR": 0.99,
+      "US_CIEN": -1.47,
+      "KR_138080": 0.22,
+      "US_SPCX": -3.53,
+      "KR_042700": 2.8,
+      "KR_319660": 12.28
+    },
+    "volumes": {
+      "KR_005930": 12836690,
+      "KR_000660": 2730075,
+      "KR_069500": 19321397,
+      "KR_010120": 443834,
+      "KR_015760": 1221768,
+      "KR_066570": 426139,
+      "US_QQQ": 70328281,
+      "US_VOO": 12688360,
+      "US_QTUM": 321205,
+      "US_VST": 4469766,
+      "US_SCHD": 30342660,
+      "TW_TSM": 17838101,
+      "US_SNDK": 15100945,
+      "US_NVDA": 315864587,
+      "US_COHR": 12116702,
+      "US_CIEN": 2404859,
+      "KR_138080": 166948,
+      "US_SPCX": 118738256,
+      "KR_042700": 629668,
+      "KR_319660": 278968
+    },
+    "top_news": {
+      "KR_005930": {
+        "headline": "HBM3E 공급 부족 지속…SK하이닉스·삼성전자 생산 캐파 확대 경쟁",
+        "sentiment": 0.7,
+        "source": "매일경제"
+      },
+      "KR_000660": {
+        "headline": "NVIDIA, Blackwell B300 출하 가속…SK하이닉스 HBM4 수요 동반 급증 전망",
+        "sentiment": 0.85,
+        "source": "Reuters"
+      },
+      "KR_069500": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      },
+      "KR_010120": {
+        "headline": "미국 전력망 노후화 교체 수요 급증…한국 전력기기·한국전력 수혜",
+        "sentiment": 0.78,
+        "source": "한국경제"
+      },
+      "KR_015760": {
+        "headline": "미국 전력망 노후화 교체 수요 급증…한국 전력기기·한국전력 수혜",
+        "sentiment": 0.78,
+        "source": "한국경제"
+      },
+      "KR_066570": {
+        "headline": "LG전자 전장 사업부 흑자 전환 확인…미국·유럽 완성차 수주 확대",
+        "sentiment": 0.72,
+        "source": "매일경제"
+      },
+      "KR_138080": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      },
+      "KR_042700": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      },
+      "KR_319660": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      },
+      "US_QQQ": {
+        "headline": "빅테크 AI 실적 서프라이즈…나스닥·S&P500 연고점 경신",
+        "sentiment": 0.83,
+        "source": "Bloomberg"
+      },
+      "US_VOO": {
+        "headline": "빅테크 AI 실적 서프라이즈…나스닥·S&P500 연고점 경신",
+        "sentiment": 0.83,
+        "source": "Bloomberg"
+      },
+      "US_QTUM": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      },
+      "US_VST": {
+        "headline": "Vistra Energy, 원전 재가동 계획 확정…AI 데이터센터 장기 전력 계약 체결",
+        "sentiment": 0.82,
+        "source": "Reuters"
+      },
+      "US_SCHD": {
+        "headline": "금리 인하 기대감 재부각…배당성장 ETF SCHD 자금 유입 급증",
+        "sentiment": 0.7,
+        "source": "Morningstar"
+      },
+      "TW_TSM": {
+        "headline": "TSMC 2nm 수율 빠른 회복세…애플·NVIDIA 선주문 경쟁 치열",
+        "sentiment": 0.8,
+        "source": "Nikkei"
+      },
+      "US_SNDK": {
+        "headline": "NAND 가격 회복세 진입…SanDisk, 분기 흑자 전환 기대감 상승",
+        "sentiment": 0.75,
+        "source": "FT"
+      },
+      "US_NVDA": {
+        "headline": "NVIDIA, Blackwell B300 출하 가속…SK하이닉스 HBM4 수요 동반 급증 전망",
+        "sentiment": 0.85,
+        "source": "Reuters"
+      },
+      "US_COHR": {
+        "headline": "800G 광트랜시버 수요 급증…Coherent·Ciena 수주 잔고 역대 최고",
+        "sentiment": 0.82,
+        "source": "The Verge"
+      },
+      "US_CIEN": {
+        "headline": "800G 광트랜시버 수요 급증…Coherent·Ciena 수주 잔고 역대 최고",
+        "sentiment": 0.82,
+        "source": "The Verge"
+      },
+      "US_SPCX": {
+        "headline": "Fed, 인플레이션 재가속 경고…성장주 밸류에이션 압박 가능성",
+        "sentiment": -0.45,
+        "source": "Bloomberg"
+      }
+    },
+    "data_quality": {
+      "price": {
+        "total": 20,
+        "real": 20,
+        "mock": 0,
+        "missing": [],
+        "status": "정상"
+      },
+      "news": {
+        "total": 80,
+        "unique": 33,
+        "duplicates_removed": 47,
+        "avg_per_stock": 4.0,
+        "status": "부분"
+      },
+      "macro": {
+        "is_mock": false,
+        "basis": "yfinance 실제 데이터",
+        "fields_present": 5,
+        "fields_total": 5,
+        "status": "정상"
+      },
+      "disclosures": {
+        "connected": true
+      },
+      "overall": {
+        "confidence": 91.0,
+        "status": "높음",
+        "issues": [
+          "뉴스 중복 47건 제거됨"
+        ],
+        "critical_data_error": false,
+        "critical_error_reasons": [],
+        "generated_at": "2026-11-20T07:11:54.712059"
+      }
+    }
   }
 }
