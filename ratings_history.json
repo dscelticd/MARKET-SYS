@@ -53648,9 +53648,9 @@
   "2026-11-20_morning": {
     "schema_version": "1.4",
     "date": "2026-11-20",
-    "run_date": "2026-11-21",
+    "run_date": "2026-11-23",
     "report_type": "morning",
-    "generated_at": "2026-11-21T07:11:56.313659",
+    "generated_at": "2026-11-23T07:12:04.830980",
     "is_trading_day": true,
     "data_date": "2026-11-20",
     "grades": {
@@ -53757,8 +53757,8 @@
       "US_SCHD": 44.5,
       "TW_TSM": 34.2,
       "US_SNDK": 37.8,
-      "US_NVDA": 35.8,
-      "US_COHR": 39.5,
+      "US_NVDA": 35.7,
+      "US_COHR": 40.0,
       "US_CIEN": 39.0,
       "KR_138080": 39.1,
       "US_SPCX": 36.8
@@ -53841,7 +53841,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 32.0,
         "sector_strength": 50.0,
-        "volume_signal": 18.4,
+        "volume_signal": 18.0,
         "technical_signal": 37.0,
         "analyst_signal": 50.0
       },
@@ -53859,7 +53859,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 32.0,
         "sector_strength": 50.0,
-        "volume_signal": 23.2,
+        "volume_signal": 23.0,
         "technical_signal": 37.0,
         "analyst_signal": 50.0
       },
@@ -53886,7 +53886,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 20.0,
         "sector_strength": 50.0,
-        "volume_signal": 26.8,
+        "volume_signal": 26.6,
         "technical_signal": 37.0,
         "analyst_signal": 80.0
       },
@@ -53904,7 +53904,7 @@
         "news_sentiment": 50.0,
         "macro_alignment": 20.0,
         "sector_strength": 50.0,
-        "volume_signal": 35.2,
+        "volume_signal": 34.8,
         "technical_signal": 45.0,
         "analyst_signal": 75.0
       },
@@ -53913,9 +53913,9 @@
         "news_sentiment": 50.0,
         "macro_alignment": 32.0,
         "sector_strength": 65.0,
-        "volume_signal": 39.8,
+        "volume_signal": 39.6,
         "technical_signal": 40.0,
-        "analyst_signal": 75.0
+        "analyst_signal": 80.0
       },
       "US_CIEN": {
         "price_momentum": 0,
@@ -54040,18 +54040,18 @@
       "KR_010120": 474072,
       "KR_015760": 1961050,
       "KR_066570": 569763,
-      "US_QQQ": 133143309,
-      "US_VOO": 31569061,
-      "US_QTUM": 717088,
-      "US_VST": 8319765,
-      "US_SCHD": 33559228,
-      "TW_TSM": 37072771,
-      "US_SNDK": 126455994,
-      "US_NVDA": 620250840,
-      "US_COHR": 14108170,
-      "US_CIEN": 3895322,
+      "US_QQQ": 134360600,
+      "US_VOO": 31668700,
+      "US_QTUM": 717800,
+      "US_VST": 8334000,
+      "US_SCHD": 33694100,
+      "TW_TSM": 37170000,
+      "US_SNDK": 127860864,
+      "US_NVDA": 626373200,
+      "US_COHR": 14180000,
+      "US_CIEN": 3902700,
       "KR_138080": 133710,
-      "US_SPCX": 123627229,
+      "US_SPCX": 124025300,
       "KR_042700": 717458,
       "KR_319660": 294933
     },
@@ -54191,7 +54191,7 @@
         ],
         "critical_data_error": false,
         "critical_error_reasons": [],
-        "generated_at": "2026-11-21T07:11:56.299678"
+        "generated_at": "2026-11-23T07:12:04.816700"
       }
     }
   }
