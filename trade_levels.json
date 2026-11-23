@@ -11,8 +11,8 @@
       "target1": 217000.0,
       "risk_reward": 3.97,
       "status": "active",
-      "age": 11,
-      "last_eval": "2026-11-20",
+      "age": 12,
+      "last_eval": "2026-11-23",
       "filled_on": "2026-11-06",
       "fill_price": 148000.0
     },
@@ -92,8 +92,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-20"
+      "age": 8,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_000660",
@@ -105,8 +105,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-20"
+      "age": 8,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_069500",
@@ -118,8 +118,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 7,
-      "last_eval": "2026-11-20"
+      "age": 8,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_005930",
@@ -131,8 +131,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-20"
+      "age": 7,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_000660",
@@ -144,8 +144,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 6,
-      "last_eval": "2026-11-20"
+      "age": 7,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "US_NVDA",
@@ -186,8 +186,8 @@
         "추적 손절선(1,229,000원) 이탈"
       ],
       "status": "pending",
-      "age": 5,
-      "last_eval": "2026-11-20"
+      "age": 6,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_010120",
@@ -200,26 +200,10 @@
       "target1": 169200.0,
       "risk_reward": 3.68,
       "status": "active",
-      "age": 5,
-      "last_eval": "2026-11-20",
+      "age": 6,
+      "last_eval": "2026-11-23",
       "filled_on": "2026-11-17",
       "fill_price": 114100.0
-    },
-    {
-      "stock_id": "KR_066570",
-      "name": "LG전자",
-      "kind": "entry",
-      "issued_on": "2026-11-13",
-      "entry_low": 130100.0,
-      "entry_high": 134300.0,
-      "stop": 121800.0,
-      "target1": 208500.0,
-      "risk_reward": 7.34,
-      "status": "active",
-      "age": 5,
-      "last_eval": "2026-11-20",
-      "filled_on": "2026-11-16",
-      "fill_price": 134300.0
     },
     {
       "stock_id": "US_SCHD",
@@ -244,8 +228,8 @@
         "추적 손절선(204,000원) 이탈"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-20"
+      "age": 5,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_000660",
@@ -257,8 +241,8 @@
         "등급 하락(보통→주의)"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-20"
+      "age": 5,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_069500",
@@ -270,8 +254,8 @@
         "추적 손절선(82,400원) 이탈"
       ],
       "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-20"
+      "age": 5,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_319660",
@@ -283,9 +267,11 @@
       "stop": 62300.0,
       "target1": 135800.0,
       "risk_reward": 4.76,
-      "status": "pending",
-      "age": 4,
-      "last_eval": "2026-11-20"
+      "status": "active",
+      "age": 5,
+      "last_eval": "2026-11-23",
+      "filled_on": "2026-11-23",
+      "fill_price": 0.0
     },
     {
       "stock_id": "US_QQQ",
@@ -351,8 +337,8 @@
       "target1": 25000.0,
       "risk_reward": 1.23,
       "status": "active",
-      "age": 2,
-      "last_eval": "2026-11-20",
+      "age": 3,
+      "last_eval": "2026-11-23",
       "filled_on": "2026-11-20",
       "fill_price": 21900.0
     },
@@ -380,8 +366,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-20"
+      "age": 2,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "KR_000660",
@@ -393,8 +379,8 @@
         "등급 하락(안전→보통)"
       ],
       "status": "pending",
-      "age": 1,
-      "last_eval": "2026-11-20"
+      "age": 2,
+      "last_eval": "2026-11-23"
     },
     {
       "stock_id": "US_VST",
@@ -447,6 +433,25 @@
       ],
       "status": "pending",
       "age": 0
+    },
+    {
+      "stock_id": "KR_066570",
+      "name": "LG전자",
+      "kind": "entry",
+      "issued_on": "2026-11-13",
+      "entry_low": 130100.0,
+      "entry_high": 134300.0,
+      "stop": 121800.0,
+      "target1": 208500.0,
+      "risk_reward": 7.34,
+      "status": "loss",
+      "age": 6,
+      "last_eval": "2026-11-23",
+      "filled_on": "2026-11-16",
+      "fill_price": 134300.0,
+      "resolved_on": "2026-11-23",
+      "exit_price": 0.0,
+      "r_multiple": -10.74
     },
     {
       "stock_id": "US_SNDK",
@@ -1565,7 +1570,7 @@
   ],
   "signal_state": {
     "KR_005930": {
-      "date": "2026-11-20",
+      "date": "2026-11-23",
       "keys": [
         "trail",
         "ma20"
@@ -1576,17 +1581,15 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": "2026-11-16",
-        "ma20": "2026-10-29",
-        "grade": "2026-11-19"
+        "ma20": "2026-10-29"
       }
     },
     "KR_000660": {
-      "date": "2026-11-20",
+      "date": "2026-11-23",
       "keys": [
         "trail",
         "ma20"
@@ -1597,17 +1600,15 @@
       },
       "prev": [
         "trail",
-        "ma20",
-        "grade"
+        "ma20"
       ],
       "prev_since": {
         "trail": "2026-11-13",
-        "ma20": "2026-11-03",
-        "grade": "2026-11-19"
+        "ma20": "2026-11-03"
       }
     },
     "KR_069500": {
-      "date": "2026-11-20",
+      "date": "2026-11-23",
       "keys": [
         "trail",
         "ma20"
@@ -1629,11 +1630,13 @@
       "date": "2026-11-20",
       "keys": [
         "trail",
-        "ma20"
+        "ma20",
+        "grade"
       ],
       "since": {
         "trail": "2026-11-16",
-        "ma20": null
+        "ma20": null,
+        "grade": "2026-11-20"
       },
       "prev": [
         "trail",
@@ -1648,11 +1651,13 @@
       "date": "2026-11-20",
       "keys": [
         "trail",
-        "ma20"
+        "ma20",
+        "grade"
       ],
       "since": {
         "trail": "2026-11-17",
-        "ma20": "2026-10-29"
+        "ma20": "2026-10-29",
+        "grade": "2026-11-20"
       },
       "prev": [
         "trail",
