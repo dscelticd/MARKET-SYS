@@ -41,6 +41,17 @@ ENTRY_HORIZON = 20
 EXIT_HORIZON = 10
 MIN_SAMPLES = 20   # 이보다 적으면 통계로 제시하지 않는다
 
+_PRICE_FIELDS = ("entry_low", "entry_high", "stop", "target1", "fill_price", "price_at_signal")
+
+
+def _valid_ohlc(o: dict) -> bool:
+    """네 값이 모두 있고 0보다 클 때만 그날 봉으로 판정한다. 실측(2026-11-23 LG전자):
+    시가·저가가 0인 봉으로 판정해 청산가 0원(−10.74R)이 기록됐다."""
+    try:
+        return all(float(o[k]) > 0 for k in ("open", "high", "low", "close"))
+    except (KeyError, TypeError, ValueError):
+        return False
+
 
 class TradeLevelTracker:
     def __init__(self, path: Path | None = None) -> None:
@@ -74,16 +85,25 @@ class TradeLevelTracker:
 
     # ── 평가 ────────────────────────────────────────────────────────────────
 
-    def update(self, price_data: dict) -> int:
-        """열린 기록을 이번 거래일 일봉으로 평가한다. 평가한 건수를 반환."""
+    def update(self, price_data: dict, factor=None) -> int:
+        """열린 기록을 이번 거래일 일봉으로 평가한다. 평가한 건수를 반환.
+
+        factor(sid, 이전 날짜, 이후 날짜)는 그 사이 액면분할 비율(splits.py). 주면
+        분할 전에 낸 가격대를 분할 후 단위로 환산하고, 이미 분할 전 가격으로 결론 난
+        기록은 무효로 돌린다.
+        """
+        if factor is not None:
+            self._void_invalid(factor)
         n = 0
         for r in self.records:
             if r["status"] not in ("pending", "active"):
                 continue
             p = price_data.get(r["stock_id"]) or {}
             d = p.get("data_date")
+            if factor is not None and d:
+                self._apply_split(r, factor, d)
             ohlc = p.get("day_ohlc") or {}
-            if not d or not ohlc or d <= r["issued_on"] or d <= (r.get("last_eval") or ""):
+            if not d or not _valid_ohlc(ohlc) or d <= r["issued_on"] or d <= (r.get("last_eval") or ""):
                 continue
             r["last_eval"] = d
             r["age"] = r.get("age", 0) + 1
@@ -92,6 +112,45 @@ class TradeLevelTracker:
                 self._eval_entry(r, d, ohlc)
             else:
                 self._eval_exit(r, d, ohlc)
+        return n
+
+    @staticmethod
+    def _apply_split(r: dict, factor, d: str) -> None:
+        """기록을 낸 뒤 액면분할이 있었으면 가격대를 분할 후 단위로 나눈다(한 번만)."""
+        total = factor(r["stock_id"], r["issued_on"], d)
+        done = r.get("split_factor", 1.0)
+        inc = total / done if done else total
+        if abs(inc - 1.0) < 1e-9:
+            return
+        for k in _PRICE_FIELDS:
+            if r.get(k) is not None:
+                r[k] = round(r[k] / inc, 4)
+        r["split_factor"] = total
+        _logger.info("[SPLIT_ADJUST] %s %s 기록을 분할 %.4g:1로 환산", r["stock_id"], r["issued_on"], inc)
+
+    def _void_invalid(self, factor) -> int:
+        """깨진 데이터로 결론 난 기록을 무효로 돌린다 — 통계에서 빠지고 사유가 남는다.
+          ① 청산가가 0 이하(0원 봉으로 판정)
+          ② 기록과 결론 사이에 액면분할이 있었는데 환산 없이 판정됨
+        """
+        n = 0
+        for r in self.records:
+            if r["status"] in ("pending", "active", "void", "expired_unfilled"):
+                continue
+            reason = None
+            if r.get("exit_price") is not None and r["exit_price"] <= 0:
+                reason = "청산가 0원 — 시가·저가가 0으로 들어온 깨진 일봉으로 판정됨"
+            elif (r.get("resolved_on") and not r.get("split_factor")
+                  and abs(factor(r["stock_id"], r["issued_on"], r["resolved_on"]) - 1.0) > 1e-9):
+                ratio = factor(r["stock_id"], r["issued_on"], r["resolved_on"])
+                reason = f"검증 기간 중 액면분할({ratio:g}:1) — 분할 전 가격대로 판정됨"
+            if reason:
+                r["voided_status"] = r["status"]
+                r["status"] = "void"
+                r["void_reason"] = reason
+                n += 1
+                _logger.info("[TRADE_LEVEL_VOID] %s %s %s → 무효: %s",
+                             r["stock_id"], r["kind"], r["issued_on"], reason)
         return n
 
     @staticmethod
@@ -202,7 +261,9 @@ class TradeLevelTracker:
               if r.get("r_multiple") is not None]
         x = [r for r in self.records if r["kind"] == "exit"]
         x_done = [r for r in x if r["status"] in ("exit_hit", "exit_miss")]
+        voided = [r for r in self.records if r["status"] == "void"]
         return {
+            "void": len(voided),
             "entry": {
                 "decided": len(decided), "wins": len(wins), "losses": len(losses),
                 "win_rate": round(len(wins) / len(decided) * 100) if decided else None,
@@ -219,3 +280,40 @@ class TradeLevelTracker:
                 "enough": len(x_done) >= MIN_SAMPLES,
             },
         }
+
+
+def exit_base_rate(entries, stock_ids, start: str, end: str, factor=None,
+                   horizon: int = EXIT_HORIZON) -> dict | None:
+    """청산 신호의 비교 기준 — 같은 종목·같은 기간에서 **아무 날이나** 골랐을 때
+    horizon거래일 뒤 종가가 더 낮았던 비율.
+
+    신호의 '적중률'만 보면 하락장에서는 어떤 신호든 맞은 것처럼 보인다. 실측
+    (2026-10-19~11-10, 관심종목 평균 −18%): 청산 신호 적중 85%(34/40) = 이 기준 85%
+    (98/115) — 신호가 준 추가 정보는 0이었다. 등급 이력의 아침 스냅샷(두 시장 날짜가
+    같은 것)으로 계산하고, 그 사이 액면분할은 factor로 환산한다.
+    """
+    from app.engine.accuracy_audit import _nth_trading_day_after, _snapshots
+    from app.utils.market_calendar import stock_market
+    snaps = {s["date"]: s for s in _snapshots(entries)
+             if s.get("report_type") == "morning"}
+    n = hits = 0
+    for d in sorted(snaps):
+        if not (start <= d <= end):
+            continue
+        later = snaps.get(_nth_trading_day_after(d, horizon))
+        if later is None:
+            continue
+        a, b = snaps[d], later
+        unified = all((x.get("us_date") or x.get("data_date") or x["date"]) == x["date"] for x in (a, b))
+        for sid in stock_ids:
+            p0 = (a.get("closing_prices") or {}).get(sid)
+            p1 = (b.get("closing_prices") or {}).get(sid)
+            if not p0 or not p1 or (stock_market(sid) == "US" and not unified):
+                continue
+            if factor is not None:
+                p0 = p0 / factor(sid, a["date"], b["date"])
+            n += 1
+            hits += int(p1 < p0)
+    if not n:
+        return None
+    return {"n": n, "hits": hits, "rate": round(hits / n * 100)}

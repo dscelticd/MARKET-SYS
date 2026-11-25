@@ -1,8 +1,9 @@
 """
-정확도 점검 — 누적된 등급 이력 전체로 "등급·점수가 실제로 앞날을 맞혔는가"를 다시 잰다
+정확도 점검 — 누적된 등급 이력 전체로 "등급·점수가 실제로 앞날을 맞혔는가"를 잰다
 
-리포트에 싣는 기존 적중률(history_tracker.compute_accuracy_report)에는 구조적인
-한계가 있어, 이 모듈은 그것과 별개로 더 엄격한 기준으로 같은 이력을 재집계한다.
+리포트의 등급 적중률은 이 모듈의 결과를 그대로 싣는다(2026-11-25부터). 예전 방식
+(history_tracker.compute_accuracy_report, 삭제됨)에는 아래 한계가 있었다 — 같은
+데이터로 1거래일 적중률이 예전 방식 69%, 이 방식 47%였다.
 
   ① 허용오차 ±2%p — 강세 등급은 −2%까지 떨어져도 '적중', 약세 등급은 +2%까지
      올라도 '적중'이다. 며칠 사이 등락은 대부분 ±2% 안이라 어느 등급이든 적중으로
@@ -17,7 +18,17 @@
 
 스냅샷은 거래일별 **아침 브리핑**을 쓴다. 아침 스냅샷은 한국·미국이 같은 거래일
 종가로 맞춰져 있고(계약 C4), 저녁 스냅샷의 국내 종가는 2026-09-19~10-19 사이
-KIS 시간외 가격이 섞였을 수 있다(ea62a18). 아침이 없는 날만 저녁을 쓴다.
+KIS 시간외 가격이 섞였다(공식 종가와 69.5% 불일치, 2026-11-25 대조). 아침이 없는
+날만 저녁을 쓰되, 미국 종목은 두 시장 날짜가 같은 아침 스냅샷끼리만 비교한다 —
+한국만 쉰 날 다음 아침은 미국 가격이 하루 뒤 것이다.
+
+저장된 가격은 저장 당시 기준이라, 그 사이 액면분할이 있으면 분할 기록(splits.py)으로
+환산한다. 환산하지 않으면 SanDisk 8:1 분할(11/20)이 −89% 수익률로 집계된다.
+
+통계 해석 — 날마다 겹치는 구간으로 비교하므로 h거래일 결과의 표본들은 서로 독립이
+아니다. t값을 √h로 나눠 보정하고(adj_t), |adj_t| ≥ 2이고 표본 20 이상일 때만
+"의미 있다"고 판정한다. 판정 문장은 여기서 만들어 리포트에 그대로 싣는다 — 생성
+모델이 숫자를 보고 해석을 덧붙이지 않게 하기 위해서다.
 """
 from __future__ import annotations
 
@@ -26,12 +37,26 @@ from statistics import mean, pstdev
 
 from app.utils.market_calendar import is_trading_day, stock_market
 
-HORIZONS = (1, 5, 10)            # 거래일
+HORIZONS = (1, 5, 10, 20)        # 거래일
 BULLISH = ("추천", "안전")
 BEARISH = ("주의", "위험")
 GRADE_ORDER = ("추천", "안전", "보통", "주의", "위험")
 LEGACY_TOLERANCE = 2.0           # 기존 방식 비교용
 MIN_IC_STOCKS = 5
+MIN_SIGNIFICANT_N = 20
+SIGNIFICANT_T = 2.0
+
+
+def _is_unified(e: dict) -> bool:
+    us = e.get("us_date") or e.get("data_date")
+    return not us or us == e.get("date")
+
+
+def _rank(e: dict) -> int:
+    """같은 날짜의 스냅샷 중 무엇을 쓸지 — 두 시장이 맞춰진 아침 > 아침 > 저녁."""
+    if e.get("report_type") == "morning":
+        return 2 if _is_unified(e) else 1
+    return 0
 
 
 def _snapshots(entries) -> list[dict]:
@@ -43,7 +68,7 @@ def _snapshots(entries) -> list[dict]:
         if ((e.get("data_quality") or {}).get("price") or {}).get("mock"):
             continue   # Mock 가격은 무작위라 수익률 비교에 쓰면 결과를 오염시킨다
         cur = by_date.get(e["date"])
-        if cur is None or (cur.get("report_type") != "morning" and e.get("report_type") == "morning"):
+        if cur is None or _rank(e) > _rank(cur):
             by_date[e["date"]] = e
     return [by_date[d] for d in sorted(by_date)]
 
@@ -82,11 +107,16 @@ def _nth_trading_day_after(d: str, n: int) -> str:
     return cur.isoformat()
 
 
-def _pairs(snaps: list[dict], h: int):
+def _no_split(_sid: str, _after: str, _upto: str) -> float:
+    return 1.0
+
+
+def _pairs(snaps: list[dict], h: int, factor=_no_split):
     """(과거 스냅샷, 정확히 h거래일 뒤 스냅샷, {종목: (원수익률%, 초과수익률%)})
 
     목록에서 h칸 뒤가 아니라 달력상 h거래일 뒤의 스냅샷을 찾는다. 실행이 빠진
     날이 있으면 h칸 뒤가 몇 주 뒤일 수 있다(로컬 수동 실행 이력에서 흔하다).
+    factor(sid, a날짜, b날짜)로 그 사이 액면분할을 환산한다.
     """
     by_date = {s["date"]: s for s in snaps}
     for a in snaps:
@@ -94,8 +124,16 @@ def _pairs(snaps: list[dict], h: int):
         if b is None:
             continue
         pa, pb = a.get("closing_prices") or {}, b.get("closing_prices") or {}
-        raw = {sid: (pb[sid] / pa[sid] - 1) * 100
-               for sid in pa if pa.get(sid) and pb.get(sid) and pa[sid] > 0}
+        us_ok = (a.get("report_type") == "morning" and b.get("report_type") == "morning"
+                 and _is_unified(a) and _is_unified(b))
+        raw = {}
+        for sid in pa:
+            if not (pa.get(sid) and pb.get(sid) and pa[sid] > 0):
+                continue
+            if stock_market(sid) == "US" and not us_ok:
+                continue
+            start = pa[sid] / factor(sid, a["date"], b["date"])
+            raw[sid] = (pb[sid] / start - 1) * 100
         if not raw:
             continue
         by_mkt: dict[str, list[float]] = {}
@@ -105,7 +143,7 @@ def _pairs(snaps: list[dict], h: int):
         yield a, b, {sid: (r, r - avg[stock_market(sid)]) for sid, r in raw.items()}
 
 
-def audit(entries) -> dict:
+def audit(entries, factor=_no_split) -> dict:
     snaps = _snapshots(entries)
     out: dict = {
         "snapshots": len(snaps),
@@ -119,7 +157,7 @@ def audit(entries) -> dict:
         ics: list[float] = []
         factor_ics: dict[str, list[float]] = {}
         n_pairs = 0
-        for a, _b, rets in _pairs(snaps, h):
+        for a, _b, rets in _pairs(snaps, h, factor):
             n_pairs += 1
             grades = a.get("grades") or {}
             for sid, (raw, ex) in rets.items():
@@ -146,13 +184,18 @@ def audit(entries) -> dict:
                     if ic is not None:
                         factor_ics.setdefault(f, []).append(ic)
 
-        def _ic_stats(v: list[float]) -> dict | None:
+        def _ic_stats(v: list[float], horizon: int = h) -> dict | None:
             if not v:
                 return None
             sd = pstdev(v) if len(v) > 1 else 0.0
+            t = mean(v) / sd * len(v) ** 0.5 if sd else None
+            adj = t / horizon ** 0.5 if t is not None else None
             return {"mean": round(mean(v), 3), "n": len(v),
                     "positive_share": round(sum(1 for x in v if x > 0) / len(v) * 100),
-                    "t": round(mean(v) / sd * len(v) ** 0.5, 2) if sd else None}
+                    "t": round(t, 2) if t is not None else None,
+                    "adj_t": round(adj, 2) if adj is not None else None,
+                    "significant": bool(adj is not None and abs(adj) >= SIGNIFICANT_T
+                                        and len(v) >= MIN_SIGNIFICANT_N)}
 
         out["horizons"][h] = {
             "pairs": n_pairs,
@@ -167,6 +210,30 @@ def audit(entries) -> dict:
     return out
 
 
+def verdict(result: dict) -> str:
+    """점수가 이후 상대 수익률을 예측하는지에 대한 한 문장 판정."""
+    pos, neg, judged = [], [], []
+    for h, r in result.get("horizons", {}).items():
+        ic = r.get("score_ic")
+        if not ic or ic["n"] < MIN_SIGNIFICANT_N:
+            continue
+        judged.append(h)
+        if ic["significant"]:
+            (pos if ic["mean"] > 0 else neg).append(h)
+    if not judged:
+        return "아직 판정할 만큼 이력이 쌓이지 않았습니다."
+    if pos and not neg:
+        return (f"{'·'.join(map(str, pos))}거래일 기준으로 점수가 높은 종목이 이후 상대적으로 더 오른 "
+                "관계가 통계적으로 확인됩니다(과거 관측이며 앞으로도 그렇다는 보장은 아닙니다).")
+    if neg and not pos:
+        return (f"{'·'.join(map(str, neg))}거래일 기준으로 점수가 높은 종목이 이후 오히려 덜 오른 "
+                "역방향 관계가 관측됩니다. 등급을 앞날의 방향으로 해석하면 안 됩니다.")
+    if pos and neg:
+        return "기간에 따라 방향이 엇갈려 일관된 예측력이 확인되지 않습니다."
+    return (f"{'·'.join(map(str, judged))}거래일 모두 점수와 이후 상대 수익률의 관계가 0과 구분되지 "
+            "않습니다 — 등급·점수가 앞날을 예측한다는 근거는 없습니다.")
+
+
 def summary_lines(result: dict) -> list[str]:
     """실행 결과 주석용 요약 — 기간별 한 줄."""
     if result["snapshots"] < 2:
@@ -176,11 +243,12 @@ def summary_lines(result: dict) -> list[str]:
         if not r["pairs"]:
             continue
         ic = r["score_ic"]
-        ic_txt = (f"점수 IC {ic['mean']:+.3f}(양수 {ic['positive_share']}%, t={ic['t']}, n={ic['n']})"
+        ic_txt = (f"점수 IC {ic['mean']:+.3f}(양수 {ic['positive_share']}%, 보정 t={ic['adj_t']}, n={ic['n']})"
                   if ic else "점수 IC 표본 부족")
         grades = " ".join(f"{g}{v['avg_excess']:+.2f}%(n{v['n']})" for g, v in r["by_grade"].items())
         hit = (f"강·약세 등급 적중 {r['strict_hit_rate']}% (기존 ±2%p 기준 {r['legacy_hit_rate']}%, n={r['directional_n']})"
                if r["directional_n"] else "강·약세 등급 표본 없음")
         fic = " ".join(f"{f}{v['mean']:+.2f}" for f, v in r["factor_ic"].items() if v)
         lines.append(f"{h}일 뒤 | {ic_txt} | 등급별 초과수익 {grades} | {hit} | 요인 IC {fic}")
+    lines.append("판정 — " + verdict(result))
     return lines

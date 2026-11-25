@@ -69,17 +69,23 @@ class DataValidator:
         macro_data: dict,
         stocks: list[dict],
         disclosure_connected: bool = False,
+        target: dict | None = None,
+        missing_stocks: dict | None = None,
     ) -> dict[str, Any]:
-        price_q  = self._check_price(price_data, stocks)
+        """target(대상 거래일)과 missing_stocks(분석에서 뺀 결측 종목)를 주면 지연·결측·
+        등락률 불연속·지수 날짜 불일치를 신뢰도에 반영한다. 파이프라인은 결측 종목을
+        먼저 빼고 이 함수를 부르므로, 따로 넘기지 않으면 결측이 보이지 않는다."""
+        price_q  = self._check_price(price_data, stocks, target, missing_stocks)
         news_q   = self._check_news(news_data)
         macro_q  = self._check_macro(macro_data)
         disc_q   = {"connected": disclosure_connected}
+        index_off = self._index_misaligned(macro_data, target)
 
         critical_data_error, critical_reasons, warning_reasons = (
             self._validate_kospi_consistency(price_data, macro_data)
         )
 
-        confidence, status, issues = self._overall(price_q, news_q, macro_q)
+        confidence, status, issues = self._overall(price_q, news_q, macro_q, index_off)
         issues = issues + warning_reasons + critical_reasons
 
         if critical_data_error:
@@ -246,18 +252,34 @@ class DataValidator:
     # ── 항목별 검증 ──────────────────────────────────────────────────────────
 
     @staticmethod
-    def _check_price(price_data: dict[str, dict], stocks: list[dict]) -> dict:
+    def _check_price(
+        price_data: dict[str, dict], stocks: list[dict],
+        target: dict | None = None, missing_stocks: dict | None = None,
+    ) -> dict:
         stock_ids = [s["id"] for s in stocks]
-        total     = len(stock_ids)
-        real      = sum(1 for sid in stock_ids
-                        if not price_data.get(sid, {}).get("_mock", True))
-        mock      = sum(1 for sid in stock_ids
-                        if price_data.get(sid, {}).get("_mock", True))
         missing   = [sid for sid in stock_ids if sid not in price_data]
+        missing  += [sid for sid in (missing_stocks or {}) if sid not in missing]
+        total     = len(stock_ids) + sum(1 for sid in (missing_stocks or {}) if sid not in stock_ids)
+        real      = sum(1 for sid in stock_ids
+                        if sid in price_data and not price_data[sid].get("_mock", True))
+        mock      = sum(1 for sid in stock_ids
+                        if sid in price_data and price_data[sid].get("_mock", True))
+
+        stale: list[str] = []
+        gaps: list[str] = []
+        if target:
+            for sid, p in price_data.items():
+                want = target.get("kr_date" if sid.startswith("KR") else "us_date")
+                if want and p.get("data_date") and p["data_date"] != want:
+                    stale.append(sid)
+                if (p.get("prev_gap_sessions") or 0) > 0:
+                    gaps.append(sid)
 
         if missing:
             st = "오류"
         elif mock > 0 and real > 0:
+            st = "부분"
+        elif stale or gaps:
             st = "부분"
         elif real == total:
             st = "정상"
@@ -269,14 +291,33 @@ class DataValidator:
             "real":    real,
             "mock":    mock,
             "missing": missing,
+            "stale":   stale,
+            "gaps":    gaps,
             "status":  st,
         }
 
     @staticmethod
+    def _index_misaligned(macro_data: dict, target: dict | None) -> list[str]:
+        """대상 거래일과 다른 날짜의 지수 — 예: 저녁 결산인데 KOSPI가 전날 값."""
+        if not target:
+            return []
+        out = []
+        for name, d in (((macro_data or {}).get("data_dates")) or {}).items():
+            mk = index_market(name)
+            want = target.get("kr_date" if mk == "KR" else "us_date") if mk else None
+            if want and d and d != want:
+                out.append(f"{name}({d})")
+        return out
+
+    @staticmethod
     def _check_news(news_data: dict[str, list]) -> dict:
+        # 모의 기사는 뉴스로 치지 않는다 — 예전엔 예시 기사로 채워진 날에도 '정상'이었다
         all_headlines: list[str] = []
+        covered = 0
         for items in news_data.values():
-            for item in items:
+            real = [item for item in (items or []) if not item.get("_mock")]
+            covered += bool(real)
+            for item in real:
                 all_headlines.append(item.get("headline", ""))
 
         total    = len(all_headlines)
@@ -284,9 +325,12 @@ class DataValidator:
         dup_removed = total - unique
         per_stock = round(total / len(news_data), 1) if news_data else 0
 
+        # 중복 제거는 정상 동작이다 — 관심종목끼리 같은 기사를 공유한다(삼성전자·
+        # SK하이닉스 등). 예전엔 30%를 넘으면 '부분'으로 감점해, 실행 116회 중 85회가
+        # 이 이유 하나로 신뢰도 91점에 고정됐다. 종목당 고유 기사가 1건도 안 될 때만 낮춘다.
         if total == 0:
             st = "오류"
-        elif dup_removed > total * 0.3:
+        elif news_data and unique < len(news_data):
             st = "부분"
         else:
             st = "정상"
@@ -296,6 +340,7 @@ class DataValidator:
             "unique":             unique,
             "duplicates_removed": dup_removed,
             "avg_per_stock":      per_stock,
+            "covered_stocks":     covered,
             "status":             st,
         }
 
@@ -321,38 +366,55 @@ class DataValidator:
 
     @staticmethod
     def _overall(
-        price_q: dict, news_q: dict, macro_q: dict
+        price_q: dict, news_q: dict, macro_q: dict, index_off: list[str] | None = None,
     ) -> tuple[float, str, list[str]]:
+        """종합 신뢰도 — 100점에서 실제 품질 문제만큼 뺀다.
+
+        예전 공식(가격 50%·뉴스 30%·거시 20% 가중 평균)은 뉴스 중복 제거라는 정상
+        동작에 감점했고, 정작 지연·결측·등락률 불연속·지수 날짜 불일치는 반영하지
+        않았다. 2026-11-25 점검에서 실행 116회 모두 91점 또는 100점이었다 — 아무것도
+        구분하지 못하는 점수였다. 감점 폭은 문제의 비중(전체 종목 중 몇 종목인가)에
+        비례한다. 등급 캡(apply_grade_cap)은 이 점수가 70·50·30 아래일 때 작동한다.
+        """
         issues: list[str] = []
-
-        # 가격 점수 (가중치 50%)
         total = price_q["total"] or 1
-        price_score = (price_q["real"] / total) * 100
-        if price_q["mock"] > 0:
-            # Mock 데이터가 섞여 있으면 60점을 상한으로 제한 — 실데이터 대비 불확실성 반영
-            # (버그 수정: 이전에는 max()를 사용해 mock 비중이 높을수록 오히려 점수가
-            #  올라가는 역전이 있었음 — 예: 전종목 mock이어도 60점으로 산정되어
-            #  종합 신뢰도가 "높음"으로 잘못 표시됨)
-            price_score = min(price_score, 60.0)
-        if price_q["missing"]:
-            issues.append(f"가격 데이터 누락 종목: {', '.join(price_q['missing'])}")
+        score = 100.0
 
-        # 뉴스 점수 (가중치 30%)
-        news_score = 100.0
+        missing = price_q.get("missing") or []
+        stale = price_q.get("stale") or []
+        gaps = price_q.get("gaps") or []
+        if missing:
+            score -= len(missing) / total * 60
+            issues.append(f"대상 거래일 데이터 결측 {len(missing)}종목: {', '.join(missing)}")
+        if stale:
+            score -= len(stale) / total * 40
+            issues.append(f"대상 거래일보다 이전 종가 사용(지연) {len(stale)}종목: {', '.join(stale)}")
+        if gaps:
+            score -= len(gaps) / total * 30
+            issues.append(f"직전 거래일 봉 공백으로 등락률이 며칠치 누적된 종목 {len(gaps)}개: {', '.join(gaps)}")
+        if price_q.get("mock", 0) > 0:
+            # Mock 비중만큼 감점하고, 절반 이상이면 60점을 상한으로 둔다 — 한두 종목이
+            # 섞인 정도로 전체를 '낮음'으로 떨어뜨리지 않는다
+            # (예전 버그: max()를 써서 mock 비중이 높을수록 점수가 오르는 역전이 있었음)
+            share = price_q["mock"] / total
+            score -= share * 50
+            if share >= 0.5:
+                score = min(score, 60.0)
+            issues.append(f"Mock 가격 데이터 {price_q['mock']}종목")
+        if index_off:
+            score -= min(len(index_off) * 5, 20)
+            issues.append(f"대상 거래일과 날짜가 다른 지수: {', '.join(index_off)}")
         if news_q["total"] == 0:
-            news_score = 20.0
+            score -= 15
             issues.append("뉴스 데이터 없음")
-        elif news_q["duplicates_removed"] > news_q["total"] * 0.3:
-            news_score = 70.0
-            issues.append(f"뉴스 중복 {news_q['duplicates_removed']}건 제거됨")
-
-        # 거시 점수 (가중치 20%)
-        macro_score = 100.0 if not macro_q["is_mock"] else 65.0
+        elif news_q.get("status") == "부분":
+            score -= 5
+            issues.append(f"뉴스가 적음 — 고유 기사 {news_q.get('unique', 0)}건")
         if macro_q["is_mock"]:
+            score -= 20
             issues.append("거시 지표 Mock 데이터 사용 중")
 
-        confidence = price_score * 0.50 + news_score * 0.30 + macro_score * 0.20
-
+        confidence = max(0.0, min(100.0, score))
         if confidence >= 85:
             status = "높음"
         elif confidence >= 65:
@@ -416,6 +478,8 @@ class DataValidator:
         price_detail = (
             f"실제 {p['real']}개 / Mock {p['mock']}개"
             + (f" / 누락 {len(p['missing'])}개" if p["missing"] else "")
+            + (f" / 지연 {len(p.get('stale') or [])}개" if p.get("stale") else "")
+            + (f" / 등락률 불연속 {len(p.get('gaps') or [])}개" if p.get("gaps") else "")
         )
         news_detail = (
             f"총 {n['total']}건"
@@ -455,7 +519,7 @@ class DataValidator:
         if status_label == "낮음":
             lines.append("> ⚠️ 데이터 신뢰도가 낮습니다. 등급 변화를 신중하게 해석하세요.")
         elif status_label == "보통":
-            lines.append("> 💡 일부 지표가 Mock 데이터입니다. 실제 데이터 전환 시 등급이 달라질 수 있습니다.")
+            lines.append("> 💡 일부 데이터에 지연·결측·불일치가 있습니다. 위 주의 사항에 해당하는 종목은 해석에 유의하세요.")
 
         lines.append("")
         return "\n".join(lines)

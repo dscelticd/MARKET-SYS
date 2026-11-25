@@ -2,11 +2,18 @@
 News Collector — 종목/테마 관련 뉴스 수집
 
 실제 데이터 우선순위 (USE_MOCK_DATA=false):
-  1. 한국 종목 (KR_*)  → 네이버 뉴스 API (NAVER_CLIENT_ID 설정 시)
-  2. 미국·해외 종목     → yfinance 뉴스
-  3. 수집 실패 시       → Mock 데이터 폴백 (_mock=True 표시)
+  1. 한국 종목 (KR_*)  → 네이버 뉴스 API (NAVER_CLIENT_ID 설정 시) → 구글 뉴스 RSS(한국어)
+  2. 미국·해외 종목     → yfinance 뉴스 → 구글 뉴스 RSS(영어)
+  3. 모두 실패하면     → **빈 목록**. 지어낸 기사로 메우지 않는다.
 
 USE_MOCK_DATA=true → 전체 Mock 데이터 사용 (개발/테스트용)
+
+왜 Mock 폴백을 없앴나 (2026-11-25 점검): 실제 데이터 모드에서도 수집에 실패하면
+_NEWS_POOL의 예시 기사로 메웠다. 클라우드에서는 한국 종목이 9월부터 100%,
+미국 종목이 10월부터 98~100% 이 예시 기사였고(yfinance 뉴스 기능 중단, 클라우드에
+네이버 키 없음), 리포트는 "NVIDIA 가이던스 상회, Blackwell B300 출하 가속…이
+뉴스에서 확인된다"처럼 지어낸 기사를 사실로 서술했다. 빈 데이터를 지어낸 값으로
+메우지 않는다는 원칙(계약 C3)을 뉴스에도 적용한다.
 """
 from __future__ import annotations
 
@@ -18,12 +25,17 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from html import unescape
 from urllib.parse import quote as _url_quote
+import xml.etree.ElementTree as _ET
+from email.utils import parsedate_to_datetime
+
 from app.utils.market_calendar import now_kst
 
 logger = logging.getLogger(__name__)
+
+_RECENT_DAYS = 3   # 이보다 오래된 기사는 '최근 뉴스'로 쓰지 않는다
 
 # ── 감성 분석 키워드 ─────────────────────────────────────────────────────────
 _POSITIVE_KW = [
@@ -174,7 +186,34 @@ _NAVER_QUERY: dict[str, str] = {
     "KR_015760": "한국전력 주가",
     "KR_066570": "LG전자 주가",
     "KR_138080": "오이솔루션 주가",
+    "KR_042700": "한미반도체 주가",
+    # 지주사 '피에스케이홀딩스'(031980)와 이름이 겹쳐 제외어를 붙인다(2026-11-25 실측 혼입)
+    "KR_319660": "피에스케이 -홀딩스 주가",
 }
+
+def _symbol_and_name(sid: str) -> tuple[str | None, str]:
+    """수집 심볼과 이름 — 가격 수집기와 같은 목록(YFINANCE_MAP)에서 가져온다.
+    따로 두면 종목을 추가할 때 뉴스 쪽만 빠진다(한미반도체·피에스케이가 그랬다)."""
+    try:
+        from app.collectors.price_collector import YFINANCE_MAP
+        if sid in YFINANCE_MAP:
+            sym, name, _cur = YFINANCE_MAP[sid]
+            return sym, name
+    except Exception:
+        pass
+    return _YFINANCE_TICKER.get(sid), sid
+
+
+def _kr_query(sid: str) -> str:
+    return _NAVER_QUERY.get(sid) or f"{_symbol_and_name(sid)[1]} 주가"
+
+
+def _intl_query(sid: str) -> str:
+    sym, name = _symbol_and_name(sid)
+    if "ETF" in name.upper() or sym in ("QQQ", "VOO", "QTUM", "SCHD"):
+        return f"{sym} ETF"
+    return f"{name} stock"
+
 
 # ── Mock 뉴스 풀 (개발/테스트용 — 실제 기사 아님) ───────────────────────────
 _NEWS_POOL: list[dict] = [
@@ -318,6 +357,8 @@ class NewsCollector:
         self.use_mock     = os.getenv("USE_MOCK_DATA", "true").lower() == "true"
         self.naver_id     = os.getenv("NAVER_CLIENT_ID", "").strip()
         self.naver_secret = os.getenv("NAVER_CLIENT_SECRET", "").strip()
+        # 종목별 실제 출처(naver / yfinance / google_news / none) — 실행 품질 기록용
+        self.sources: dict[str, str] = {}
 
     def _naver_available(self) -> bool:
         return bool(self.naver_id and self.naver_secret)
@@ -343,36 +384,104 @@ class NewsCollector:
         self, stock_ids: list[str], max_per_stock: int
     ) -> dict[str, list[dict]]:
         """
-        KR_* → 네이버 뉴스 API (설정 시) 우선, 미설정 시 Mock 폴백
-        US/TW/NL → yfinance, 실패 시 Mock 폴백
+        KR_* → 네이버 뉴스 API(설정 시) → 구글 뉴스 RSS(한국어)
+        US/TW → yfinance → 구글 뉴스 RSS(영어)
+        모두 실패하면 빈 목록 — 지어낸 기사로 메우지 않는다.
         """
         result: dict[str, list[dict]] = {}
         kr_stocks  = [s for s in stock_ids if s.startswith("KR_")]
         int_stocks = [s for s in stock_ids if not s.startswith("KR_")]
 
-        # ── 한국 종목: 네이버 API ──
-        if kr_stocks:
-            if self._naver_available():
-                for sid in kr_stocks:
-                    items = self._collect_naver_single(sid, max_per_stock)
-                    result[sid] = items if items else self._mock_for_stock(sid, max_per_stock)
-            else:
-                logger.info("NAVER_CLIENT_ID 미설정 → 한국 종목 Mock 폴백")
-                for sid in kr_stocks:
-                    result[sid] = self._mock_for_stock(sid, max_per_stock)
+        # ── 한국 종목: 네이버 API → 구글 뉴스 ──
+        if kr_stocks and not self._naver_available():
+            logger.warning("NAVER_CLIENT_ID 미설정 → 한국 종목은 구글 뉴스 RSS로 수집")
+        for sid in kr_stocks:
+            items = self._collect_naver_single(sid, max_per_stock) if self._naver_available() else []
+            source = "naver"
+            if not items:
+                items = self._collect_google_news(sid, _kr_query(sid), max_per_stock, lang="ko")
+                source = "google_news"
+            result[sid] = items
+            self.sources[sid] = source if items else "none"
 
-        # ── 해외 종목: yfinance ──
+        # ── 해외 종목: yfinance → 구글 뉴스 ──
         if int_stocks:
             yf_result = self._collect_yfinance(int_stocks, max_per_stock)
-            result.update(yf_result)
+            for sid in int_stocks:
+                items = yf_result.get(sid) or []
+                source = "yfinance"
+                if not items:
+                    items = self._collect_google_news(sid, _intl_query(sid), max_per_stock, lang="en")
+                    source = "google_news"
+                result[sid] = items
+                self.sources[sid] = source if items else "none"
 
+        missing = [sid for sid, src in self.sources.items() if src == "none"]
+        if missing:
+            logger.warning("[NEWS_EMPTY] 실제 뉴스를 찾지 못한 종목 %d개(빈 목록 유지): %s",
+                           len(missing), ", ".join(missing))
         return result
+
+    # ── 구글 뉴스 RSS ─────────────────────────────────────────────────────────
+
+    def _collect_google_news(self, stock_id: str, query: str, max_items: int,
+                             lang: str = "en") -> list[dict]:
+        """구글 뉴스 RSS 검색 — 키가 필요 없는 공개 피드. 최근 _RECENT_DAYS일 기사만.
+
+        제목 끝의 " - 언론사"는 출처로 옮긴다. 실패하면 빈 목록(지어내지 않는다).
+        """
+        if not query:
+            return []
+        loc = {"ko": ("ko", "KR", "KR:ko"), "en": ("en-US", "US", "US:en")}[lang]
+        url = "https://news.google.com/rss/search?" + urllib.parse.urlencode(
+            {"q": f"{query} when:{_RECENT_DAYS}d", "hl": loc[0], "gl": loc[1], "ceid": loc[2]})
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (market-flow)"})
+        try:
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                root = _ET.fromstring(resp.read())
+        except Exception as e:
+            logger.warning("구글 뉴스 RSS 실패 (%s): %s", stock_id, e)
+            return []
+
+        cutoff = datetime.now(timezone.utc) - timedelta(days=_RECENT_DAYS)
+        items: list[dict] = []
+        seen: set[str] = set()
+        for it in root.findall("./channel/item"):
+            title = unescape((it.findtext("title") or "").strip())
+            src_el = it.find("source")
+            source = (src_el.text or "").strip() if src_el is not None and src_el.text else ""
+            if source and title.endswith(f" - {source}"):
+                title = title[: -len(f" - {source}")].strip()
+            if not title or title in seen:
+                continue
+            try:
+                pub = parsedate_to_datetime(it.findtext("pubDate") or "")
+            except (TypeError, ValueError):
+                continue
+            if pub < cutoff:
+                continue
+            seen.add(title)
+            items.append({
+                "headline":     title,
+                "sentiment":    _keyword_sentiment(title),
+                "relevance":    0.8,
+                "source":       source or "Google News",
+                "published_at": pub.isoformat(),
+                "link":         (it.findtext("link") or "").strip(),
+                "themes":       [],
+                "_mock":        False,
+                **classify_news_item(title),
+            })
+            if len(items) >= max_items:
+                break
+        logger.info("구글 뉴스 수집 (%s): %d건", stock_id, len(items))
+        return items
 
     # ── 네이버 뉴스 API ───────────────────────────────────────────────────────
 
     def _collect_naver_single(self, stock_id: str, max_items: int) -> list[dict]:
         """네이버 검색 API로 단일 종목 뉴스 수집"""
-        query = _NAVER_QUERY.get(stock_id, "")
+        query = _kr_query(stock_id)
         if not query:
             return []
 
@@ -425,12 +534,12 @@ class NewsCollector:
         try:
             import yfinance as yf
         except ImportError:
-            logger.warning("yfinance 미설치 → Mock 폴백")
-            return self._collect_mock(stock_ids, max_per_stock)
+            logger.warning("yfinance 미설치 → 다른 출처로 넘어감")
+            return {}
 
         result: dict[str, list[dict]] = {}
         for sid in stock_ids:
-            sym = _YFINANCE_TICKER.get(sid)
+            sym = _symbol_and_name(sid)[0]
             if not sym:
                 result[sid] = []
                 continue
@@ -480,10 +589,12 @@ class NewsCollector:
                         "_mock":        False,
                         **classify_news_item(headline),
                     })
-                result[sid] = items if items else self._mock_for_stock(sid, max_per_stock)
+                result[sid] = items
             except Exception as e:
-                logger.warning(f"yfinance 뉴스 실패 ({sid}): {e} → Mock 폴백")
-                result[sid] = self._mock_for_stock(sid, max_per_stock)
+                # 2026-10부터 yfinance 뉴스는 "YAHOO! FINANCE IS CURRENTLY DOWN!"으로 실패한다
+                # (가격 기능은 정상). 다음 출처(구글 뉴스)로 넘긴다.
+                logger.info("yfinance 뉴스 실패 (%s): %s → 다른 출처", sid, str(e)[:80])
+                result[sid] = []
 
         return result
 
@@ -524,7 +635,3 @@ class NewsCollector:
                         **classify_news_item(news["headline"]),
                     })
         return result
-
-    def _mock_for_stock(self, sid: str, max_per_stock: int) -> list[dict]:
-        """단일 종목 Mock 뉴스 반환"""
-        return self._collect_mock([sid], max_per_stock).get(sid, [])

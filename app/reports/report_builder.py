@@ -35,12 +35,16 @@ SYSTEM_PROMPT = """당신은 Market Flow Intelligence System의 시장 분석 �
 다음 표현은 절대 사용하지 마세요:
 무조건 매수, 반드시 매도, 확실한 수익, 손실 없음, 보장, 지금 사야 한다, 지금 팔아야 한다
 
-## 등급 기준
-- 추천: 현재 데이터 기준 우선 검토 가치가 높은 상태
-- 안전: 리스크 낮고 변동성 제한적인 상태
-- 보통: 긍정/부정 신호 혼재, 방향성 불명확
-- 주의: 단기 리스크, 부정 뉴스, 수급 약화 확인
-- 위험: 중대 리스크, 강한 하락 신호, 데이터 불확실성 큼
+## 등급 기준 (신호 종합 점수의 구간 — 앞날 예측이 아님)
+등급은 7개 축(가격 모멘텀·뉴스·거시·섹터·거래량·기술적·애널리스트) 신호를 가중 평균한
+종합 점수를 구간으로 나눈 것입니다. 누적 검증에서 등급·점수가 이후 상대 수익률을 예측한다는
+근거는 확인되지 않았으므로(아래 "등급·점수 예측력 점검" 참고), 등급을 "오를 종목·내릴 종목"으로
+설명하지 마세요. 등급은 지금 신호가 어느 쪽으로 모여 있는지를 요약할 뿐입니다.
+- 추천(75점 이상): 여러 축의 신호가 긍정 쪽으로 강하게 모인 상태
+- 안전(55~74점): 신호가 대체로 긍정 쪽인 상태 — 이름과 달리 손실 위험이나 변동성이 낮다는 뜻은 아닙니다
+- 보통(35~54점): 긍정·부정 신호가 섞여 방향이 뚜렷하지 않은 상태
+- 주의(15~34점): 부정 신호가 우세한 상태
+- 위험(15점 미만): 부정 신호가 강하게 모인 상태
 - 판단보류: 지수·ETF·대형주 데이터 간 모순이 감지되어 시장 판단 자체를 보류한 상태 (해당 종목이 위험하다는 뜻이 아니라, 데이터 신뢰도 문제로 판단을 유보한 것임을 명확히 설명하세요)
 
 ## 출력 형식
@@ -67,10 +71,10 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - 공시는 사실 확인 정보로만 서술하세요 — 공시 발생 자체를 호재/악재로 단정하지 말고, 내용을 있는 그대로 전달하세요.
 - 공시 데이터가 없으면("공시 데이터 없음") 이 항목은 언급하지 마세요.
 
-## 등급 적중률 서술 규칙
-- 적중률은 과거 등급이 사후적으로 방향성이 맞았는지에 대한 참고 통계이며, 미래 수익을 보장하지 않습니다 — 이 점을 명시하세요.
-- "누적 이력 부족"으로 나온 항목은 아직 통계를 낼 만큼 데이터가 쌓이지 않았다는 뜻이므로, 그 자체를 부정적 신호로 해석하지 마세요.
-- 샘플 수가 적으면(예: 5건 미만) 통계적 유의성이 낮다는 점을 함께 언급하세요.
+## 등급·점수 예측력 서술 규칙 (중요)
+- "등급·점수 예측력 점검" 블록의 **판정 문장을 리포트에 한 번 그대로 전하세요.** 수치를 좋은 쪽으로 해석하거나 덧붙이지 마세요. 과거 관측이며 미래 수익을 보장하지 않는다는 점도 함께 밝히세요.
+- 판정이 "근거 없음" 또는 "역방향"이면, 등급이나 등급 변화를 매매 판단의 근거처럼 쓰지 마세요. 어떤 신호가 강해지고 약해졌는지(신호 구성의 변화)만 설명하세요.
+- "아직 판정할 만큼 이력이 쌓이지 않았습니다"라고 나오면 그 사실만 짧게 알리세요.
 
 ## 포트폴리오 관점 서술 규칙
 - 테마/섹터 집중도와 당일 동조화율은 워치리스트 구성에 대한 참고 진단이며, "리밸런싱하라"·"비중을 줄여라" 같은 구체적 매매 지시를 하지 마세요.
@@ -107,11 +111,11 @@ _SHARED_NARRATION_RULES = """## 지지/저항·손익비 서술 규칙 (중요)
 - 수급 근거의 "(실측)"은 한국투자증권 공식 API 값, "(추정)"은 네이버 잔차 추정치입니다 — 처음 언급 시 구분하세요.
 - 근거가 하나도 없는 종목("없음")은 신호가 약한 것이지 안전하다는 뜻이 아닙니다.
 
-## 요인별 적중률 서술 규칙
-- 적중률이 제시된 축은 "이 신호는 과거 N일 기준 X% 적중"처럼 근거의 신뢰도를 함께 밝히는 데 쓰세요. 방향성 근거를 인용할 때 이 수치가 있으면 훨씬 강한 서술이 됩니다.
-- **"표본 부족(누적 중)"으로 표시된 축의 적중률은 언급하지 마세요.** 표본이 적은 적중률은 근거가 아니라 착시입니다.
-- "통계로 제시할 만큼 표본이 쌓인 축이 없습니다"라고 나오면, 아직 누적 중이라는 사실만 짧게 알리고 넘어가세요. 없는 통계를 만들어내지 마세요.
-- 적중률이 높다고 그 신호가 미래에도 맞는다는 뜻은 아닙니다 — 과거 관측일 뿐임을 톤에 반영하세요.
+## 요인별 점검 서술 규칙
+- ★로 표시된 요인만 "과거 N거래일 관측상 ~ 경향이 있었다"처럼 근거의 신뢰도를 밝히는 데 쓸 수 있습니다.
+- **★가 없는 요인의 수치는 인용하지 마세요.** 0과 구분되지 않는 값이라 근거가 아니라 착시입니다.
+- ★가 하나도 없으면 "아직 통계적으로 의미 있는 요인이 없다"는 사실만 짧게 알리세요. 없는 통계를 만들어내지 마세요.
+- 과거 관측일 뿐 앞으로도 그렇다는 뜻이 아님을 톤에 반영하세요.
 
 ## 지수 대체 표기 서술 규칙
 - "※SPY ETF 기준 대체" 같은 표기가 붙은 지수는 **데이터 제공처의 지수 피드가 거래일을 누락해 추종 ETF 값으로 대체**한 것입니다. 이때 표시된 수치는 지수 레벨이 아니라 ETF 가격이므로, "S&P500이 650이다"처럼 지수 레벨로 서술하지 마세요.
@@ -469,29 +473,38 @@ def _format_disclosure_block(disclosure_data: dict[str, list[dict]] | None) -> s
     return "\n".join(lines)
 
 
-def _format_accuracy_block(accuracy_report: dict[int, dict] | None) -> str:
-    """등급 적중률 자기검증 블록 — N일 전 등급(추천/안전 ↔ 주의/위험)이 오늘 가격
-    기준으로 방향성이 맞았는지 집계한 결과. "보통"·"판단보류"는 집계 대상 아님.
+def _format_accuracy_block(audit_result: dict | None) -> str:
+    """등급·점수 예측력 점검 블록 — accuracy_audit.audit() 결과를 그대로 싣는다.
+
+    같은 시장 관심종목 평균 대비 초과수익, 허용오차 없음, 누적 이력의 모든 거래일 쌍.
+    판정 문장은 코드가 만든다(verdict) — 생성 모델이 숫자에 해석을 덧붙이지 않게.
+    예전 블록(±2%p 허용, 절대수익, 스냅샷 하나)은 같은 데이터로 69%를 보였지만
+    엄격 기준으로는 47%였다(2026-11-25 점검).
     """
-    if not accuracy_report:
-        return "(등급 적중률 데이터 없음)"
+    from app.engine.accuracy_audit import verdict
 
-    lines = []
-    for days in sorted(accuracy_report.keys()):
-        stats = accuracy_report[days]
-        if not stats or stats.get("sample_count", 0) == 0:
-            lines.append(f"  {days}일 전 기준: 누적 이력 부족(데이터 쌓이는 중)")
+    if not audit_result or not audit_result.get("horizons"):
+        return "(등급 예측력 점검 데이터 없음 — 이력이 쌓이는 중)"
+    lines = [
+        f"  기준: 등급을 매긴 날로부터 N거래일 뒤, 같은 시장 관심종목 평균 대비 초과수익"
+        f"(허용오차 없음). 누적 {audit_result.get('snapshots')}거래일"
+        f"({audit_result.get('first')}~{audit_result.get('last')})"
+    ]
+    for h, r in sorted(audit_result["horizons"].items(), key=lambda x: int(x[0])):
+        if not r.get("pairs"):
             continue
-        parts = [f"{days}일 전 기준 전체 적중률 {stats['overall_hit_rate']}%",
-                 f"샘플 {stats['sample_count']}건(기준일 {stats['reference_date']})"]
-        grade_parts = [
-            f"{grade} {g['hit']}/{g['count']}건({g['hit_rate']}%, 평균수익률{g['avg_return_pct']:+.1f}%)"
-            for grade, g in stats.get("grade_stats", {}).items()
-        ]
-        lines.append(f"  {' | '.join(parts)}")
-        if grade_parts:
-            lines.append(f"    {' | '.join(grade_parts)}")
-
+        ic = r.get("score_ic")
+        if ic:
+            mark = "통계적으로 의미 있음" if ic.get("significant") else "0과 구분되지 않음"
+            ic_txt = f"점수–수익률 순위상관 {ic['mean']:+.2f}({mark})"
+        else:
+            ic_txt = "순위상관 표본 부족"
+        hit_txt = (f"강세·약세 등급 적중 {r['strict_hit_rate']}%({r['directional_n']}건)"
+                   if r.get("directional_n") else "강세·약세 등급 표본 없음")
+        grade_txt = ", ".join(f"'{g}' 평균 {v['avg_excess']:+.2f}%({v['n']}건)"
+                              for g, v in r.get("by_grade", {}).items())
+        lines.append(f"  {h}거래일 뒤: {ic_txt} · {hit_txt} · {grade_txt}")
+    lines.append(f"  판정: {verdict(audit_result)}")
     return "\n".join(lines)
 
 
@@ -571,6 +584,15 @@ def _format_news_block(
     """
     if not news_data:
         return "(뉴스 데이터 없음)"
+
+    # 실제 데이터 모드에서는 모의 기사를 절대 싣지 않는다 — 수집기가 걸러도 한 번 더.
+    # 2026-10~11 클라우드 리포트가 수집기의 예시 기사("NVIDIA 가이던스 상회" 등)를
+    # "뉴스에서 확인된다"고 사실처럼 서술했다.
+    if os.getenv("USE_MOCK_DATA", "true").lower() != "true":
+        news_data = {sid: [n for n in (items or []) if not n.get("_mock")]
+                     for sid, items in news_data.items()}
+        if not any(news_data.values()):
+            return "(뉴스 데이터 없음)"
 
     from app.collectors.news_collector import detect_macro_event
 
@@ -662,34 +684,34 @@ _FACTOR_LABEL_KR = {
 }
 
 
-def _format_factor_accuracy_block(factor_accuracy: dict | None) -> str:
-    """요인별 신호가 과거에 실제로 방향성을 맞혔는지 보여주는 블록.
+def _format_factor_accuracy_block(audit_result: dict | None) -> str:
+    """요인별 점검 — 각 신호 축의 점수 순위가 이후 초과수익 순위와 얼마나 맞았는지(IC).
 
-    "수급이 하락을 가리킨다"보다 "수급이 하락을 가리키는데, 이 신호는 과거 68%
-    적중했다"가 훨씬 강한 근거다. 다만 표본이 얇을 때 수치를 제시하면 착시가 되므로,
-    충분한 축만 통계로 보여주고 나머지는 누적 중임을 명시한다.
+    1·5거래일 결과만 싣는다. 더 긴 기간은 날마다 겹치는 구간이라 독립 표본이 적다.
+    ★는 기간 중첩을 보정한 t값이 2 이상이고 표본이 20 이상일 때만 붙는다.
     """
-    if not factor_accuracy or not factor_accuracy.get("factors"):
-        return "(요인별 적중률 데이터 없음 — 요인별 점수 누적을 막 시작해 통계 산출 전)"
-
-    days = factor_accuracy.get("lookback_days")
-    ref = factor_accuracy.get("reference_date")
-    ready = [(k, v) for k, v in factor_accuracy["factors"].items() if v.get("sufficient")]
-    pending = [k for k, v in factor_accuracy["factors"].items() if not v.get("sufficient")]
-
-    lines = [f"  기준: {days}일 전({ref}) 신호 vs 현재 가격"]
-    if ready:
-        for name, v in sorted(ready, key=lambda x: -x[1]["hit_rate"]):
-            label = _FACTOR_LABEL_KR.get(name, name)
-            lines.append(
-                f"    {label}: 적중률 {v['hit_rate']}% ({v['hit']}/{v['count']}건, "
-                f"평균수익률 {v['avg_return_pct']:+.2f}%)"
-            )
-    else:
-        lines.append("    아직 통계로 제시할 만큼 표본이 쌓인 축이 없습니다.")
-    if pending:
-        labels = ", ".join(_FACTOR_LABEL_KR.get(k, k) for k in pending)
-        lines.append(f"    표본 부족(누적 중): {labels}")
+    if not audit_result or not audit_result.get("horizons"):
+        return "(요인별 점검 데이터 없음 — 이력이 쌓이는 중)"
+    hz = {int(k): v for k, v in audit_result["horizons"].items()}
+    factors = sorted({f for h in (1, 5) for f in (hz.get(h, {}).get("factor_ic") or {})})
+    if not factors:
+        return "(요인별 점검 데이터 없음 — 요인별 점수가 쌓이는 중)"
+    lines = []
+    any_sig = False
+    for f in factors:
+        parts = []
+        for h in (1, 5):
+            v = (hz.get(h, {}).get("factor_ic") or {}).get(f)
+            if not v:
+                continue
+            star = "★" if v.get("significant") else ""
+            any_sig = any_sig or bool(star)
+            parts.append(f"{h}거래일 {v['mean']:+.2f}{star}")
+        if parts:
+            lines.append(f"  {_FACTOR_LABEL_KR.get(f, f)}: " + " · ".join(parts))
+    lines.append("  ★ = 통계적으로 의미 있음(기간 중첩 보정 t ≥ 2, 표본 20 이상). 표시 없는 값은 0과 구분되지 않음.")
+    if not any_sig:
+        lines.append("  현재 통계적으로 의미 있는 요인은 없습니다.")
     return "\n".join(lines)
 
 
@@ -744,8 +766,13 @@ def _format_stale_block(price_data: dict[str, dict] | None, target: dict) -> str
         want = by_market.get(stock_market(sid))
         if want and p["data_date"] != want:
             stale.append((p.get("name", sid), p.get("ticker", ""), p["data_date"], want))
-    if not stale:
+    gaps = [(p.get("name", sid), p.get("prev_data_date"), p.get("data_date"),
+             p.get("prev_gap_sessions"), p.get("change_pct"))
+            for sid, p in price_data.items() if (p.get("prev_gap_sessions") or 0) > 0]
+    if not stale and not gaps:
         return ""
+    if not stale:
+        return _format_gap_lines(gaps)
     lines = [
         "## 데이터 지연 종목 (대상일보다 이전 확정 종가 사용)",
         "",
@@ -757,6 +784,24 @@ def _format_stale_block(price_data: dict[str, dict] | None, target: dict) -> str
     ]
     for name, ticker, actual, want in stale:
         lines.append(f"- {name}({ticker}) — 실제 데이터 {actual} 기준 (대상 세션 {want})")
+    if gaps:
+        lines += ["", _format_gap_lines(gaps)]
+    return "\n".join(lines)
+
+
+def _format_gap_lines(gaps: list[tuple]) -> str:
+    """직전 거래일 봉이 비어 등락률이 며칠치 누적된 종목. 실측(SanDisk 8:1 분할 직후):
+    11/23 실제 +10.69%가 −7.08%로 기록돼 '하루 등락'으로 서술됐다."""
+    lines = [
+        "## 등락률 불연속 종목 (며칠치 누적 등락률)",
+        "",
+        "아래 종목은 직전 거래일 일봉이 비어 있어, 표시된 등락률이 하루가 아니라 며칠치",
+        "누적입니다. **이 등락률을 '오늘 하루' 움직임으로 서술하지 마세요.** 기간을 함께 밝히세요.",
+        "",
+    ]
+    for name, prev_d, cur_d, n, chg in gaps:
+        chg_txt = f"{chg:+.2f}%" if isinstance(chg, (int, float)) else "?"
+        lines.append(f"- {name} — {chg_txt}는 {prev_d} → {cur_d} 누적({n + 1}거래일)")
     return "\n".join(lines)
 
 
@@ -982,9 +1027,11 @@ def _format_investor_flow_block(price_data: dict[str, dict]) -> str:
     KRX가 개인을 별도 집계하지 않아 외국인·기관 합산의 잔차로 추정한 값이다.
     """
     lines = []
+    real_mode = os.getenv("USE_MOCK_DATA", "true").lower() != "true"
     for sid, p in price_data.items():
         flow = p.get("investor_flow") or {}
-        if not flow:
+        # 수집에 실패한 수급, 실제 데이터 모드의 합성 수급은 싣지 않는다
+        if not flow or flow.get("_failed") or (real_mode and flow.get("_mock")):
             continue
 
         is_kis = flow.get("_source") == "kis"
@@ -1231,10 +1278,10 @@ class ReportBuilder:
 ## 포트폴리오 관점 (테마/섹터 집중도·당일 동조화 — 통계적 상관계수 아닌 근사 지표)
 {portfolio_block}
 
-## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
+## 등급·점수 예측력 점검 (누적 이력 · 시장 대비 초과수익 기준)
 {accuracy_block}
 
-## 요인별 신호 적중률 (어떤 신호가 실제로 맞았는가 — 참고용)
+## 요인별 점검 (어떤 신호가 이후 수익률과 맞았는가)
 {factor_accuracy_block}
 
 ## 투자 판단 보조 등급 요약
@@ -1358,10 +1405,10 @@ class ReportBuilder:
 ## 최근 공시 (DART, 최근 7일, KR 종목만 — 참고용)
 {disclosure_block}
 
-## 등급 적중률 자기검증 (N일 전 등급 vs 오늘 가격 — 참고용)
+## 등급·점수 예측력 점검 (누적 이력 · 시장 대비 초과수익 기준)
 {accuracy_block}
 
-## 요인별 신호 적중률 (어떤 신호가 실제로 맞았는가 — 참고용)
+## 요인별 점검 (어떤 신호가 이후 수익률과 맞았는가)
 {factor_accuracy_block}
 
 ## 포트폴리오 관점 (테마/섹터 집중도·당일 동조화 — 통계적 상관계수 아닌 근사 지표)
@@ -1548,22 +1595,38 @@ def _won(v: float | None, cur: str | None) -> str:
 
 
 def _verification_line(summary: dict) -> str:
+    """참고 가격대의 실제 성적. 청산 신호는 같은 기간 '아무 날이나' 골랐을 때와
+    비교해야 의미가 있다 — 하락장에서는 어떤 신호든 맞은 것처럼 보인다(실측 2026-11:
+    청산 신호 85% = 기준 85%)."""
     e, x = summary.get("entry", {}), summary.get("exit", {})
-    if e.get("enough") or x.get("enough"):
-        parts = []
-        if e.get("decided"):
-            avg = f", 평균 {e['avg_r']:+.2f}R" if e.get("avg_r") is not None else ""
-            parts.append(f"진입 구간 {e['decided']}건 중 목표 선도달 {e['wins']}건"
-                         f"(승률 {e['win_rate']}%{avg})")
-        if x.get("decided"):
-            parts.append(f"청산 신호 {x['decided']}건 중 10거래일 뒤 하락 {x['hits']}건")
-        return "> **검증 결과** — " + " · ".join(parts)
-    decided = e.get("decided", 0)
-    detail = (f"진입 구간 결과 {decided}건(목표 선도달 {e.get('wins', 0)} · 손절 선도달 {e.get('losses', 0)})"
-              f" · 진행 중 {e.get('pending', 0) + e.get('active', 0)}건"
-              f" · 청산 신호 결과 {x.get('decided', 0)}건")
-    return (f"> **검증 중** — {detail}. 결과가 20건 쌓이기 전에는 이 가격대의 신뢰도를"
-            " 판단할 근거가 없습니다.")
+    parts = []
+    if e.get("decided"):
+        txt = (f"진입 구간 {e['decided']}건 — 목표 선도달 {e['wins']} · 손절 선도달 {e['losses']}"
+               f"(승률 {e['win_rate']}%")
+        if e.get("avg_r") is not None:
+            txt += f", 평균 {e['avg_r']:+.2f}R"
+        txt += ")"
+        if e.get("avg_r") is not None and e["avg_r"] < 0:
+            txt += ", 지금까지는 손실이 더 컸습니다"
+        parts.append(txt)
+    if x.get("decided"):
+        hit = round(x["hits"] / x["decided"] * 100)
+        txt = f"청산 신호 {x['decided']}건 중 10거래일 뒤 하락 {x['hits']}건({hit}%)"
+        base = x.get("base_rate")
+        if base:
+            txt += f", 같은 기간 아무 날이나 골랐을 때 {base['rate']}%"
+            if hit - base["rate"] < 5:
+                txt += " — 신호가 더한 정보는 확인되지 않았습니다"
+        parts.append(txt)
+    if summary.get("void"):
+        parts.append(f"데이터 오류로 무효 처리한 {summary['void']}건은 제외")
+    enough = e.get("enough") or x.get("enough")
+    if not parts:
+        return "> **검증 중** — 아직 결론 난 기록이 없습니다."
+    if enough:
+        return "> **검증 결과** — " + " / ".join(parts) + "."
+    return ("> **검증 중** — " + " / ".join(parts)
+            + ". 결과가 20건 쌓이기 전에는 이 가격대의 신뢰도를 판단할 근거가 없습니다.")
 
 
 def _signal_cell(lv: dict) -> str:

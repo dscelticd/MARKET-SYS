@@ -21,26 +21,6 @@ _HISTORY_FILE = _HISTORY_DIR / "ratings_history.json"
 
 GRADE_ORDER = {"추천": 5, "안전": 4, "보통": 3, "주의": 2, "위험": 1, "판단보류": 0}
 
-# 등급 적중률 판단 대상 — "보통"은 방향성 판단이 없는 중립 등급, "판단보류"는
-# 데이터 품질 문제로 인한 것이라 종목 신호와 무관하므로 둘 다 집계에서 제외.
-_BULLISH_GRADES = {"추천", "안전"}
-_BEARISH_GRADES = {"주의", "위험"}
-# 적중 판정에 ±2%p 여유를 두는 이유: "투자 판단 보조" 등급은 정밀 매매 신호가
-# 아니라 방향성 참고 지표이므로, 등락률 0%를 엄격한 기준으로 삼으면 보합에 가까운
-# 정상적인 흐름까지 "불일치"로 오분류해 통계가 실제보다 나빠 보이는 왜곡이 생김.
-_ACCURACY_TOLERANCE_PCT = 2.0
-_ACCURACY_MIN_CONFIDENCE = 50.0  # 이 미만이면 그 날짜의 등급·주가 스냅샷 자체를 신뢰할 수 없어 제외
-_ACCURACY_LOOKBACK_DAYS = (5, 20)  # 몇 일 전 등급을 오늘 가격과 비교할지
-
-# ── 요인별 적중률 판정 기준 ──────────────────────────────────────────────────
-# 각 신호 축(0~100)에서 55↑는 강세, 45↓는 약세 신호로 본다. 그 사이는 중립이라
-# 방향 판정에서 제외 — 애매한 값을 억지로 한쪽으로 몰면 통계가 의미를 잃는다.
-_FACTOR_NEUTRAL_LOW  = 45.0
-_FACTOR_NEUTRAL_HIGH = 55.0
-# 표본이 이보다 적으면 통계로 제시하지 않는다. 적은 표본의 "80% 적중"은
-# 근거가 아니라 착시이며, 리포트가 그걸 인용하면 오히려 신뢰를 떨어뜨린다.
-_FACTOR_MIN_SAMPLES = 20
-
 CHANGE_EMOJI = {
     "상승": "📈",
     "하락": "📉",
@@ -60,6 +40,7 @@ class HistoryTracker:
         _HISTORY_DIR.mkdir(parents=True, exist_ok=True)
         self._data = self._load()
         self._backfill_trading_day_flags()
+        self._repair_holiday_migrated_entries()
         self._migrate_keys_to_session_date()
 
     # ── 거래일 판정 ──────────────────────────────────────────────────────────
@@ -106,9 +87,16 @@ class HistoryTracker:
 
         데이터는 지우지 않는다. data_date가 있는 엔트리만 옮기고, 목적지 키가
         이미 있으면(같은 거래일을 두 번 실행) 건드리지 않는다.
+
+        **계약 C5 이전(스키마 1.4 미만) 항목에만 적용한다.** 이 함수가 매번 모든
+        항목에 돌면서, data_date(전 종목 중 가장 늦은 날짜)가 한국 거래일보다 늦은
+        정상 항목 — 한국만 쉬고 미국은 거래한 날(추석·개천절 대체공휴일·한글날) —
+        까지 한국 휴장일 날짜로 옮겨 버렸다(2026-11-25 점검에서 5개 항목 발견).
         """
         moved: dict[str, str] = {}
         for key, entry in list(self._data.items()):
+            if str(entry.get("schema_version") or "1.0") >= "1.4":
+                continue
             data_date = entry.get("data_date")
             if not data_date or entry.get("date") == data_date:
                 continue
@@ -126,6 +114,40 @@ class HistoryTracker:
                          len(moved), moved)
             self._persist()
 
+    def _repair_holiday_migrated_entries(self) -> None:
+        """옛 마이그레이션이 한국 휴장일 날짜로 잘못 옮긴 항목을 제자리로 되돌린다.
+
+        알아보는 법: 스키마 1.4 이상인데 date가 한국 휴장일이고, 옮기기 전 날짜가
+        run_date에 남아 있다. 되돌릴 칸이 이미 차 있으면(같은 한국 거래일의 다른
+        실행) 지우지 않고 미국 날짜를 붙인 칸에 둔다. 한 번 고친 항목은 date가
+        거래일이 되므로 다시 걸리지 않는다.
+        """
+        fixed: dict[str, str] = {}
+        for key, e in list(self._data.items()):
+            if str(e.get("schema_version") or "1.0") < "1.4":
+                continue
+            try:
+                d = datetime.strptime(e["date"], "%Y-%m-%d").date()
+                orig = datetime.strptime(e.get("run_date") or "", "%Y-%m-%d").date()
+            except (KeyError, ValueError, TypeError):
+                continue
+            if is_trading_day(d, "KR") or not is_trading_day(orig, "KR") or orig >= d:
+                continue
+            rtype = e.get("report_type", "morning")
+            new_key = f"{orig.isoformat()}_{rtype}"
+            if new_key in self._data:
+                new_key = f"{new_key}_us{e['date']}"
+            e["us_date"] = e.get("data_date") or e["date"]
+            e["kr_date"] = orig.isoformat()
+            e["date"] = orig.isoformat()
+            e["is_trading_day"] = True
+            e["repaired"] = "휴장일 이동 복구(2026-11-25)"
+            self._data[new_key] = self._data.pop(key)
+            fixed[key] = new_key
+        if fixed:
+            _logger.info("[HISTORY_REPAIR] 휴장일로 잘못 옮겨진 항목 %d건 복구: %s", len(fixed), fixed)
+            self._persist()
+
     # ── 저장 ────────────────────────────────────────────────────────────────
 
     def save_today(
@@ -136,6 +158,7 @@ class HistoryTracker:
         news_data: dict | None = None,
         data_quality: dict | None = None,
         session_date: str | None = None,
+        us_session_date: str | None = None,
     ) -> None:
         """
         등급 이력 저장 (확장 스키마).
@@ -159,6 +182,16 @@ class HistoryTracker:
         today    = session_date or run_date
         key      = f"{today}_{report_type}"
 
+        # 아침 스냅샷은 한국·미국이 같은 거래일이어야 비교 기준이 된다(계약 C4).
+        # 한국만 쉰 날 다음 아침(예: 한글날 다음 토요일)은 한국 날짜가 전날과 같아
+        # 같은 칸을 쓰는데, 그대로 덮어쓰면 그 칸의 미국 가격이 하루 뒤 것으로
+        # 바뀐다(2026-10-08 아침 칸에 10/9 미국 종가가 들어간 실측). 이미 두 시장이
+        # 맞춰진 스냅샷이 있으면 지우지 않고 미국 날짜를 붙인 칸에 따로 둔다.
+        existing = self._data.get(key)
+        if (report_type == "morning" and existing and us_session_date
+                and us_session_date != today and self.is_unified(existing)):
+            key = f"{key}_us{us_session_date}"
+
         # 이 스냅샷의 가격이 실제로 어느 거래일 것인지 — 주말 실행이면 실행일(today)과
         # 다르다. 적중률 계산이 "일요일 가격"으로 라벨된 금요일 가격을 쓰지 않도록,
         # 실행 날짜와 데이터 기준일을 분리해 저장한다.
@@ -172,7 +205,9 @@ class HistoryTracker:
             # 1.3: components 추가(요인별 적중률 산출용 — 총점만으로는 어떤 신호가
             #      맞았는지 사후에 알 수 없었다)
             "schema_version":   "1.4",
-            "date":             today,        # 대상 거래일
+            "date":             today,        # 대상 거래일 (한국)
+            "kr_date":          today,
+            "us_date":          us_session_date,
             "run_date":         run_date,     # 실제 실행일 (감사용)
             "report_type":      report_type,
             "generated_at":     now_kst().isoformat(),
@@ -331,178 +366,12 @@ class HistoryTracker:
                 result.append(entry)
         return result
 
-    # ── 등급 적중률 추적 ─────────────────────────────────────────────────────
-
-    def compute_accuracy_report(self, current_price_data: dict) -> dict:
-        """N일 전 등급(추천/안전 ↔ 주의/위험)이 오늘 가격 기준으로 방향성이 맞았는지 집계.
-        "보통"(중립)·"판단보류"(데이터 품질 이슈)는 종목 신호와 무관하므로 제외.
-        누적 이력이 부족하면 해당 lookback의 sample_count가 0으로 반환됨 — 시스템을
-        막 시작한 시점에는 자연히 비어 있고, 매일 실행이 쌓일수록 채워지는 구조.
-
-        반환: {lookback_days: {sample_count, overall_hit_rate, reference_date, grade_stats}}
-        """
-        return {
-            days: self._compute_accuracy_for_lookback(current_price_data, days)
-            for days in _ACCURACY_LOOKBACK_DAYS
-        }
-
-    def compute_factor_accuracy(
-        self,
-        current_price_data: dict,
-        lookback_days: int = 20,
-        min_samples: int = _FACTOR_MIN_SAMPLES,
-    ) -> dict:
-        """요인별(7개 축) 신호가 실제로 방향성을 맞혔는지 집계.
-
-        기존 적중률은 **등급 단위**(추천/안전 ↔ 주의/위험)라 "어떤 신호가 맞았는가"는
-        알 수 없었다. 요인별 점수(components)를 저장하기 시작하면서 가능해진 집계다.
-
-        판정 방식: 각 축의 점수가 55 이상이면 강세 신호, 45 이하면 약세 신호로 보고
-        (그 사이는 중립이라 판정 제외) 이후 수익률 방향과 대조한다.
-        등급 적중률과 같은 ±2%p 허용오차를 적용해 보합을 오분류하지 않는다.
-
-        표본이 min_samples 미만인 축은 통계로 제시하면 오해를 부르므로
-        sufficient=False로 표시해 리포트가 "데이터 부족"임을 밝히도록 한다.
-
-        반환: {"lookback_days", "reference_date", "factors": {축: {...}}, "ready": bool}
-        """
-        empty = {"lookback_days": lookback_days, "reference_date": None,
-                 "factors": {}, "ready": False}
-
-        target = self._find_closest_entry_before(lookback_days)
-        if target is None or not target.get("components"):
-            return empty
-
-        confidence = target.get("data_quality", {}).get("overall", {}).get("confidence")
-        if confidence is not None and confidence < _ACCURACY_MIN_CONFIDENCE:
-            return empty
-
-        raw: dict[str, dict] = {}
-        for sid, comps in (target.get("components") or {}).items():
-            past_price = target.get("closing_prices", {}).get(sid)
-            curr_price = current_price_data.get(sid, {}).get("price")
-            if not past_price or not curr_price or past_price <= 0:
-                continue
-            return_pct = (curr_price - past_price) / past_price * 100
-
-            for factor, score in (comps or {}).items():
-                try:
-                    s = float(score)
-                except (TypeError, ValueError):
-                    continue
-                if _FACTOR_NEUTRAL_LOW < s < _FACTOR_NEUTRAL_HIGH:
-                    continue  # 중립 구간 — 방향 신호로 보지 않음
-                bullish = s >= _FACTOR_NEUTRAL_HIGH
-                hit = (return_pct >= -_ACCURACY_TOLERANCE_PCT) if bullish \
-                    else (return_pct <= _ACCURACY_TOLERANCE_PCT)
-                f = raw.setdefault(factor, {"count": 0, "hit": 0, "returns": []})
-                f["count"] += 1
-                f["hit"] += int(hit)
-                f["returns"].append(return_pct)
-
-        if not raw:
-            return empty
-
-        factors = {
-            name: {
-                "count": v["count"],
-                "hit": v["hit"],
-                "hit_rate": round(v["hit"] / v["count"] * 100, 1),
-                "avg_return_pct": round(sum(v["returns"]) / len(v["returns"]), 2),
-                "sufficient": v["count"] >= min_samples,
-            }
-            for name, v in raw.items()
-        }
-        return {
-            "lookback_days": lookback_days,
-            "reference_date": target["date"],
-            "factors": factors,
-            "ready": any(f["sufficient"] for f in factors.values()),
-        }
-
-    def _compute_accuracy_for_lookback(self, current_price_data: dict, lookback_days: int) -> dict:
-        empty = {
-            "lookback_days": lookback_days, "sample_count": 0,
-            "overall_hit_rate": None, "reference_date": None, "grade_stats": {},
-        }
-        target_entry = self._find_closest_entry_before(lookback_days)
-        if target_entry is None:
-            return empty
-
-        confidence = target_entry.get("data_quality", {}).get("overall", {}).get("confidence")
-        if confidence is not None and confidence < _ACCURACY_MIN_CONFIDENCE:
-            return empty  # 그 시점 데이터 신뢰도 자체가 낮으면 스냅샷 전체를 신뢰할 수 없음
-
-        raw_stats: dict[str, dict] = {}
-        for sid, grade in target_entry.get("grades", {}).items():
-            if grade not in _BULLISH_GRADES and grade not in _BEARISH_GRADES:
-                continue
-            past_price = target_entry.get("closing_prices", {}).get(sid)
-            curr_price = current_price_data.get(sid, {}).get("price")
-            if not past_price or not curr_price or past_price <= 0:
-                continue
-
-            return_pct = (curr_price - past_price) / past_price * 100
-            if grade in _BULLISH_GRADES:
-                hit = return_pct >= -_ACCURACY_TOLERANCE_PCT
-            else:
-                hit = return_pct <= _ACCURACY_TOLERANCE_PCT
-
-            s = raw_stats.setdefault(grade, {"count": 0, "hit": 0, "returns": []})
-            s["count"] += 1
-            s["hit"] += int(hit)
-            s["returns"].append(return_pct)
-
-        if not raw_stats:
-            return empty
-
-        grade_stats = {
-            grade: {
-                "count": s["count"],
-                "hit": s["hit"],
-                "hit_rate": round(s["hit"] / s["count"] * 100, 1),
-                "avg_return_pct": round(sum(s["returns"]) / len(s["returns"]), 2),
-            }
-            for grade, s in raw_stats.items()
-        }
-        total_count = sum(s["count"] for s in raw_stats.values())
-        total_hit   = sum(s["hit"] for s in raw_stats.values())
-
-        return {
-            "lookback_days": lookback_days,
-            "sample_count": total_count,
-            "overall_hit_rate": round(total_hit / total_count * 100, 1),
-            "reference_date": target_entry["date"],
-            "grade_stats": grade_stats,
-        }
-
-    def _find_closest_entry_before(self, lookback_days: int) -> dict | None:
-        """오늘로부터 lookback_days 이전 시점에 가장 가까운(그 시점 또는 그 이전 중 최신)
-        저장 항목을 반환. 같은 날짜에 아침/저녁 두 건이 있으면 아침을 우선한다.
-        """
-        target_date = now_kst() - timedelta(days=lookback_days)
-        dated: list[tuple[datetime, dict]] = []
-        for entry in self._data.values():
-            # 주말 엔트리는 직전 거래일 종가를 복사한 중복본이라 기준점으로 쓰면
-            # "N일 전 가격"이 실제로는 N±2일 전 가격이 되어 수익률 구간이 어긋난다.
-            # 또 주말끼리 비교되면 수익률이 정확히 0%가 되는데, ±2%p 허용오차 때문에
-            # 강세·약세 등급이 **양쪽 다 무조건 적중**으로 집계되는 허점이 있었다.
-            if not self._entry_is_trading_day(entry):
-                continue
-            try:
-                d = datetime.strptime(entry["date"], "%Y-%m-%d")
-            except Exception:
-                continue
-            if d <= target_date:
-                dated.append((d, entry))
-        if not dated:
-            return None
-
-        dated.sort(key=lambda x: x[0])
-        closest_date = dated[-1][0]
-        same_day = [e for d, e in dated if d == closest_date]
-        morning = next((e for e in same_day if e.get("report_type") == "morning"), None)
-        return morning or same_day[0]
+    @staticmethod
+    def is_unified(entry: dict) -> bool:
+        """두 시장이 같은 거래일 데이터인 스냅샷인지(아침 브리핑의 정상 상태).
+        명시 필드(us_date)가 없는 옛 항목은 data_date(전 종목 중 가장 늦은 날짜)로 본다."""
+        us = entry.get("us_date") or entry.get("data_date")
+        return not us or us == entry.get("date")
 
     # ── 내부 헬퍼 ────────────────────────────────────────────────────────────
 

@@ -263,6 +263,86 @@ def _calc_technicals(closes, price: float) -> dict:
     }
 
 
+def _sanitize_ohlc(hist):
+    """0 이하인 시가·고가·저가·종가를 비어 있는 값(NaN)으로 바꾼다.
+
+    실측(2026-11-23 저녁): LG전자 당일 봉의 시가·저가가 0으로 들어와, 참고 가격대
+    검증이 청산가 0원(−10.74R)이라는 불가능한 손실을 기록했다. 같은 봉은 캔들
+    판정과 ATR(평균 실제 변동폭)도 왜곡한다. 0을 그대로 두면 "가격이 0원까지
+    내려갔다"는 뜻이 되므로, 값이 없는 것으로 다룬다.
+    """
+    cols = [c for c in ("Open", "High", "Low", "Close") if c in getattr(hist, "columns", [])]
+    if not cols:
+        return hist
+    bad = (hist[cols] <= 0)
+    if not bad.to_numpy().any():
+        return hist
+    out = hist.copy()
+    for c in cols:
+        out.loc[out[c] <= 0, c] = float("nan")
+    logger.info("일봉 %d칸이 0 이하라 비어 있는 값으로 처리", int(bad.to_numpy().sum()))
+    return out
+
+
+def _extract_splits(hist) -> list[dict]:
+    """yfinance 일봉의 'Stock Splits' 열에서 분할 기록을 꺼낸다.
+
+    KIS 일봉을 덮어쓰면(overlay_kis_bars) 이 열이 사라지므로 덮어쓰기 전에 읽는다.
+    실행 사이에 저장된 가격(등급 이력·참고 가격대 기록)은 분할 전 기준이라,
+    분할을 모르면 SanDisk(2026-11-20, 8:1)처럼 −89% 같은 가짜 수익률이 생긴다.
+    """
+    if "Stock Splits" not in getattr(hist, "columns", []):
+        return []
+    events = []
+    for ix, v in hist["Stock Splits"].items():
+        try:
+            ratio = float(v)
+        except (TypeError, ValueError):
+            continue
+        if ratio and ratio == ratio and abs(ratio - 1.0) > 1e-9:
+            d = _extract_bar_date(ix)
+            if d:
+                events.append({"date": d, "ratio": ratio})
+    return events
+
+
+def _sessions_between(prev_d: str, cur_d: str, market: str) -> int:
+    """prev_d와 cur_d 사이(양끝 제외)에 있었던 거래일 수 — 비어 있는 봉의 개수."""
+    from datetime import date, timedelta
+    d, end, n = date.fromisoformat(prev_d) + timedelta(days=1), date.fromisoformat(cur_d), 0
+    while d < end:
+        if is_trading_day(d, market):
+            n += 1
+        d += timedelta(days=1)
+    return n
+
+
+def _prev_close_from_info(ticker_obj, data_date: str, close: float) -> float | None:
+    """직전 거래일 봉이 비어 있을 때, 거래소가 공시한 직전 종가를 info에서 받는다.
+
+    그 info가 정말 data_date 세션을 가리키는지 두 가지로 확인한다 — 세션 날짜
+    (거래소 현지 시각 기준)가 같고, 현재가가 우리가 가진 종가와 0.2% 안에서 같을 것.
+    하나라도 어긋나면 쓰지 않는다(None).
+    """
+    try:
+        info = ticker_obj.get_info() or {}
+    except Exception:
+        return None
+    px, prev, ts = info.get("regularMarketPrice"), info.get("regularMarketPreviousClose"), info.get("regularMarketTime")
+    if not (px and prev and ts and close):
+        return None
+    try:
+        from zoneinfo import ZoneInfo
+        local = datetime.fromtimestamp(int(ts), tz=ZoneInfo(info.get("exchangeTimezoneName") or "UTC"))
+    except Exception:
+        return None
+    if local.date().isoformat() != data_date:
+        return None
+    if abs(float(px) - close) / close > 0.002:
+        return None
+    return float(prev)
+
+
 def _calc_volatility(hist, atr_window: int = 14, high_window: int = 22) -> dict:
     """ATR(평균 실제 변동폭)과 최근 고가 — 참고 가격대(trade_levels)의 손절폭·
     추적 손절선 계산에 쓴다. 이력이 부족하면 None."""
@@ -645,6 +725,8 @@ class PriceCollector:
                 hist_full = ticker.history(
                     period="90d", auto_adjust=not sid.startswith("KR_"),
                 )
+                splits = _extract_splits(hist_full)      # KIS 덮어쓰기 전에 읽는다
+                hist_full = _sanitize_ohlc(hist_full)
                 hist = hist_full
 
                 # 계약 C2 - 대상 거래일 이후의 봉을 잘라낸다.
@@ -807,6 +889,35 @@ class PriceCollector:
                 data_date = _extract_bar_date(close_s.index[-1])
                 prev_data_date = _extract_bar_date(close_s.index[-2])
 
+                # 바로 앞 봉이 정말 직전 거래일인지 확인한다. 중간 봉이 비면 등락률이
+                # 며칠치 누적인데도 하루 등락으로 보인다 — 실측(SanDisk 8:1 분할 직후):
+                # 11/23 실제 +10.69%가 −7.08%로, 11/24 실제 약 −11.1%가 −17.42%로
+                # 기록됐다(직전 봉이 11/19였다). 거래소가 공시한 직전 종가를 info에서
+                # 검증해 받으면 그것을 쓰고, 못 받으면 "N거래일 누적"으로 표시한다.
+                prev_close_source = "series"
+                prev_gap_sessions = 0
+                if target_date and data_date and prev_data_date:
+                    mk = _market_of(sid)
+                    gap = _sessions_between(prev_data_date, data_date, mk)
+                    if gap > 0:
+                        fixed = _prev_close_from_info(ticker, data_date, price)
+                        if fixed:
+                            prev_close = fixed
+                            change = price - prev_close
+                            change_pct = round((change / prev_close) * 100, 2)
+                            prev_data_date = previous_trading_day(
+                                datetime.strptime(data_date, "%Y-%m-%d").date(), mk
+                            ).isoformat()
+                            prev_close_source = "info"
+                            logger.info("%s: 직전 봉 %d개 공백 — 공시 직전 종가(info)로 등락률 계산",
+                                        sid, gap)
+                        else:
+                            prev_gap_sessions = gap
+                            logger.warning(
+                                "[PREV_GAP] %s: 직전 거래일 봉 %d개 공백 — 등락률이 %s→%s 누적",
+                                sid, gap, prev_data_date, data_date,
+                            )
+
                 volume  = int(vol_s.iloc[-1]) if (vol_s is not None and not vol_s.empty) else 0
                 # 5일 평균 거래량 (6d→90d로 바꿨으므로 최근 5거래일만 사용)
                 avg_vol = float(vol_s.iloc[-6:-1].mean()) if (vol_s is not None and len(vol_s) >= 6) else (float(vol_s.mean()) if (vol_s is not None and not vol_s.empty) else 1.0)
@@ -829,18 +940,23 @@ class PriceCollector:
 
                 # 당일 캔들 패턴 (장대양봉/도지/일반형 등)
                 day_ohlc: dict = {}
+                candle_pattern = {}
                 try:
                     last_row = hist.iloc[-1]
+                    vals = {k.lower(): float(last_row[k]) for k in ("Open", "High", "Low", "Close")}
                     # 참고 가격대 검증(trade_level_tracker)이 "그날 진입 구간·손절·목표에
-                    # 닿았는가"를 판정하는 데 쓴다 — 종가만으로는 장중 터치를 알 수 없다
-                    day_ohlc = {k.lower(): float(last_row[k]) for k in ("Open", "High", "Low", "Close")}
-                    candle_pattern = _classify_candle(
-                        float(last_row["Open"]), float(last_row["High"]),
-                        float(last_row["Low"]), float(last_row["Close"]),
-                    )
+                    # 닿았는가"를 판정하는 데 쓴다 — 종가만으로는 장중 터치를 알 수 없다.
+                    # 네 값이 모두 온전할 때만 쓴다. 하나라도 비면(0 → NaN 처리 포함)
+                    # 그날 봉으로 판정하지 않는 편이 틀린 판정보다 낫다.
+                    if all(v == v and v > 0 for v in vals.values()):
+                        day_ohlc = vals
+                        candle_pattern = _classify_candle(
+                            vals["open"], vals["high"], vals["low"], vals["close"],
+                        )
+                    else:
+                        logger.info("%s: 당일 봉 값이 온전하지 않아 캔들·검증 판정 생략 %s", sid, vals)
                 except Exception as e:
                     logger.debug("캔들 패턴 판별 실패 (%s): %s", sid, e)
-                    candle_pattern = {}
 
                 # 애널리스트 컨센서스 (US 개별 종목만, ETF·KR 제외)
                 analyst = _fetch_analyst_data(ticker, sym, price)
@@ -861,8 +977,11 @@ class PriceCollector:
                         try:
                             investor_flow = _fetch_investor_flow(display_ticker)
                         except Exception as e:
-                            logger.debug("수급 데이터 수집 실패 (%s): %s → Mock 폴백", sid, e)
-                            investor_flow = _mock_investor_flow()
+                            # 실패를 무작위 숫자로 메우지 않는다 — 예전엔 _mock_investor_flow()의
+                            # random 값이 리포트 수급 블록에 실제 수치처럼 실렸다. '_mock' 표시는
+                            # 스크래핑 실패율 감시(check_kr_investor_flow_failure_rate)가 센다.
+                            logger.debug("수급 데이터 수집 실패 (%s): %s → 없음으로 표시", sid, e)
+                            investor_flow = {"_mock": True, "_failed": True}
 
                 result[sid] = {
                     "stock_id":      sid,
@@ -882,7 +1001,10 @@ class PriceCollector:
                     "timestamp":     now_kst().isoformat(),
                     "data_date":      data_date,       # 종가의 실제 거래일
                     "prev_data_date": prev_data_date,  # change_pct 비교 대상 거래일
+                    "prev_close_source": prev_close_source,  # series / info
+                    "prev_gap_sessions": prev_gap_sessions,  # >0이면 등락률이 그만큼 누적
                     "price_source":  price_source,     # kis / info / yfinance / stale
+                    "splits":        splits,           # [{"date", "ratio"}] — 90일 안의 분할
                     "_mock":         False,
                     "technical":     technical,
                     "analyst":       analyst,

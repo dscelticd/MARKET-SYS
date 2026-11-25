@@ -81,7 +81,7 @@ def test_both_prompts_render_without_placeholder_leak(prompts):
 def test_shared_rules_present_in_both_prompts(prompts):
     """공통 규칙이 양쪽에 모두 들어가야 한다 — 한쪽만 빠지면 동작이 갈린다."""
     for rule in ["지지/저항·손익비 서술 규칙", "수급 서술 규칙", "공시 서술 규칙",
-                 "등급 적중률 서술 규칙", "포트폴리오 관점 서술 규칙",
+                 "등급·점수 예측력 서술 규칙", "포트폴리오 관점 서술 규칙",
                  "시장 전체 테마 동향 서술 규칙", "이벤트 캘린더 서술 규칙",
                  "보유/관찰 서술 규칙", "큐레이션 테마 지식 서술 규칙",
                  "뉴스 서술 규칙", "데이터 기준 시점 서술 규칙"]:

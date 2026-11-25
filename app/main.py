@@ -52,8 +52,9 @@ from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
 from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
 from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.engine.trade_levels import build_trade_levels
-from app.engine.trade_level_tracker import TradeLevelTracker
+from app.engine.trade_level_tracker import TradeLevelTracker, exit_base_rate
 from app.engine.accuracy_audit import audit, summary_lines
+from app.engine.splits import SplitRegistry
 from app.collectors.theme_scanner import scan_theme_strength
 from app.collectors.calendar_collector import build_event_calendar
 from app.utils.market_calendar import summarize_data_freshness
@@ -162,6 +163,7 @@ _SOURCE_LABEL = {"kis": "KIS", "info": "공식종가", "yfinance": "yfinance", "
 def summarize_run_quality(
     price_data: dict, missing_stocks: dict, target: dict,
     macro_data: dict | None = None, confidence: float | None = None,
+    news_data: dict | None = None,
 ) -> tuple[str, bool]:
     """이번 실행의 데이터 품질을 한 줄로 요약한다. 반환: (요약, 이상 여부).
 
@@ -205,9 +207,25 @@ def summarize_run_quality(
     )
     parts.append(f"지연 {stale}")
     parts.append(f"결측 {len(missing_stocks)}")
+    # 직전 거래일 봉이 비어 등락률이 며칠치 누적인 종목(SanDisk 분할 직후 실측)
+    gaps = sum(1 for p in price_data.values() if (p.get("prev_gap_sessions") or 0) > 0)
+    if gaps:
+        parts.append(f"불연속 {gaps}")
+    # 실제 기사가 하나라도 있는 종목 수 — 한 시장이 통째로 0이면 이상으로 본다.
+    # 2026-10~11 클라우드는 뉴스가 사실상 전부 예시 기사였는데 아무 기록도 없었다.
+    news_dead = False
+    if news_data is not None:
+        for market in ("KR", "US"):
+            sids = [sid for sid in price_data if stock_market(sid) == market]
+            if not sids:
+                continue
+            ok = sum(1 for sid in sids
+                     if any(not n.get("_mock") for n in (news_data.get(sid) or [])))
+            parts.append(f"뉴스 {market} {ok}/{len(sids)}")
+            news_dead = news_dead or ok == 0
     if confidence is not None:
         parts.append(f"신뢰도 {confidence:.0f}")
-    return " · ".join(parts), bool(stale or missing_stocks or index_off)
+    return " · ".join(parts), bool(stale or missing_stocks or index_off or gaps or news_dead)
 
 
 def _gh_annotation(level: str, message: str) -> None:
@@ -334,6 +352,19 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
             logger.error("[COLLECTOR_ERROR] 가격 데이터 수집 실패: %s", e)
             raise
 
+        # 액면분할 기록 — 실행 사이에 저장된 가격(등급 이력·참고 가격대)을 분할 후
+        # 단위로 환산하는 데 쓴다. 이번 수집의 90일 일봉 창에 보인 분할을 쌓는다.
+        split_registry = SplitRegistry()
+        try:
+            new_splits = split_registry.update(price_data)
+            if new_splits:
+                split_registry.save()
+                for sid, d, ratio in new_splits:
+                    print(f"  ✂️ 액면분할 확인: {sid} {d} {ratio:g}:1 — 저장된 가격을 분할 후 기준으로 환산")
+                    logger.info("[SPLIT] %s %s %g:1", sid, d, ratio)
+        except Exception as e:
+            logger.warning("[SPLIT_REGISTRY_ERROR] 분할 기록 갱신 실패 (무시하고 계속): %s", e)
+
         # 계약 C3 — 대상 거래일 데이터가 없는 종목을 여기서 떼어낸다.
         # 이 분리를 하지 않으면 값이 빈 종목이 등급 산정·주목 종목·차트까지
         # 흘러들어가 "데이터가 있는 척"하게 된다. 리포트에는 빠진 사실을
@@ -372,6 +403,13 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         except Exception as e:
             logger.error("[COLLECTOR_ERROR] 뉴스 데이터 수집 실패: %s", e)
             raise
+        # 출처 현황을 실행 기록에 남긴다 — 클라우드 한국 뉴스가 9월부터 예시 기사였는데
+        # (네이버 키 없음 추정) 밖에서 확인할 방법이 없었다
+        if getattr(news_col, "sources", None):
+            src_count = Counter(news_col.sources.values())
+            print("  뉴스 출처: " + ", ".join(f"{k} {v}" for k, v in src_count.most_common()))
+            if any(sid.startswith("KR_") for sid in news_col.sources) and not news_col._naver_available():
+                _gh_annotation("notice", "NAVER_CLIENT_ID 미설정 — 한국 종목 뉴스는 구글 뉴스 RSS로 수집")
         try:
             macro_data = macro_col.collect(
                 target={"KR": target["kr_date"], "US": target["us_date"]}
@@ -475,6 +513,7 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         data_quality    = validator.validate(
             price_data, news_data, macro_data, stocks,
             disclosure_connected=disclosure_col.is_configured(),
+            target=target, missing_stocks=missing_stocks,
         )
         conf            = data_quality["overall"]["confidence"]
         status          = data_quality["overall"]["status"]
@@ -496,7 +535,7 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
 
         # ── 실행 품질 한 줄 요약 → 실행 이력 주석 + (이상 시) 텔레그램 ──
         quality_line, degraded = summarize_run_quality(
-            price_data, missing_stocks, target, macro_data, conf,
+            price_data, missing_stocks, target, macro_data, conf, news_data=news_data,
         )
         print(f"  실행 품질: {quality_line}")
         logger.info("[RUN_QUALITY] %s", quality_line)
@@ -511,7 +550,9 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
                 notifier.notify_data_gaps(
                     quality_line,
                     [m.get("name", sid) for sid, m in missing_stocks.items()],
-                    [f"{p.get('name', sid)}({p['data_date']})" for sid, p in stale_stocks.items()],
+                    [f"{p.get('name', sid)}({p['data_date']})" for sid, p in stale_stocks.items()]
+                    + [f"{p.get('name', sid)}(등락률 {p['prev_gap_sessions'] + 1}거래일 누적)"
+                       for sid, p in price_data.items() if (p.get("prev_gap_sessions") or 0) > 0],
                     report_type,
                 )
             except Exception as e:
@@ -590,40 +631,25 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
             news_data=news_data,
             data_quality=data_quality,
             session_date=target["kr_date"],   # 계약 C5 — 실행일이 아닌 대상 거래일
+            us_session_date=target["us_date"],
         )
         logger.info("이력 저장 완료")
 
-        # ── Step 4-2-1: 등급 적중률 집계 (N일 전 등급 vs 오늘 가격) ──
-        # 시스템 운영 초기(누적 이력 부족)에는 자연히 "데이터 부족"으로 비어 있다가
-        # 매일 실행이 쌓일수록 채워지는 구조 — 순수 forward-looking 리포트에 자기
-        # 검증 통계를 더해 신뢰도를 스스로 증명하기 위한 기능.
-        accuracy_report = tracker.compute_accuracy_report(price_data)
-        # 요인별 적중률 — 요인별 점수(components) 누적을 막 시작해 초기에는 비어 있고,
-        # 거래일이 쌓일수록 자동으로 채워진다(표본 부족 축은 통계로 제시하지 않음).
+        # ── Step 4-2-1: 등급 정확도 점검 (누적 이력 전체, 엄격 기준) ──
+        # 같은 시장 관심종목 평균 대비 초과수익·허용오차 없음·모든 거래일 쌍·순위 상관.
+        # 예전 적중률(±2%p 허용, 절대수익, 스냅샷 하나)은 결과를 부풀려 삭제했다 —
+        # 같은 데이터로 1거래일 적중률이 예전 방식 69%, 이 방식 47%였다(2026-11-25 점검).
+        # 결과는 리포트 본문(등급 적중률·요인 블록)과 실행 기록 주석에 함께 쓴다.
+        accuracy_report: dict = {}
         try:
-            factor_accuracy = tracker.compute_factor_accuracy(price_data)
-        except Exception as e:
-            logger.warning("[FACTOR_ACCURACY_ERROR] 요인별 적중률 집계 실패 (무시하고 계속): %s", e)
-            factor_accuracy = {}
-        for days, stats in accuracy_report.items():
-            if stats["sample_count"] > 0:
-                print(f"  등급 적중률({days}일 전 기준): {stats['overall_hit_rate']}% "
-                      f"({stats['sample_count']}건, 기준일 {stats['reference_date']})")
-            else:
-                print(f"  등급 적중률({days}일 전 기준): 데이터 부족")
-        logger.info("등급 적중률 집계 완료 — %s",
-                     {d: s["overall_hit_rate"] for d, s in accuracy_report.items()})
-
-        # 정확도 점검 — 누적 이력 전체를 더 엄격한 기준(초과수익·허용오차 없음·
-        # 순위 상관)으로 재집계해 실행 기록에 남긴다. 이력은 실행 캐시 안에만 있어
-        # 이렇게 꺼내 두지 않으면 밖에서 확인할 방법이 없다. 리포트 본문에는 싣지 않는다.
-        try:
-            for line in summary_lines(audit(tracker.get_all_history(days=3650))):
+            accuracy_report = audit(tracker.get_all_history(days=3650), factor=split_registry.factor)
+            for line in summary_lines(accuracy_report):
                 print(f"  {line}")
                 logger.info("[ACCURACY_AUDIT] %s", line)
                 _gh_annotation("notice", line)
         except Exception as e:
             logger.warning("[ACCURACY_AUDIT_ERROR] 정확도 점검 실패 (무시하고 계속): %s", e)
+        factor_accuracy = accuracy_report
 
         # ── Step 4-2-2: 참고 가격대 · 청산 점검 + 지난 가격대 검증 ──
         # 보조 기능이라 실패해도 리포트는 나간다. 순서가 중요하다 — 지난 기록을
@@ -633,12 +659,22 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
         trade_summary: dict = {}
         try:
             lv_tracker = TradeLevelTracker()
-            evaluated = lv_tracker.update(price_data)
+            evaluated = lv_tracker.update(price_data, factor=split_registry.factor)
             trade_levels = build_trade_levels(stocks, price_data, changes, load_holdings(), target)
             lv_tracker.annotate_signals(trade_levels)
             issued = lv_tracker.issue(trade_levels)
             lv_tracker.save()
             trade_summary = lv_tracker.summary()
+            # 청산 신호 적중률은 같은 기간 '아무 날이나' 골랐을 때와 비교해야 의미가 있다
+            done = [r for r in lv_tracker.records
+                    if r["kind"] == "exit" and r["status"] in ("exit_hit", "exit_miss")]
+            if done:
+                trade_summary["exit"]["base_rate"] = exit_base_rate(
+                    tracker.get_all_history(days=3650),
+                    sorted({r["stock_id"] for r in done}),
+                    min(r["issued_on"] for r in done), max(r["issued_on"] for r in done),
+                    factor=split_registry.factor,
+                )
             n_entry = sum(1 for v in trade_levels.values() if v["kind"] == "entry" and v.get("available"))
             n_alert = sum(1 for v in trade_levels.values()
                           if v["kind"] == "exit" and v.get("new_signal_keys"))

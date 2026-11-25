@@ -6,35 +6,39 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+# 등급은 종합 점수(7개 축 가중 평균)의 구간일 뿐이다. 예전 설명("리스크가 낮고 변동성이
+# 제한적인 상태" 등)은 계산 방식과 맞지 않았다 — 2026-09~11 '안전'은 SK하이닉스·NVIDIA
+# 같은 고변동 성장주에 고르게 매겨졌다. 누적 검증에서 점수가 이후 상대 수익률을
+# 예측한다는 근거도 확인되지 않아(accuracy_audit), 설명을 "현재 신호 상태"로 맞췄다.
 GRADE_META = {
     "추천": {
         "color": "#00C853",
         "emoji": "🟢",
-        "description": "현재 데이터 기준으로 우선 검토 가치가 높은 상태",
+        "description": "여러 축의 신호가 긍정 쪽으로 강하게 모인 상태(종합 75점 이상)",
         "score_range": (75, 100),
     },
     "안전": {
         "color": "#2979FF",
         "emoji": "🔵",
-        "description": "상승 모멘텀은 강하지 않아도 리스크가 낮고 변동성이 제한적인 상태",
+        "description": "신호가 대체로 긍정 쪽인 상태(종합 55~74점) — 손실 위험·변동성이 낮다는 뜻은 아님",
         "score_range": (55, 74),
     },
     "보통": {
         "color": "#FF9100",
         "emoji": "🟡",
-        "description": "긍정/부정 신호가 혼재되어 방향성이 명확하지 않은 상태",
+        "description": "긍정·부정 신호가 섞여 방향이 뚜렷하지 않은 상태(종합 35~54점)",
         "score_range": (35, 54),
     },
     "주의": {
         "color": "#FF6D00",
         "emoji": "🟠",
-        "description": "단기 리스크, 부정 뉴스, 수급 약화, 섹터 약세 등이 확인되는 상태",
+        "description": "부정 신호가 우세한 상태(종합 15~34점)",
         "score_range": (15, 34),
     },
     "위험": {
         "color": "#D50000",
         "emoji": "🔴",
-        "description": "중대 리스크, 강한 하락 신호, 공시 악재, 데이터 불확실성이 큰 상태",
+        "description": "부정 신호가 강하게 모인 상태(종합 15점 미만)",
         "score_range": (0, 14),
     },
     "판단보류": {

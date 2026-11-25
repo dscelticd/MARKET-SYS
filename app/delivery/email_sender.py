@@ -238,9 +238,12 @@ def _build_news_html(
     positive: list[dict] = []
     negative: list[dict] = []
 
+    real_mode = os.getenv("USE_MOCK_DATA", "true").lower() != "true"
     for stock_id, items in news_data.items():
         stock_name = name_map.get(stock_id, stock_id)
         for item in items:
+            if real_mode and item.get("_mock"):
+                continue   # 운영 메일에 예시 기사를 싣지 않는다(테스트 배지로도 부족했다)
             sentiment = float(item.get("sentiment", 0))
             headline = item.get("headline", "").strip()
             link = item.get("link", "").strip()

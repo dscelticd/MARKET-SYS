@@ -144,18 +144,6 @@ def _tracker(entries: dict) -> HistoryTracker:
     return t
 
 
-def test_accuracy_skips_weekend_entry_and_uses_trading_day_instead():
-    """주말 엔트리는 금요일 종가 복사본이라 기준점으로 쓰면 수익률 구간이 어긋난다.
-    더 오래된 거래일 엔트리가 있으면 그쪽을 기준으로 삼아야 한다."""
-    t = _tracker({
-        "weekend": _hist_entry("2026-08-29", False, 200.0),  # 토 — 제외돼야 함
-        "friday":  _hist_entry("2026-08-28", True, 100.0),   # 금 — 이게 선택돼야 함
-    })
-    entry = t._find_closest_entry_before(1)
-    assert entry is not None
-    assert entry["date"] == "2026-08-28"
-
-
 def test_find_previous_skips_weekend_entries():
     t = _tracker({
         "sat": _hist_entry("2026-08-29", False, 200.0),
