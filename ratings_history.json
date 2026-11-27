@@ -59157,5 +59157,583 @@
         "generated_at": "2026-11-27T20:32:06.042255"
       }
     }
+  },
+  "2026-11-27_morning": {
+    "schema_version": "1.4",
+    "date": "2026-11-27",
+    "kr_date": "2026-11-27",
+    "us_date": "2026-11-27",
+    "run_date": "2026-11-28",
+    "report_type": "morning",
+    "generated_at": "2026-11-28T07:12:06.537442",
+    "is_trading_day": true,
+    "data_date": "2026-11-27",
+    "logic": {
+      "tag": "2026-11-27",
+      "fingerprint": "d7aa7b389659"
+    },
+    "grades": {
+      "KR_005930": "안전",
+      "KR_000660": "안전",
+      "KR_042700": "안전",
+      "KR_319660": "안전",
+      "KR_069500": "안전",
+      "KR_010120": "안전",
+      "KR_015760": "안전",
+      "KR_066570": "안전",
+      "US_QQQ": "보통",
+      "US_VOO": "보통",
+      "US_QTUM": "안전",
+      "US_VST": "보통",
+      "US_SCHD": "보통",
+      "TW_TSM": "안전",
+      "US_SNDK": "안전",
+      "US_NVDA": "안전",
+      "US_COHR": "안전",
+      "US_CIEN": "안전",
+      "KR_138080": "안전",
+      "US_SPCX": "안전"
+    },
+    "raw_grades": {
+      "KR_005930": "안전",
+      "KR_000660": "안전",
+      "KR_042700": "안전",
+      "KR_319660": "안전",
+      "KR_069500": "안전",
+      "KR_010120": "안전",
+      "KR_015760": "안전",
+      "KR_066570": "안전",
+      "US_QQQ": "보통",
+      "US_VOO": "보통",
+      "US_QTUM": "안전",
+      "US_VST": "보통",
+      "US_SCHD": "보통",
+      "TW_TSM": "안전",
+      "US_SNDK": "안전",
+      "US_NVDA": "안전",
+      "US_COHR": "안전",
+      "US_CIEN": "안전",
+      "KR_138080": "안전",
+      "US_SPCX": "안전"
+    },
+    "grade_capped": {
+      "KR_005930": false,
+      "KR_000660": false,
+      "KR_042700": false,
+      "KR_319660": false,
+      "KR_069500": false,
+      "KR_010120": false,
+      "KR_015760": false,
+      "KR_066570": false,
+      "US_QQQ": false,
+      "US_VOO": false,
+      "US_QTUM": false,
+      "US_VST": false,
+      "US_SCHD": false,
+      "TW_TSM": false,
+      "US_SNDK": false,
+      "US_NVDA": false,
+      "US_COHR": false,
+      "US_CIEN": false,
+      "KR_138080": false,
+      "US_SPCX": false
+    },
+    "cap_reasons": {
+      "KR_005930": "",
+      "KR_000660": "",
+      "KR_042700": "",
+      "KR_319660": "",
+      "KR_069500": "",
+      "KR_010120": "",
+      "KR_015760": "",
+      "KR_066570": "",
+      "US_QQQ": "",
+      "US_VOO": "",
+      "US_QTUM": "",
+      "US_VST": "",
+      "US_SCHD": "",
+      "TW_TSM": "",
+      "US_SNDK": "",
+      "US_NVDA": "",
+      "US_COHR": "",
+      "US_CIEN": "",
+      "KR_138080": "",
+      "US_SPCX": ""
+    },
+    "scores": {
+      "KR_005930": 66.8,
+      "KR_000660": 65.2,
+      "KR_042700": 65.5,
+      "KR_319660": 70.0,
+      "KR_069500": 57.3,
+      "KR_010120": 61.3,
+      "KR_015760": 56.6,
+      "KR_066570": 61.0,
+      "US_QQQ": 54.2,
+      "US_VOO": 53.1,
+      "US_QTUM": 57.6,
+      "US_VST": 51.6,
+      "US_SCHD": 51.6,
+      "TW_TSM": 63.8,
+      "US_SNDK": 70.5,
+      "US_NVDA": 59.8,
+      "US_COHR": 64.8,
+      "US_CIEN": 66.3,
+      "KR_138080": 68.8,
+      "US_SPCX": 61.0
+    },
+    "components": {
+      "KR_005930": {
+        "price_momentum": 100,
+        "news_sentiment": 70.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 78.0,
+        "volume_signal": 50.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 50.0
+      },
+      "KR_000660": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 78.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_042700": {
+        "price_momentum": 100,
+        "news_sentiment": 60.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 70.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_319660": {
+        "price_momentum": 100,
+        "news_sentiment": 100.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 60.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_069500": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 42.0,
+        "sector_strength": 50.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_010120": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 62.0,
+        "volume_signal": 50.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 50.0
+      },
+      "KR_015760": {
+        "price_momentum": 79.4,
+        "news_sentiment": 62.5,
+        "macro_alignment": 42.0,
+        "sector_strength": 62.0,
+        "volume_signal": 40.0,
+        "technical_signal": 45.0,
+        "analyst_signal": 50.0
+      },
+      "KR_066570": {
+        "price_momentum": 100,
+        "news_sentiment": 60.0,
+        "macro_alignment": 42.0,
+        "sector_strength": 55.0,
+        "volume_signal": 50.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 50.0
+      },
+      "US_QQQ": {
+        "price_momentum": 83.6,
+        "news_sentiment": 60.0,
+        "macro_alignment": 42.0,
+        "sector_strength": 58.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 50.0
+      },
+      "US_VOO": {
+        "price_momentum": 70.8,
+        "news_sentiment": 70.0,
+        "macro_alignment": 42.0,
+        "sector_strength": 58.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 50.0
+      },
+      "US_QTUM": {
+        "price_momentum": 95.5,
+        "news_sentiment": 60.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 50.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 50.0
+      },
+      "US_VST": {
+        "price_momentum": 63.8,
+        "news_sentiment": 30.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 62.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 80.0
+      },
+      "US_SCHD": {
+        "price_momentum": 63.5,
+        "news_sentiment": 60.0,
+        "macro_alignment": 42.0,
+        "sector_strength": 47.0,
+        "volume_signal": 40.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 50.0
+      },
+      "TW_TSM": {
+        "price_momentum": 90.1,
+        "news_sentiment": 60.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 68.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 80.0
+      },
+      "US_SNDK": {
+        "price_momentum": 100,
+        "news_sentiment": 70.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 68.0,
+        "volume_signal": 50.0,
+        "technical_signal": 45.0,
+        "analyst_signal": 80.0
+      },
+      "US_NVDA": {
+        "price_momentum": 60.0,
+        "news_sentiment": 60.0,
+        "macro_alignment": 67.0,
+        "sector_strength": 78.0,
+        "volume_signal": 40.0,
+        "technical_signal": 37.0,
+        "analyst_signal": 75.0
+      },
+      "US_COHR": {
+        "price_momentum": 100,
+        "news_sentiment": 50.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 65.0,
+        "volume_signal": 40.0,
+        "technical_signal": 50.0,
+        "analyst_signal": 75.0
+      },
+      "US_CIEN": {
+        "price_momentum": 100,
+        "news_sentiment": 70.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 65.0,
+        "volume_signal": 40.0,
+        "technical_signal": 40.0,
+        "analyst_signal": 75.0
+      },
+      "KR_138080": {
+        "price_momentum": 100,
+        "news_sentiment": 70.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 65.0,
+        "volume_signal": 75.2,
+        "technical_signal": 50.0,
+        "analyst_signal": 50.0
+      },
+      "US_SPCX": {
+        "price_momentum": 100,
+        "news_sentiment": 60.0,
+        "macro_alignment": 57.0,
+        "sector_strength": 50.0,
+        "volume_signal": 40.0,
+        "technical_signal": 30.0,
+        "analyst_signal": 75.0
+      }
+    },
+    "risk_scores": {
+      "KR_005930": 50.0,
+      "KR_000660": 50.0,
+      "KR_042700": 50.0,
+      "KR_319660": 50.0,
+      "KR_069500": 50.0,
+      "KR_010120": 57.0,
+      "KR_015760": 50.0,
+      "KR_066570": 50.0,
+      "US_QQQ": 50.0,
+      "US_VOO": 50.0,
+      "US_QTUM": 50.0,
+      "US_VST": 64.0,
+      "US_SCHD": 50.0,
+      "TW_TSM": 50.0,
+      "US_SNDK": 50.0,
+      "US_NVDA": 50.0,
+      "US_COHR": 50.0,
+      "US_CIEN": 50.0,
+      "KR_138080": 50.0,
+      "US_SPCX": 50.0
+    },
+    "data_confidence": {
+      "KR_005930": 100,
+      "KR_000660": 100,
+      "KR_042700": 100,
+      "KR_319660": 97.0,
+      "KR_069500": 100,
+      "KR_010120": 100,
+      "KR_015760": 100,
+      "KR_066570": 100,
+      "US_QQQ": 100,
+      "US_VOO": 100,
+      "US_QTUM": 100,
+      "US_VST": 100,
+      "US_SCHD": 100,
+      "TW_TSM": 100,
+      "US_SNDK": 100,
+      "US_NVDA": 100,
+      "US_COHR": 100,
+      "US_CIEN": 100,
+      "KR_138080": 100,
+      "US_SPCX": 100
+    },
+    "closing_prices": {
+      "KR_005930": 179100.0,
+      "KR_000660": 1110000.0,
+      "KR_069500": 76705.0,
+      "KR_010120": 121700.0,
+      "KR_015760": 26150.0,
+      "KR_066570": 144800.0,
+      "US_QQQ": 650.99,
+      "US_VOO": 669.79,
+      "US_QTUM": 120.25,
+      "US_VST": 122.65,
+      "US_SCHD": 35.67,
+      "TW_TSM": 353.34,
+      "US_SNDK": 85.36,
+      "US_NVDA": 150.49,
+      "US_COHR": 223.79,
+      "US_CIEN": 256.58,
+      "KR_138080": 24200.0,
+      "US_SPCX": 133.59,
+      "KR_042700": 161200.0,
+      "KR_319660": 81800.0
+    },
+    "price_changes": {
+      "KR_005930": 4.55,
+      "KR_000660": 5.41,
+      "KR_069500": 4.51,
+      "KR_010120": 7.32,
+      "KR_015760": 2.35,
+      "KR_066570": 7.1,
+      "US_QQQ": 2.69,
+      "US_VOO": 1.66,
+      "US_QTUM": 3.64,
+      "US_VST": 1.1,
+      "US_SCHD": 1.08,
+      "TW_TSM": 3.21,
+      "US_SNDK": 15.96,
+      "US_NVDA": 0.8,
+      "US_COHR": 14.07,
+      "US_CIEN": 5.68,
+      "KR_138080": 14.96,
+      "US_SPCX": 4.83,
+      "KR_042700": 9.14,
+      "KR_319660": 8.34
+    },
+    "volumes": {
+      "KR_005930": 14441255,
+      "KR_000660": 3034278,
+      "KR_069500": 19618560,
+      "KR_010120": 488929,
+      "KR_015760": 894008,
+      "KR_066570": 896180,
+      "US_QQQ": 34995978,
+      "US_VOO": 4958216,
+      "US_QTUM": 161655,
+      "US_VST": 1652816,
+      "US_SCHD": 14865498,
+      "TW_TSM": 9436839,
+      "US_SNDK": 96234051,
+      "US_NVDA": 180940449,
+      "US_COHR": 7074515,
+      "US_CIEN": 1629746,
+      "KR_138080": 316293,
+      "US_SPCX": 50851629,
+      "KR_042700": 662217,
+      "KR_319660": 288249
+    },
+    "price_dates": {
+      "KR_005930": "2026-11-27",
+      "KR_000660": "2026-11-27",
+      "KR_069500": "2026-11-27",
+      "KR_010120": "2026-11-27",
+      "KR_015760": "2026-11-27",
+      "KR_066570": "2026-11-27",
+      "US_QQQ": "2026-11-27",
+      "US_VOO": "2026-11-27",
+      "US_QTUM": "2026-11-27",
+      "US_VST": "2026-11-27",
+      "US_SCHD": "2026-11-27",
+      "TW_TSM": "2026-11-27",
+      "US_SNDK": "2026-11-27",
+      "US_NVDA": "2026-11-27",
+      "US_COHR": "2026-11-27",
+      "US_CIEN": "2026-11-27",
+      "KR_138080": "2026-11-27",
+      "US_SPCX": "2026-11-27",
+      "KR_042700": "2026-11-27",
+      "KR_319660": "2026-11-27"
+    },
+    "top_news": {
+      "KR_005930": {
+        "headline": "삼성전자, 역대 최대 30조원 배당… 개미들에 5조원, 이재용 4500억",
+        "sentiment": 1.0,
+        "source": "조선일보"
+      },
+      "KR_000660": {
+        "headline": "주식 2000만원서 “100억 찍으면 팔겠다”던 95년생…'폭락 직전' SK하닉 팔고 50억 집 샀다",
+        "sentiment": 0.0,
+        "source": "전자신문"
+      },
+      "KR_069500": {
+        "headline": "KODEX200커버드콜액티브, '삼전 특별배당 반영' 분배금 지급",
+        "sentiment": 0.0,
+        "source": "연합뉴스"
+      },
+      "KR_010120": {
+        "headline": "LS ELECTRIC 12만원대…3분기 누적 영업익 작년 연간치 넘어",
+        "sentiment": 0.0,
+        "source": "잡포스트"
+      },
+      "KR_015760": {
+        "headline": "[장중수급포착] 한국전력, 외국인 7일 연속 순매수행진... 주가 +2.15%",
+        "sentiment": 0.0,
+        "source": "뉴스핌"
+      },
+      "KR_066570": {
+        "headline": "조주완 전 LG전자 사장, 부산대 AX융합연구원 초대 원장 선임",
+        "sentiment": 0.0,
+        "source": "뉴스핌"
+      },
+      "KR_138080": {
+        "headline": "[장중수급포착] 오이솔루션, 외국인/기관 동시 순매수… 주가 +11.40%",
+        "sentiment": 0.0,
+        "source": "뉴스핌"
+      },
+      "KR_042700": {
+        "headline": "폭락분 되찾은 메모리주, 안심은 아직… 한미반도체·장비주도 시험대",
+        "sentiment": 0.0,
+        "source": "핀포인트뉴스"
+      },
+      "KR_319660": {
+        "headline": "[특징주] SGC E&C, 1172억원 공사 계약…1만원선 등락",
+        "sentiment": 1.0,
+        "source": "비건뉴스"
+      },
+      "US_QQQ": {
+        "headline": "TQQQ ETF Logs Longest Inflow Streak in Years as Investors Bet on Tech Rebound",
+        "sentiment": 0.0,
+        "source": "Benzinga"
+      },
+      "US_VOO": {
+        "headline": "SWAN Was Built to Survive a Crash. It Cost Holders $180,330 Against VOO on $300,000 in Five Years",
+        "sentiment": 1.0,
+        "source": "24/7 Wall St."
+      },
+      "US_QTUM": {
+        "headline": "VanEck Quantum ETF (QNTM.AX)",
+        "sentiment": 0.0,
+        "source": "Yahoo! Finance Canada"
+      },
+      "US_VST": {
+        "headline": "The Nuclear Stock AI Investors Loved Is Down 33% This Year. Is Constellation Energy a Buy Now?",
+        "sentiment": 0.0,
+        "source": "24/7 Wall St."
+      },
+      "US_SCHD": {
+        "headline": "Schwab U.S. Dividend Equity ETF (SCHD) Stock Price, News, Quote & History",
+        "sentiment": 0.0,
+        "source": "Yahoo! Finance Canada"
+      },
+      "TW_TSM": {
+        "headline": "TSMC: Starting To Look Like A Buy Again (Rating Upgrade) (NYSE:TSM)",
+        "sentiment": 1.0,
+        "source": "Seeking Alpha"
+      },
+      "US_SNDK": {
+        "headline": "SanDisk Jumps 10% as Investors Return to Beaten-Down Memory Stocks; Micron and SK Hynix Rise 6% Despite TrendForce DRAM Warning",
+        "sentiment": 0.0,
+        "source": "Yahoo Finance"
+      },
+      "US_NVDA": {
+        "headline": "Nvidia stock is still paying the price for the Jensen Huang CEO drama",
+        "sentiment": 0.0,
+        "source": "Yahoo Finance"
+      },
+      "US_COHR": {
+        "headline": "Coherent Jumps 12% as Optical Stocks Rebound From Wednesday's AI Selloff; Applied Optoelectronics and Lumentum Rise 7%",
+        "sentiment": 0.0,
+        "source": "24/7 Wall St."
+      },
+      "US_CIEN": {
+        "headline": "Ciena Corporation (CIEN) Stock Price, News, Quote & History",
+        "sentiment": 0.0,
+        "source": "Yahoo! Finance Canada"
+      },
+      "US_SPCX": {
+        "headline": "SpaceX stock rises after Musk pledges annual share giveaway for kids",
+        "sentiment": 0.0,
+        "source": "Yahoo Finance"
+      }
+    },
+    "data_quality": {
+      "price": {
+        "total": 20,
+        "real": 20,
+        "mock": 0,
+        "missing": [],
+        "stale": [],
+        "gaps": [],
+        "status": "정상"
+      },
+      "news": {
+        "total": 99,
+        "unique": 99,
+        "duplicates_removed": 0,
+        "avg_per_stock": 5.0,
+        "covered_stocks": 20,
+        "status": "정상"
+      },
+      "macro": {
+        "is_mock": false,
+        "basis": "yfinance 실제 데이터",
+        "fields_present": 5,
+        "fields_total": 5,
+        "status": "정상"
+      },
+      "disclosures": {
+        "connected": true
+      },
+      "overall": {
+        "confidence": 100.0,
+        "status": "높음",
+        "issues": [],
+        "critical_data_error": false,
+        "critical_error_reasons": [],
+        "generated_at": "2026-11-28T07:12:06.521746"
+      }
+    }
   }
 }
