@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+from app.engine import logic_version
 from app.utils.market_calendar import is_trading_day
 from app.utils.market_calendar import now_kst
 
@@ -213,6 +214,9 @@ class HistoryTracker:
             "generated_at":     now_kst().isoformat(),
             "is_trading_day":   is_trading_day(datetime.strptime(today, "%Y-%m-%d").date(), "KR"),
             "data_date":        data_date,
+            # 이 항목을 계산한 규칙(사람이 올린 태그 + 코드·설정 지문) — 2026-11-27부터.
+            # 9월 이력은 지금 로직과 65~88%만 일치했는데 어느 로직인지 알 길이 없었다.
+            "logic":            logic_version.current(),
             # ── 등급/점수 ──
             "grades":           {},   # final_grade (표시 등급)
             "raw_grades":       {},   # raw_grade  (원본 등급, 백테스팅용)
@@ -226,6 +230,9 @@ class HistoryTracker:
             "closing_prices":   {},
             "price_changes":    {},
             "volumes":          {},
+            # 종목별 종가의 실제 거래일. 지연 종목은 지난 종가가 이 칸에 들어간다
+            # (2026-11-25~27 SanDisk: 11/19 종가가 11/24·11/25 칸에) — 비교 계산은 이 날짜로 거른다.
+            "price_dates":      {},
             # ── 뉴스 ──
             "top_news":         {},
             # ── 데이터 품질 ──
@@ -256,6 +263,7 @@ class HistoryTracker:
                 entry["closing_prices"][sid] = p.get("price", None)
                 entry["price_changes"][sid]  = p.get("change_pct", None)
                 entry["volumes"][sid]        = p.get("volume", None)
+                entry["price_dates"][sid]    = p.get("data_date")
 
         # 뉴스 헤드라인 저장 (첫 번째 뉴스만)
         if news_data:
@@ -412,6 +420,10 @@ class HistoryTracker:
             return None
         return max(candidates, key=lambda x: x["date"])
 
+    def get_entry(self, key: str) -> dict | None:
+        """이력 항목 하나(예: "2026-11-26_evening"). 없으면 None."""
+        return self._data.get(key)
+
     def get_last_data_date(self, report_type: str | None = None) -> str | None:
         """직전 실행(오늘 제외)이 다룬 데이터 기준일. 리포트가 "직전 리포트 이후
         새로운 거래가 없음"을 판별하는 데 쓰인다."""
@@ -434,3 +446,30 @@ class HistoryTracker:
         elif c < p:
             return "하락"
         return "유지"
+
+
+def volume_revisions(evening_entry: dict | None, price_data: dict, kr_date: str,
+                     tol: float = 0.005) -> dict:
+    """같은 한국 거래일을 전날 저녁 결산이 기록한 거래량과 지금(확정) 거래량을 비교한다.
+
+    2026-11-27 저녁 거래량을 KIS 당일 값으로 바꾼 뒤로는 둘이 같아야 한다. 다르면
+    저녁 값이 다시 잠정치로 돌아갔다는 뜻이다. 반환 {"checked": n, "revised": [...]}.
+    """
+    out: dict = {"checked": 0, "revised": []}
+    if not evening_entry:
+        return out
+    ev_vol = evening_entry.get("volumes") or {}
+    ev_dates = evening_entry.get("price_dates") or {}
+    ev_kr = evening_entry.get("kr_date") or evening_entry.get("date")
+    for sid, p in price_data.items():
+        if not sid.startswith("KR") or p.get("data_date") != kr_date or ev_kr != kr_date:
+            continue
+        if ev_dates and ev_dates.get(sid) != kr_date:
+            continue      # 저녁에 이 종목은 다른 날 가격이었다(지연)
+        ev, cur = ev_vol.get(sid), p.get("volume")
+        if not ev or not cur:
+            continue
+        out["checked"] += 1
+        if abs(ev / cur - 1) > tol:
+            out["revised"].append({"sid": sid, "evening": int(ev), "confirmed": int(cur)})
+    return out

@@ -97,6 +97,8 @@ class KISCollector:
             )
             self.env = "demo"
         self.base_url = _BASE_URLS[self.env]
+        # fetch_daily_bars가 마지막으로 받은 종목별 가장 최근 행 — 거래량만 쓴다(same_day_volume)
+        self._latest_row: dict[str, dict | None] = {}
 
     def is_configured(self) -> bool:
         return bool(self.app_key and self.app_secret)
@@ -419,7 +421,9 @@ class KISCollector:
         auto_adjust=False(배당 미반영)로 받아야 이음매에 단차가 생기지 않는다.
         """
         bars: list[dict] = []
-        for row in self._daily_price_rows(ticker, retries)[1:]:   # 가장 최근 행 제외
+        rows = self._daily_price_rows(ticker, retries)
+        self._latest_row[ticker] = rows[0] if rows else None
+        for row in rows[1:]:   # 가장 최근 행 제외
             raw_date = str(row.get("stck_bsop_date", ""))
             if len(raw_date) != 8:
                 continue
@@ -441,3 +445,24 @@ class KISCollector:
         if not bars:
             raise ValueError(f"{ticker}: {through_date}까지의 확정 일봉이 없음")
         return bars
+
+    def same_day_volume(self, ticker: str, date: str) -> int | None:
+        """fetch_daily_bars가 방금 받은 가장 최근 행이 date이면 그날 거래량(acml_vol).
+
+        가장 최근 행은 종가 자리에 시간외 가격이 섞여 종가로는 쓰지 않는다. 그러나
+        거래량은 시간외 거래가 끝난 뒤 바뀌지 않는다 — 실측(10/17 토 → 10/19 월):
+        종가만 바뀌고 시가·고가·저가·거래량은 그대로였다. 반면 yfinance는 같은 날
+        저녁 거래량을 시간외 거래를 더한 잠정치로 주고 다음 날 아침 고친다
+        (2026-10~11 저녁 157회 중 153회가 확정치보다 컸다, 중앙값 +6%).
+        """
+        row = self._latest_row.get(ticker)
+        if not row:
+            return None
+        raw = str(row.get("stck_bsop_date", ""))
+        if len(raw) != 8 or f"{raw[:4]}-{raw[4:6]}-{raw[6:]}" != date:
+            return None
+        try:
+            vol = int(float(row.get("acml_vol") or 0))
+        except (TypeError, ValueError):
+            return None
+        return vol if vol > 0 else None

@@ -32,6 +32,8 @@ import json
 import logging
 from pathlib import Path
 
+from app.engine import logic_version
+
 _logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -234,6 +236,7 @@ class TradeLevelTracker:
                     "entry_low": lv["entry_low"], "entry_high": lv["entry_high"],
                     "stop": lv["stop"], "target1": lv["targets"][0],
                     "risk_reward": lv.get("risk_reward"), "status": "pending", "age": 0,
+                    "logic": logic_version.fingerprint(),   # 이 가격대를 만든 규칙
                 })
                 n += 1
             elif lv["kind"] == "exit":
@@ -246,6 +249,7 @@ class TradeLevelTracker:
                     "stock_id": sid, "name": lv.get("name"), "kind": "exit", "issued_on": d,
                     "price_at_signal": lv["price"], "signals": fresh,
                     "status": "pending", "age": 0,
+                    "logic": logic_version.fingerprint(),
                 })
                 n += 1
         return n
@@ -292,7 +296,7 @@ def exit_base_rate(entries, stock_ids, start: str, end: str, factor=None,
     (98/115) — 신호가 준 추가 정보는 0이었다. 등급 이력의 아침 스냅샷(두 시장 날짜가
     같은 것)으로 계산하고, 그 사이 액면분할은 factor로 환산한다.
     """
-    from app.engine.accuracy_audit import _nth_trading_day_after, _snapshots
+    from app.engine.accuracy_audit import _nth_trading_day_after, _price, _snapshots
     from app.utils.market_calendar import stock_market
     snaps = {s["date"]: s for s in _snapshots(entries)
              if s.get("report_type") == "morning"}
@@ -306,8 +310,7 @@ def exit_base_rate(entries, stock_ids, start: str, end: str, factor=None,
         a, b = snaps[d], later
         unified = all((x.get("us_date") or x.get("data_date") or x["date"]) == x["date"] for x in (a, b))
         for sid in stock_ids:
-            p0 = (a.get("closing_prices") or {}).get(sid)
-            p1 = (b.get("closing_prices") or {}).get(sid)
+            p0, p1 = _price(a, sid), _price(b, sid)
             if not p0 or not p1 or (stock_market(sid) == "US" and not unified):
                 continue
             if factor is not None:

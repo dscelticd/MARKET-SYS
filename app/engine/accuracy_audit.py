@@ -107,6 +107,24 @@ def _nth_trading_day_after(d: str, n: int) -> str:
     return cur.isoformat()
 
 
+def _price(snap: dict, sid: str) -> float | None:
+    """스냅샷이 가리키는 거래일의 종가일 때만 돌려준다.
+
+    지연(stale) 종목은 지난 종가가 그날 가격처럼 저장돼 있었다 — 실측 2026-11-25~27
+    SanDisk: 11/19 종가가 11/24·11/25 칸에. 종목별 가격 날짜(price_dates)가 있는
+    항목(2026-11-27~)은 그 날짜가 시장의 대상일과 같을 때만 쓴다. 없는 옛 항목은 그대로.
+    """
+    p = (snap.get("closing_prices") or {}).get(sid)
+    dates = snap.get("price_dates")
+    if not p or not dates:
+        return p
+    if stock_market(sid) == "KR":
+        want = snap.get("kr_date") or snap.get("date")
+    else:
+        want = snap.get("us_date") or snap.get("date")
+    return p if dates.get(sid) == want else None
+
+
 def _no_split(_sid: str, _after: str, _upto: str) -> float:
     return 1.0
 
@@ -123,17 +141,17 @@ def _pairs(snaps: list[dict], h: int, factor=_no_split):
         b = by_date.get(_nth_trading_day_after(a["date"], h))
         if b is None:
             continue
-        pa, pb = a.get("closing_prices") or {}, b.get("closing_prices") or {}
         us_ok = (a.get("report_type") == "morning" and b.get("report_type") == "morning"
                  and _is_unified(a) and _is_unified(b))
         raw = {}
-        for sid in pa:
-            if not (pa.get(sid) and pb.get(sid) and pa[sid] > 0):
+        for sid in (a.get("closing_prices") or {}):
+            p0, p1 = _price(a, sid), _price(b, sid)
+            if not (p0 and p1 and p0 > 0):
                 continue
             if stock_market(sid) == "US" and not us_ok:
                 continue
-            start = pa[sid] / factor(sid, a["date"], b["date"])
-            raw[sid] = (pb[sid] / start - 1) * 100
+            start = p0 / factor(sid, a["date"], b["date"])
+            raw[sid] = (p1 / start - 1) * 100
         if not raw:
             continue
         by_mkt: dict[str, list[float]] = {}

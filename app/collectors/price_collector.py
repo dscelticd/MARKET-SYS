@@ -35,6 +35,29 @@ _SKIP_ANALYST_SUFFIXES = (".KS", ".KQ")
 # 모의 데이터에서 애널리스트 컨센서스를 추가할 US 개별 종목
 _MOCK_ANALYST_SIDS = {"US_NVDA", "US_VST", "US_SNDK", "US_COHR", "US_CIEN", "US_SPCX", "TW_TSM"}
 
+# ── 지표 계산 창 ─────────────────────────────────────────────────────────────
+# 대상일까지 확정된 마지막 90거래일. 예전에는 yfinance period="90d"에 맡겼는데, 이 값은
+# 달력 90일이 아니라 '최근 90봉'을 돌려준다(2026-11-25 실측: 삼성전자 90봉, 첫 봉 7/15).
+# 그 해석이 바뀌면 60일선이 조용히 사라진다 — 달력 90일은 약 60봉이고 추석이 끼면
+# 59봉이라 60일선이 계산되지 않는다(과거 재구성 시험에서 한국 기술적 신호 40%가 어긋난
+# 원인이 이것이었다). 그래서 넉넉히 받아 직접 자른다. 과거 재구성도 이 상수를 쓴다.
+HISTORY_BARS = 90
+_HISTORY_FETCH_PERIOD = "6mo"
+
+
+def _last_bars(hist, n: int = HISTORY_BARS):
+    """종가가 있는 마지막 n개 봉. 종가가 비어 있는 자리 행은 세지 않는다."""
+    if hist is None or "Close" not in getattr(hist, "columns", ()):
+        return hist
+    return hist[hist["Close"].notna()].iloc[-n:]
+
+
+def _kr_after_hours_done(target_date: str) -> bool:
+    """한국 대상일의 시간외 거래(~18:00)까지 끝났는가 — KIS 당일 거래량이 굳은 뒤인가."""
+    now = now_kst()
+    today = now.strftime("%Y-%m-%d")
+    return target_date < today or (target_date == today and now.hour >= 18)
+
 
 # ── 기술적 지표 헬퍼 ────────────────────────────────────────────────────────
 
@@ -718,14 +741,17 @@ class PriceCollector:
             display_ticker = sym.replace(".KS", "").replace(".KQ", "")
             try:
                 ticker = yf.Ticker(sym)
-                # 90일 히스토리 -> 기술적 지표(MA60, RSI14, MACD) 계산에 충분.
+                # 지표 창은 대상일까지 확정된 마지막 HISTORY_BARS봉 — 넉넉히 받아 아래에서
+                # 직접 자른다(HISTORY_BARS 설명 참고).
                 # 국내 종목은 배당 미반영(auto_adjust=False)으로 받는다 — 위에
                 # 덮어쓸 KIS 일봉이 배당을 반영하지 않는 수정주가(국내 HTS·포털
                 # 차트 기준)라, 기준을 맞추지 않으면 이음매에 단차가 생긴다.
                 hist_full = ticker.history(
-                    period="90d", auto_adjust=not sid.startswith("KR_"),
+                    period=_HISTORY_FETCH_PERIOD, auto_adjust=not sid.startswith("KR_"),
                 )
-                splits = _extract_splits(hist_full)      # KIS 덮어쓰기 전에 읽는다
+                # 분할은 예전과 같은 범위(최근 HISTORY_BARS행)에서, KIS 덮어쓰기 전에 읽는다
+                splits = _extract_splits(hist_full.iloc[-HISTORY_BARS:])
+                kis_same_day_volume: int | None = None
                 hist_full = _sanitize_ohlc(hist_full)
                 hist = hist_full
 
@@ -801,6 +827,10 @@ class PriceCollector:
                                 "직전 확정 일봉 %d개만 교체, 대상일은 정규장 종가 소스 사용",
                                 sid, target_date, len(kis_bars),
                             )
+                            # 종가는 못 쓰지만 거래량은 시간외 거래가 끝나면 그대로다 — 아래에서 쓴다
+                            kis_same_day_volume = _kis_collector.same_day_volume(
+                                display_ticker, target_date
+                            )
                     except Exception as e:
                         logger.debug("%s: KIS 일봉 조회 실패 → yfinance 값 사용: %s", sid, e)
 
@@ -870,8 +900,34 @@ class PriceCollector:
                     latest_bar = _extract_bar_date(close_s.index[-1])
                     price_source = "stale"
 
+                # 지표 창 — 대상일까지 확정된 마지막 HISTORY_BARS봉(종가 있는 봉만)
+                if hist is not None and "Close" in hist.columns:
+                    hist = _last_bars(hist)
+                    close_s = hist["Close"]
+
                 if close_s is None or len(close_s) < 2:
                     raise ValueError("종가 데이터 부족")
+
+                # 대상일 거래량의 출처. 저녁 결산처럼 대상일이 KIS의 가장 최근 행이면 종가는
+                # yfinance 정규장 종가를 쓰지만 거래량은 KIS 당일 행을 쓴다 — yfinance의 같은 날
+                # 저녁 거래량은 시간외 거래가 더해진 잠정치라 다음 날 아침 줄어든다(2026-10~11
+                # 저녁 157회 중 153회가 확정치보다 컸다, 중앙값 +6%). 5일 평균은 확정치라
+                # 잠정치와 섞으면 거래량 비율이 부풀었다.
+                volume_source = "kis" if price_source == "kis" else "yfinance"
+                if (kis_same_day_volume and price_source in ("yfinance", "info")
+                        and latest_bar == target_date and _kr_after_hours_done(target_date)
+                        and "Volume" in hist.columns):
+                    yf_volume = hist["Volume"].iloc[-1]
+                    hist = hist.copy()
+                    hist.iloc[-1, hist.columns.get_loc("Volume")] = kis_same_day_volume
+                    volume_source = "kis"
+                    logger.info("%s: 대상일 거래량을 KIS 당일 값으로 (yfinance 잠정 %s → %s)",
+                                sid, yf_volume, kis_same_day_volume)
+                # 같은 날 받은 yfinance 한국 거래량은 잠정치다 — 리포트에 '잠정'으로 표시한다
+                volume_provisional = bool(
+                    sid.startswith("KR_") and volume_source == "yfinance"
+                    and latest_bar == now_kst().strftime("%Y-%m-%d")
+                )
                 vol_s = hist["Volume"].dropna() if "Volume" in hist.columns else None
 
                 # 종가·직전 종가는 모두 정규장 확정치다 — KIS 확정 일봉이거나,
@@ -1004,6 +1060,8 @@ class PriceCollector:
                     "prev_close_source": prev_close_source,  # series / info
                     "prev_gap_sessions": prev_gap_sessions,  # >0이면 등락률이 그만큼 누적
                     "price_source":  price_source,     # kis / info / yfinance / stale
+                    "volume_source": volume_source,    # kis / yfinance — 대상일 거래량의 출처
+                    "volume_provisional": volume_provisional,  # True면 같은 날 받은 잠정치
                     "splits":        splits,           # [{"date", "ratio"}] — 90일 안의 분할
                     "_mock":         False,
                     "technical":     technical,

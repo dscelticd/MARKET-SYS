@@ -49,7 +49,7 @@ from app.collectors.macro_collector import MacroCollector
 from app.collectors.disclosure_collector import DisclosureCollector
 from app.engine.signal_scorer import SignalScorer
 from app.engine.rating_analyzer import RatingAnalyzer, apply_grade_cap
-from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI
+from app.engine.history_tracker import HistoryTracker, CHANGE_EMOJI, volume_revisions
 from app.engine.portfolio_analyzer import build_portfolio_summary
 from app.engine.trade_levels import build_trade_levels
 from app.engine.trade_level_tracker import TradeLevelTracker, exit_base_rate
@@ -201,11 +201,14 @@ def summarize_run_quality(
         index_off = len(dates) - index_ok
         parts.append(f"지수 {index_ok}/{len(dates)}")
 
-    stale = sum(
-        1 for sid, p in price_data.items()
+    # 지연 종목은 이름과 실제 날짜까지 — 2026-11-25~27 'US 지연 1'이 세 번 났는데 공개
+    # 기록만으로는 어느 종목인지(SanDisk, 11/19에 멈춤) 알 수 없었다.
+    stale_ids = [
+        f"{sid} {str(p['data_date'])[5:]}" for sid, p in price_data.items()
         if p.get("data_date") and p["data_date"] != _target_of(stock_market(sid))
-    )
-    parts.append(f"지연 {stale}")
+    ]
+    stale = len(stale_ids)
+    parts.append(f"지연 {stale}" + (f"({', '.join(stale_ids)})" if stale_ids else ""))
     parts.append(f"결측 {len(missing_stocks)}")
     # 직전 거래일 봉이 비어 등락률이 며칠치 누적인 종목(SanDisk 분할 직후 실측)
     gaps = sum(1 for p in price_data.values() if (p.get("prev_gap_sessions") or 0) > 0)
@@ -625,6 +628,25 @@ def run_pipeline(report_type: str, send_email: bool, force: bool = False) -> Non
             for c in changed:
                 arrow = CHANGE_EMOJI[c["direction"]]
                 print(f"    {arrow} {c['name']:16s}  {c['prev_grade']} → {c['curr_grade']}  ({c['score_delta']:+.0f}점)")
+        # 같은 한국 거래일을 전날 저녁 결산이 기록한 거래량과 지금(확정) 거래량을 비교한다.
+        # 저녁 거래량을 KIS 당일 값으로 바꾼(2026-11-27) 효과를 매일 확인하는 장치 —
+        # 어긋나면 실행 결과 주석으로 남긴다. 보조 점검이라 실패해도 계속한다.
+        if report_type == "morning":
+            try:
+                vr = volume_revisions(
+                    tracker.get_entry(f"{target['kr_date']}_evening"), price_data, target["kr_date"]
+                )
+                if vr["revised"]:
+                    msg = (f"저녁 기록 거래량이 확정치와 다름 {len(vr['revised'])}/{vr['checked']} — "
+                           + ", ".join(f"{r['sid']} {r['evening']:,}→{r['confirmed']:,}"
+                                       for r in vr["revised"][:5]))
+                    logger.warning("[VOLUME_REVISED] %s", msg)
+                    _gh_annotation("warning", msg)
+                elif vr["checked"]:
+                    print(f"  거래량 재확인: 전날 저녁 기록 {vr['checked']}종목 모두 확정치와 일치")
+            except Exception as e:
+                logger.warning("[VOLUME_REVISED] 점검 실패 (무시하고 계속): %s", e)
+
         tracker.save_today(
             rating_dicts, report_type,
             price_data=price_data,

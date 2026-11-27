@@ -148,6 +148,7 @@ def _format_price_block(price_data: dict[str, dict]) -> str:
             f"{p['price']:,.2f} {p['currency']} "
             f"({chg_sign}{p['change_pct']:.2f}%) "
             f"| 거래량비율 {p['volume_ratio']:.1f}x"
+            + ("(잠정 — 장 마감 뒤 집계 중)" if p.get("volume_provisional") else "")
         )
         tech = p.get("technical") or {}
         if tech:
